@@ -1,0 +1,226 @@
+#pragma once
+
+#ifdef DSONPARSER_EXPORTS
+#define DSONPARSER_API __declspec(dllexport)
+#else
+#define DSONPARSER_API __declspec(dllimport)
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// Opaque handle to DsonDocument
+typedef void* DsonDocumentHandle;
+
+// Create a new DSON document
+DSONPARSER_API DsonDocumentHandle DsonDocument_Create();
+
+// Load DSON from file
+DSONPARSER_API int DsonDocument_LoadFromFile(DsonDocumentHandle handle, const char* filepath);
+
+// Load DSON from string
+DSONPARSER_API int DsonDocument_LoadFromString(DsonDocumentHandle handle, const char* jsonString);
+
+// Get file version
+DSONPARSER_API const char* DsonDocument_GetFileVersion(DsonDocumentHandle handle);
+
+// Get asset info
+DSONPARSER_API const char* DsonDocument_GetAssetId(DsonDocumentHandle handle);
+DSONPARSER_API const char* DsonDocument_GetAssetType(DsonDocumentHandle handle);
+DSONPARSER_API double      DsonDocument_GetUnitScale(DsonDocumentHandle handle);
+
+// Get counts
+DSONPARSER_API int DsonDocument_GetNodeCount(DsonDocumentHandle handle);
+DSONPARSER_API int DsonDocument_GetGeometryCount(DsonDocumentHandle handle);
+DSONPARSER_API int DsonDocument_GetMaterialCount(DsonDocumentHandle handle);
+DSONPARSER_API int DsonDocument_GetModifierCount(DsonDocumentHandle handle);
+DSONPARSER_API int DsonDocument_GetImageCount(DsonDocumentHandle handle);
+DSONPARSER_API int DsonDocument_GetUVSetCount(DsonDocumentHandle handle);
+
+// Get node info by index
+DSONPARSER_API const char* DsonDocument_GetNodeId(DsonDocumentHandle handle, int index);
+DSONPARSER_API const char* DsonDocument_GetNodeName(DsonDocumentHandle handle, int index);
+DSONPARSER_API const char* DsonDocument_GetNodeType(DsonDocumentHandle handle, int index);
+// Node center_point (joint origin) components
+DSONPARSER_API double DsonDocument_GetNodeCenterPointX(DsonDocumentHandle handle, int index);
+DSONPARSER_API double DsonDocument_GetNodeCenterPointY(DsonDocumentHandle handle, int index);
+DSONPARSER_API double DsonDocument_GetNodeCenterPointZ(DsonDocumentHandle handle, int index);
+
+// Get scene node info by index (the "scene.nodes" array, distinct from node_library).
+// Scene nodes are instances: they reference a library node via Url and carry a Label,
+// and typically have no Type of their own.
+DSONPARSER_API int DsonDocument_GetSceneNodeCount(DsonDocumentHandle handle);
+DSONPARSER_API const char* DsonDocument_GetSceneNodeId(DsonDocumentHandle handle, int index);
+DSONPARSER_API const char* DsonDocument_GetSceneNodeName(DsonDocumentHandle handle, int index);
+DSONPARSER_API const char* DsonDocument_GetSceneNodeLabel(DsonDocumentHandle handle, int index);
+DSONPARSER_API const char* DsonDocument_GetSceneNodeType(DsonDocumentHandle handle, int index);
+DSONPARSER_API const char* DsonDocument_GetSceneNodeUrl(DsonDocumentHandle handle, int index);
+DSONPARSER_API int         DsonDocument_GetSceneNodeGeometryCount(DsonDocumentHandle handle, int sceneNodeIndex);
+DSONPARSER_API const char* DsonDocument_GetSceneNodeGeometryId(DsonDocumentHandle handle, int sceneNodeIndex, int geomRefIndex);
+DSONPARSER_API const char* DsonDocument_GetSceneNodeGeometryUrl(DsonDocumentHandle handle, int sceneNodeIndex, int geomRefIndex);
+
+// Other scene instance collections (scene.modifiers / scene.materials / scene.uvs)
+DSONPARSER_API int DsonDocument_GetSceneModifierCount(DsonDocumentHandle handle);
+DSONPARSER_API const char* DsonDocument_GetSceneModifierId(DsonDocumentHandle handle, int index);
+DSONPARSER_API const char* DsonDocument_GetSceneModifierUrl(DsonDocumentHandle handle, int index);
+
+DSONPARSER_API int DsonDocument_GetSceneMaterialCount(DsonDocumentHandle handle);
+DSONPARSER_API const char* DsonDocument_GetSceneMaterialId(DsonDocumentHandle handle, int index);
+DSONPARSER_API const char* DsonDocument_GetSceneMaterialUrl(DsonDocumentHandle handle, int index);
+
+DSONPARSER_API int DsonDocument_GetSceneUVSetCount(DsonDocumentHandle handle);
+DSONPARSER_API const char* DsonDocument_GetSceneUVSetId(DsonDocumentHandle handle, int index);
+DSONPARSER_API const char* DsonDocument_GetSceneUVSetUrl(DsonDocumentHandle handle, int index);
+
+// Get material info by index
+DSONPARSER_API const char* DsonDocument_GetMaterialId(DsonDocumentHandle handle, int index);
+
+// Get geometry info by index
+DSONPARSER_API const char* DsonDocument_GetGeometryId(DsonDocumentHandle handle, int index);
+DSONPARSER_API const char* DsonDocument_GetGeometryName(DsonDocumentHandle handle, int index);
+DSONPARSER_API int DsonDocument_GetGeometryVertexCount(DsonDocumentHandle handle, int index);
+DSONPARSER_API int DsonDocument_GetGeometryPolygonCount(DsonDocumentHandle handle, int index);
+DSONPARSER_API const char* DsonDocument_GetGeometryDefaultUVSetId(DsonDocumentHandle handle, int geomIndex);
+
+// ---- A. Geometry: vertex positions ----
+DSONPARSER_API int    DsonDocument_GetVertexCount(DsonDocumentHandle handle, int geomIndex);
+DSONPARSER_API double DsonDocument_GetVertexX(DsonDocumentHandle handle, int geomIndex, int vertexIndex);
+DSONPARSER_API double DsonDocument_GetVertexY(DsonDocumentHandle handle, int geomIndex, int vertexIndex);
+DSONPARSER_API double DsonDocument_GetVertexZ(DsonDocumentHandle handle, int geomIndex, int vertexIndex);
+
+// Polygon face list (polylist)
+// Each face: [polygon_group_idx, material_group_idx, v0, v1, v2, v3] — two leading ints.
+DSONPARSER_API int    DsonDocument_GetPolylistCount(DsonDocumentHandle handle, int geomIndex);
+DSONPARSER_API int    DsonDocument_GetPolylistFaceVertexCount(DsonDocumentHandle handle, int geomIndex, int faceIndex);
+DSONPARSER_API int    DsonDocument_GetPolylistFaceVertex(DsonDocumentHandle handle, int geomIndex, int faceIndex, int vertexIndex);
+DSONPARSER_API int    DsonDocument_GetPolylistFaceGroupIndex(DsonDocumentHandle handle, int geomIndex, int faceIndex);
+DSONPARSER_API int    DsonDocument_GetPolylistFaceMaterialIndex(DsonDocumentHandle handle, int geomIndex, int faceIndex);
+
+// Polygon groups (bone region groups, e.g. l_forearm, head, pelvis)
+DSONPARSER_API int         DsonDocument_GetPolygonGroupCount(DsonDocumentHandle handle, int geomIndex);
+DSONPARSER_API const char* DsonDocument_GetPolygonGroupName(DsonDocumentHandle handle, int geomIndex, int groupIndex);
+
+// Material groups
+DSONPARSER_API int         DsonDocument_GetPolygonMaterialGroupCount(DsonDocumentHandle handle, int geomIndex);
+DSONPARSER_API const char* DsonDocument_GetPolygonMaterialGroupName(DsonDocumentHandle handle, int geomIndex, int groupIndex);
+
+// Material groups on material instances (library materials — typically empty for library entries)
+DSONPARSER_API int         DsonDocument_GetMaterialGroupCount(DsonDocumentHandle handle, int matIndex);
+DSONPARSER_API const char* DsonDocument_GetMaterialGroupName(DsonDocumentHandle handle, int matIndex, int groupIndex);
+
+// Material groups on scene material instances (scene.materials — "groups" maps to polygon_material_groups)
+DSONPARSER_API int         DsonDocument_GetSceneMaterialGroupCount(DsonDocumentHandle handle, int matIndex);
+DSONPARSER_API const char* DsonDocument_GetSceneMaterialGroupName(DsonDocumentHandle handle, int matIndex, int groupIndex);
+
+// Get modifier info by index
+DSONPARSER_API const char* DsonDocument_GetModifierId(DsonDocumentHandle handle, int index);
+DSONPARSER_API const char* DsonDocument_GetModifierName(DsonDocumentHandle handle, int index);
+DSONPARSER_API const char* DsonDocument_GetModifierType(DsonDocumentHandle handle, int index);
+// Skin binding info for a modifier (0 if the modifier has no skin payload)
+DSONPARSER_API int DsonDocument_GetModifierSkinVertexCount(DsonDocumentHandle handle, int index);
+DSONPARSER_API int DsonDocument_GetModifierSkinJointCount(DsonDocumentHandle handle, int index);
+
+// ---- B. Skeleton / Nodes ----
+DSONPARSER_API const char* DsonDocument_GetNodeParent(DsonDocumentHandle handle, int nodeIndex);
+DSONPARSER_API double      DsonDocument_GetNodeEndPointX(DsonDocumentHandle handle, int nodeIndex);
+DSONPARSER_API double      DsonDocument_GetNodeEndPointY(DsonDocumentHandle handle, int nodeIndex);
+DSONPARSER_API double      DsonDocument_GetNodeEndPointZ(DsonDocumentHandle handle, int nodeIndex);
+DSONPARSER_API double      DsonDocument_GetNodeOrientationX(DsonDocumentHandle handle, int nodeIndex);
+DSONPARSER_API double      DsonDocument_GetNodeOrientationY(DsonDocumentHandle handle, int nodeIndex);
+DSONPARSER_API double      DsonDocument_GetNodeOrientationZ(DsonDocumentHandle handle, int nodeIndex);
+DSONPARSER_API const char* DsonDocument_GetNodeRotationOrder(DsonDocumentHandle handle, int nodeIndex);
+DSONPARSER_API double      DsonDocument_GetNodeTranslationX(DsonDocumentHandle handle, int nodeIndex);
+DSONPARSER_API double      DsonDocument_GetNodeTranslationY(DsonDocumentHandle handle, int nodeIndex);
+DSONPARSER_API double      DsonDocument_GetNodeTranslationZ(DsonDocumentHandle handle, int nodeIndex);
+DSONPARSER_API double      DsonDocument_GetNodeRotationX(DsonDocumentHandle handle, int nodeIndex);
+DSONPARSER_API double      DsonDocument_GetNodeRotationY(DsonDocumentHandle handle, int nodeIndex);
+DSONPARSER_API double      DsonDocument_GetNodeRotationZ(DsonDocumentHandle handle, int nodeIndex);
+DSONPARSER_API double      DsonDocument_GetNodeScaleX(DsonDocumentHandle handle, int nodeIndex);
+DSONPARSER_API double      DsonDocument_GetNodeScaleY(DsonDocumentHandle handle, int nodeIndex);
+DSONPARSER_API double      DsonDocument_GetNodeScaleZ(DsonDocumentHandle handle, int nodeIndex);
+DSONPARSER_API double      DsonDocument_GetNodeGeneralScale(DsonDocumentHandle handle, int nodeIndex);
+
+// ---- C. Skin Weights ----
+// modifierIndex is an index into the full modifier library (same as GetModifierId etc.)
+DSONPARSER_API int         DsonDocument_GetSkinJointCount(DsonDocumentHandle handle, int modifierIndex);
+DSONPARSER_API const char* DsonDocument_GetSkinJointNodeId(DsonDocumentHandle handle, int modifierIndex, int jointIndex);
+DSONPARSER_API int         DsonDocument_GetSkinJointWeightCount(DsonDocumentHandle handle, int modifierIndex, int jointIndex);
+DSONPARSER_API int         DsonDocument_GetSkinJointWeightVertexIndex(DsonDocumentHandle handle, int modifierIndex, int jointIndex, int weightIndex);
+DSONPARSER_API double      DsonDocument_GetSkinJointWeight(DsonDocumentHandle handle, int modifierIndex, int jointIndex, int weightIndex);
+
+// Processed per-vertex skin weight queries (inverted, sorted descending, normalized, capped).
+// Call GetVertexInfluenceCount first to size arrays, then GetVertexBoneInfluence for each influence.
+// Pass maxInfluences=8 for UE5 FSoftSkinVertex; must be >= 1.
+DSONPARSER_API int  DsonDocument_GetVertexInfluenceCount(DsonDocumentHandle handle, int modifierIndex, int vertexIndex, int maxInfluences);
+
+// Returns the bone node id string and normalized weight [0,1] for influence i on vertexIndex.
+// Influences are sorted descending by weight; all influences for this vertex sum to 1.0.
+// Sets *boneNodeId="" and *weight=0.0 and returns false if influenceIndex is out of range.
+DSONPARSER_API bool DsonDocument_GetVertexBoneInfluence(DsonDocumentHandle handle, int modifierIndex, int vertexIndex, int influenceIndex, const char** boneNodeId, double* weight);
+
+// Same as GetVertexBoneInfluence but weights are renormalized over the top
+// min(totalInfluences, maxInfluences) influences so they sum to 1.0.
+// Use this instead of GetVertexBoneInfluence when building FSoftSkinVertex.
+DSONPARSER_API bool DsonDocument_GetVertexBoneInfluenceCapped(DsonDocumentHandle handle, int modifierIndex, int vertexIndex, int influenceIndex, int maxInfluences, const char** boneNodeId, double* weight);
+
+// ---- D. UV Sets (library uv_sets, not scene instances) ----
+DSONPARSER_API const char* DsonDocument_GetUVSetId(DsonDocumentHandle handle, int uvSetIndex);
+DSONPARSER_API int         DsonDocument_GetUVCount(DsonDocumentHandle handle, int uvSetIndex);
+DSONPARSER_API double      DsonDocument_GetUVU(DsonDocumentHandle handle, int uvSetIndex, int uvIndex);
+DSONPARSER_API double      DsonDocument_GetUVV(DsonDocumentHandle handle, int uvSetIndex, int uvIndex);
+DSONPARSER_API int         DsonDocument_GetUVPolygonVertexIndexCount(DsonDocumentHandle handle, int uvSetIndex);
+DSONPARSER_API int         DsonDocument_GetUVPolygonVertexIndex(DsonDocumentHandle handle, int uvSetIndex, int index);
+
+// ---- E. Materials (library materials by index) ----
+DSONPARSER_API const char* DsonDocument_GetMaterialName(DsonDocumentHandle handle, int matIndex);
+DSONPARSER_API const char* DsonDocument_GetMaterialGeometryId(DsonDocumentHandle handle, int matIndex);
+DSONPARSER_API const char* DsonDocument_GetMaterialUVSetId(DsonDocumentHandle handle, int matIndex);
+
+// Per-channel accessors: channelId 0=diffuse 1=specular 2=roughness 3=normal 4=opacity 5=subsurface 6=emission 7=bump
+DSONPARSER_API double      DsonDocument_GetMaterialChannelValue(DsonDocumentHandle handle, int matIndex, int channelId);
+DSONPARSER_API double      DsonDocument_GetMaterialChannelColorR(DsonDocumentHandle handle, int matIndex, int channelId);
+DSONPARSER_API double      DsonDocument_GetMaterialChannelColorG(DsonDocumentHandle handle, int matIndex, int channelId);
+DSONPARSER_API double      DsonDocument_GetMaterialChannelColorB(DsonDocumentHandle handle, int matIndex, int channelId);
+DSONPARSER_API bool        DsonDocument_GetMaterialChannelHasColor(DsonDocumentHandle handle, int matIndex, int channelId);
+DSONPARSER_API const char* DsonDocument_GetMaterialChannelImageUrl(DsonDocumentHandle handle, int matIndex, int channelId);
+DSONPARSER_API const char* DsonDocument_GetMaterialChannelTexturePath(DsonDocumentHandle handle, int matIndex, int channelId);
+
+// ---- F. Morph Targets ----
+// morphIndex is an index into the filtered list of modifiers where type == "morph"
+DSONPARSER_API int         DsonDocument_GetMorphCount(DsonDocumentHandle handle);
+DSONPARSER_API const char* DsonDocument_GetMorphName(DsonDocumentHandle handle, int morphIndex);
+DSONPARSER_API const char* DsonDocument_GetMorphLabel(DsonDocumentHandle handle, int morphIndex);
+DSONPARSER_API int         DsonDocument_GetMorphDeltaCount(DsonDocumentHandle handle, int morphIndex);
+DSONPARSER_API int         DsonDocument_GetMorphDeltaVertexIndex(DsonDocumentHandle handle, int morphIndex, int deltaIndex);
+DSONPARSER_API double      DsonDocument_GetMorphDeltaX(DsonDocumentHandle handle, int morphIndex, int deltaIndex);
+DSONPARSER_API double      DsonDocument_GetMorphDeltaY(DsonDocumentHandle handle, int morphIndex, int deltaIndex);
+DSONPARSER_API double      DsonDocument_GetMorphDeltaZ(DsonDocumentHandle handle, int morphIndex, int deltaIndex);
+
+DSONPARSER_API int         DsonDocument_GetMorphNormalDeltaCount(DsonDocumentHandle handle, int morphIndex);
+DSONPARSER_API int         DsonDocument_GetMorphNormalDeltaVertexIndex(DsonDocumentHandle handle, int morphIndex, int deltaIndex);
+DSONPARSER_API double      DsonDocument_GetMorphNormalDeltaX(DsonDocumentHandle handle, int morphIndex, int deltaIndex);
+DSONPARSER_API double      DsonDocument_GetMorphNormalDeltaY(DsonDocumentHandle handle, int morphIndex, int deltaIndex);
+DSONPARSER_API double      DsonDocument_GetMorphNormalDeltaZ(DsonDocumentHandle handle, int morphIndex, int deltaIndex);
+// Returns the geometry id fragment from the morph modifier's parent URL (the part after '#').
+// e.g. parent = ".../Genesis9.dsf#Genesis9-1" → returns "Genesis9-1". Returns "" if no '#' or out of range.
+DSONPARSER_API const char* DsonDocument_GetMorphGeometryId(DsonDocumentHandle handle, int morphIndex);
+
+// Unknown keys diagnostics
+DSONPARSER_API int DsonDocument_GetContextCount(DsonDocumentHandle handle);
+DSONPARSER_API const char* DsonDocument_GetContextName(DsonDocumentHandle handle, int index);
+DSONPARSER_API int DsonDocument_GetUnknownKeyCount(DsonDocumentHandle handle, const char* context);
+DSONPARSER_API const char* DsonDocument_GetUnknownKey(DsonDocumentHandle handle, const char* context, int index);
+
+// Clear document
+DSONPARSER_API void DsonDocument_Clear(DsonDocumentHandle handle);
+
+// Destroy document
+DSONPARSER_API void DsonDocument_Destroy(DsonDocumentHandle handle);
+
+// Get last error message
+DSONPARSER_API const char* DsonParser_GetLastError();
+
+#ifdef __cplusplus
+}
+#endif
