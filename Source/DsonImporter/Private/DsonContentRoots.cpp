@@ -52,7 +52,7 @@ void FDsonContentRoots::ReadRegistryKey(const FString& KeyPath, TArray<FString>&
             FString Path(ValueData);
             if (FPaths::DirectoryExists(Path))
             {
-                UE_LOG(LogDsonImporter, Log,
+                UE_LOG(LogDsonImporter, Verbose,
                     TEXT("DsonContentRoots: found content root: %s"), *Path);
 
                 bool bDuplicate = false;

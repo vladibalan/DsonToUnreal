@@ -38,7 +38,7 @@ FDsonValidationResult FDsonValidator::Validate(
         return Result;
     }
 
-    UE_LOG(LogDsonImporter, Log,
+    UE_LOG(LogDsonImporter, Verbose,
         TEXT("DsonValidator: file exists on disk: %s"),
         FPaths::FileExists(FilePath) ? TEXT("YES") : TEXT("NO — path may be wrong"));
 
@@ -54,7 +54,7 @@ FDsonValidationResult FDsonValidator::Validate(
         TEXT("DsonValidator: loading file: %s"), *FilePath);
 
     DsonDocumentHandle DocHandle = GDsonParser.Create();
-    UE_LOG(LogDsonImporter, Log,
+    UE_LOG(LogDsonImporter, Verbose,
         TEXT("DsonValidator: document handle %s"),
         DocHandle ? TEXT("created successfully") : TEXT("FAILED — null handle"));
 
@@ -79,22 +79,14 @@ FDsonValidationResult FDsonValidator::Validate(
         return Result;
     }
 
-    UE_LOG(LogDsonImporter, Log,
+    UE_LOG(LogDsonImporter, Verbose,
         TEXT("DsonValidator: file read by UE5 — %d characters"), JsonContent.Len());
 
     // Convert UTF-16 FString to UTF-8 for DsonParser
     const FTCHARToUTF8 Utf8(*JsonContent);
 
-    // Check LoadFromString is available
-    if (!GDsonParser.LoadFromString)
-    {
-        GDsonParser.Destroy(DocHandle);
-        Result.ErrorMessage = TEXT("DsonDocument_LoadFromString not available");
-        return Result;
-    }
-
     int LoadResult = GDsonParser.LoadFromString(DocHandle, Utf8.Get());
-    UE_LOG(LogDsonImporter, Log,
+    UE_LOG(LogDsonImporter, Verbose,
         TEXT("DsonValidator: LoadFromString returned %s"),
         LoadResult == 0 ? TEXT("success") : TEXT("failure"));
 
@@ -119,7 +111,7 @@ FDsonValidationResult FDsonValidator::Validate(
     }
 
     const char* AssetTypeStr = GDsonParser.GetAssetType(DocHandle);
-    UE_LOG(LogDsonImporter, Log,
+    UE_LOG(LogDsonImporter, Verbose,
         TEXT("DsonValidator: asset type = '%s'"),
         AssetTypeStr ? UTF8_TO_TCHAR(AssetTypeStr) : TEXT("(null)"));
 
@@ -138,7 +130,7 @@ FDsonValidationResult FDsonValidator::Validate(
     }
 
     const char* AssetId = GDsonParser.GetAssetId(DocHandle);
-    UE_LOG(LogDsonImporter, Log,
+    UE_LOG(LogDsonImporter, Verbose,
         TEXT("DsonValidator: asset id = '%s'"),
         AssetId ? UTF8_TO_TCHAR(AssetId) : TEXT("(null)"));
 
@@ -229,7 +221,7 @@ void FDsonValidator::ResolveDependencies(
 
             FDsonDependency Dep;
             Dep.Url = UrlStr;
-            UE_LOG(LogDsonImporter, Log,
+            UE_LOG(LogDsonImporter, Verbose,
                 TEXT("DsonValidator: dependency URL: %s"), *Dep.Url);
 
             Dep.ResolvedPath = FDsonContentRoots::ResolveUrl(UrlStr, ContentRoots);
@@ -237,7 +229,7 @@ void FDsonValidator::ResolveDependencies(
 
             if (Dep.bResolved)
             {
-                UE_LOG(LogDsonImporter, Log,
+                UE_LOG(LogDsonImporter, Verbose,
                     TEXT("DsonValidator: resolved to: %s"), *Dep.ResolvedPath);
             }
             else

@@ -6,7 +6,6 @@ typedef void* DsonDocumentHandle;
 // Function pointer types for each API function currently called by the plugin
 typedef DsonDocumentHandle (*Fn_Create)();
 typedef void               (*Fn_Destroy)(DsonDocumentHandle handle);
-typedef int                (*Fn_LoadFromFile)(DsonDocumentHandle handle, const char* filepath);
 typedef int                (*Fn_LoadFromString)(DsonDocumentHandle handle, const char* json);
 typedef const char*        (*Fn_GetLastError)();
 typedef const char*        (*Fn_GetAssetType)(DsonDocumentHandle handle);
@@ -19,7 +18,6 @@ struct FDsonParserAPI
 {
     Fn_Create                    Create                    = nullptr;
     Fn_Destroy                   Destroy                   = nullptr;
-    Fn_LoadFromFile              LoadFromFile              = nullptr;
     Fn_LoadFromString            LoadFromString            = nullptr;
     Fn_GetLastError              GetLastError              = nullptr;
     Fn_GetAssetType              GetAssetType              = nullptr;
@@ -32,7 +30,7 @@ struct FDsonParserAPI
     {
         return Create                    != nullptr
             && Destroy                   != nullptr
-            && LoadFromFile              != nullptr
+            && LoadFromString            != nullptr
             && GetLastError              != nullptr
             && GetAssetType              != nullptr
             && GetAssetId                != nullptr

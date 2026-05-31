@@ -57,7 +57,6 @@ void FDsonImporterModule::StartupModule()
 
     LOAD_FN(Create,                     DsonDocument_Create)
     LOAD_FN(Destroy,                    DsonDocument_Destroy)
-    LOAD_FN(LoadFromFile,               DsonDocument_LoadFromFile)
     LOAD_FN(GetLastError,               DsonParser_GetLastError)
     LOAD_FN(GetAssetType,               DsonDocument_GetAssetType)
     LOAD_FN(GetAssetId,                 DsonDocument_GetAssetId)
