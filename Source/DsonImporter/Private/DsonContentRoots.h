@@ -24,12 +24,12 @@ public:
         const FString& DsonUrl,
         const TArray<FString>& ContentRoots);
 
+    /** URL-decodes a DSON path (e.g. %20 -> space, %203D -> 3D). */
+    static FString UrlDecode(const FString& Encoded);
+
 private:
     /** Reads ContentDir0..N from a specific registry key path. */
     static void ReadRegistryKey(
         const FString& KeyPath,
         TArray<FString>& OutPaths);
-
-    /** URL-decodes a DSON path (e.g. %20 -> space, %203D -> 3D). */
-    static FString UrlDecode(const FString& Encoded);
 };

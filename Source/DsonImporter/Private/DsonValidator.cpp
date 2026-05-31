@@ -174,7 +174,8 @@ EGenesisGeneration FDsonValidator::DetectGeneration(const char* AssetId)
     if (!AssetId || AssetId[0] == '\0')
         return EGenesisGeneration::Unknown;
 
-    const FString Id = UTF8_TO_TCHAR(AssetId);
+    // URL-decode before checking — DAZ asset ids use %20 for spaces (e.g. Genesis%209)
+    const FString Id = FDsonContentRoots::UrlDecode(UTF8_TO_TCHAR(AssetId));
 
     if (Id.Contains(TEXT("Genesis9"),   ESearchCase::IgnoreCase) ||
         Id.Contains(TEXT("Genesis 9"),  ESearchCase::IgnoreCase))
