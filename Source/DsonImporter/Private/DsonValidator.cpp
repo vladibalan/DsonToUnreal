@@ -31,6 +31,10 @@ FDsonValidationResult FDsonValidator::Validate(
 {
     FDsonValidationResult Result;
 
+    UE_LOG(LogDsonImporter, Log,
+        TEXT("DsonValidator: file exists on disk: %s"),
+        FPaths::FileExists(FilePath) ? TEXT("YES") : TEXT("NO — path may be wrong"));
+
     if (!FPaths::FileExists(FilePath))
     {
         Result.ErrorMessage = TEXT("File does not exist");
@@ -63,11 +67,20 @@ FDsonValidationResult FDsonValidator::Validate(
     if (LoadResult != 0)
     {
         const char* LastError = DsonParser_GetLastError();
-        Result.ErrorMessage = FString::Printf(TEXT("Failed to load DSON file: %s"),
-            LastError ? UTF8_TO_TCHAR(LastError) : TEXT("unknown error"));
-        DsonDocument_Destroy(DocHandle);
+        const FString ErrorDetail = (LastError && LastError[0] != '\0')
+            ? UTF8_TO_TCHAR(LastError)
+            : TEXT("no error detail available — check that the file is a valid DSON/JSON file and is not corrupted");
+
+        Result.ErrorMessage = FString::Printf(
+            TEXT("Failed to load DSON file: %s\nFile: %s"),
+            *ErrorDetail,
+            *FilePath);
+
         UE_LOG(LogDsonImporter, Warning,
-            TEXT("DsonValidator: rejected — %s"), *Result.ErrorMessage);
+            TEXT("DsonValidator: LoadFile failed — %s — file: %s"),
+            *ErrorDetail, *FilePath);
+
+        DsonDocument_Destroy(DocHandle);
         return Result;
     }
 
