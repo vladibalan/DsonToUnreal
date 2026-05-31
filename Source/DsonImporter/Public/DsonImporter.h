@@ -3,6 +3,8 @@
 #include "CoreMinimal.h"
 #include "Modules/ModuleManager.h"
 
+DECLARE_LOG_CATEGORY_EXTERN(LogDsonImporter, Log, All);
+
 class FDsonImporterModule : public IModuleInterface
 {
 public:
@@ -20,5 +22,7 @@ public:
     }
 
 private:
+    void RegisterMenus();
+
     void* DsonParserHandle = nullptr;
 };

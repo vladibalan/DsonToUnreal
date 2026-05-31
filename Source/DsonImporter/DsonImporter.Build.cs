@@ -24,6 +24,12 @@ public class DsonImporter : ModuleRules
             "AssetTools",
             "Projects",
             "DsonParser",
+            "Slate",
+            "SlateCore",
+            "EditorStyle",
+            "ToolMenus",
+            "InputCore",
+            "DesktopPlatform",
         });
     }
 }

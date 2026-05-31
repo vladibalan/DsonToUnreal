@@ -1,0 +1,500 @@
+#include "SDsonImportWindow.h"
+#include "DsonContentRoots.h"
+#include "DsonImporter.h"
+
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SComboBox.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Styling/AppStyle.h"
+#include "DesktopPlatformModule.h"
+#include "IDesktopPlatform.h"
+
+#define LOCTEXT_NAMESPACE "SDsonImportWindow"
+
+void SDsonImportWindow::Construct(const FArguments& InArgs)
+{
+    OnImportConfirmed = InArgs._OnImportConfirmed;
+
+    ContentRoots = FDsonContentRoots::Detect();
+
+    BoneInfluenceOptions.Add(MakeShared<int32>(4));
+    BoneInfluenceOptions.Add(MakeShared<int32>(8));
+    SelectedBoneInfluences = BoneInfluenceOptions[1]; // default: 8
+
+    ChildSlot
+    [
+        SNew(SVerticalBox)
+
+        // ── File picker ──────────────────────────────────────────────────────
+        + SVerticalBox::Slot()
+        .AutoHeight()
+        .Padding(8.f, 8.f, 8.f, 4.f)
+        [
+            SNew(STextBlock)
+            .Text(LOCTEXT("FileLabel", "DSON File"))
+            .Font(FAppStyle::GetFontStyle("NormalFontBold"))
+        ]
+
+        + SVerticalBox::Slot()
+        .AutoHeight()
+        .Padding(8.f, 0.f, 8.f, 8.f)
+        [
+            SNew(SHorizontalBox)
+
+            + SHorizontalBox::Slot()
+            .FillWidth(1.f)
+            [
+                SNew(SEditableTextBox)
+                .Text_Lambda([this]() { return FText::FromString(SelectedFilePath); })
+                .HintText(LOCTEXT("FileHint", "path/to/file.duf"))
+                .OnTextCommitted_Lambda([this](const FText& NewText, ETextCommit::Type)
+                {
+                    SelectedFilePath = NewText.ToString();
+                    RunValidation(SelectedFilePath);
+                })
+            ]
+
+            + SHorizontalBox::Slot()
+            .AutoWidth()
+            .Padding(4.f, 0.f, 0.f, 0.f)
+            [
+                SNew(SButton)
+                .Text(LOCTEXT("BrowseButton", "Browse..."))
+                .OnClicked(this, &SDsonImportWindow::OnBrowseClicked)
+            ]
+        ]
+
+        + SVerticalBox::Slot()
+        .AutoHeight()
+        [
+            SNew(SSeparator)
+        ]
+
+        // ── No DAZ Studio warning ─────────────────────────────────────────────
+        + SVerticalBox::Slot()
+        .AutoHeight()
+        .Padding(8.f, 6.f)
+        [
+            SNew(STextBlock)
+            .Visibility(this, &SDsonImportWindow::GetNoDazWarningVisibility)
+            .Text(LOCTEXT("NoDazWarning",
+                "Warning: DAZ Studio content root not detected. "
+                "Dependencies cannot be resolved."))
+            .ColorAndOpacity(FLinearColor(1.f, 0.7f, 0.f))
+            .AutoWrapText(true)
+        ]
+
+        // ── Validation: success ───────────────────────────────────────────────
+        + SVerticalBox::Slot()
+        .AutoHeight()
+        .Padding(8.f, 6.f, 8.f, 2.f)
+        [
+            SNew(STextBlock)
+            .Visibility(this, &SDsonImportWindow::GetValidationSuccessVisibility)
+            .Text(this, &SDsonImportWindow::GetValidationStatusText)
+            .ColorAndOpacity(FLinearColor(0.2f, 0.9f, 0.2f))
+        ]
+
+        + SVerticalBox::Slot()
+        .AutoHeight()
+        .Padding(8.f, 0.f, 8.f, 6.f)
+        [
+            SNew(STextBlock)
+            .Visibility(this, &SDsonImportWindow::GetDependencyListVisibility)
+            .Text(this, &SDsonImportWindow::GetDependencyStatusText)
+            .ColorAndOpacity_Lambda([this]()
+            {
+                return ValidationResult.AllDependenciesResolved()
+                    ? FLinearColor(0.2f, 0.9f, 0.2f)
+                    : FLinearColor(1.f, 0.3f, 0.3f);
+            })
+            .AutoWrapText(true)
+        ]
+
+        // ── Unresolved dependency detail ──────────────────────────────────────
+        + SVerticalBox::Slot()
+        .AutoHeight()
+        .Padding(8.f, 0.f, 8.f, 6.f)
+        [
+            SNew(STextBlock)
+            .Visibility_Lambda([this]()
+            {
+                return (!ValidationResult.AllDependenciesResolved()
+                    && ValidationResult.bIsValid
+                    && !SelectedFilePath.IsEmpty())
+                    ? EVisibility::Visible : EVisibility::Collapsed;
+            })
+            .Text(this, &SDsonImportWindow::GetUnresolvedDependencyText)
+            .ColorAndOpacity(FLinearColor(1.f, 0.5f, 0.2f))
+            .AutoWrapText(true)
+        ]
+
+        // ── Validation: error ─────────────────────────────────────────────────
+        + SVerticalBox::Slot()
+        .AutoHeight()
+        .Padding(8.f, 6.f)
+        [
+            SNew(STextBlock)
+            .Visibility(this, &SDsonImportWindow::GetValidationErrorVisibility)
+            .Text(this, &SDsonImportWindow::GetValidationStatusText)
+            .ColorAndOpacity(FLinearColor(1.f, 0.3f, 0.3f))
+            .AutoWrapText(true)
+        ]
+
+        + SVerticalBox::Slot()
+        .AutoHeight()
+        [
+            SNew(SSeparator)
+        ]
+
+        // ── Import options ────────────────────────────────────────────────────
+        + SVerticalBox::Slot()
+        .AutoHeight()
+        .Padding(8.f, 8.f, 8.f, 4.f)
+        [
+            SNew(STextBlock)
+            .Text(LOCTEXT("OptionsLabel", "Import Options"))
+            .Font(FAppStyle::GetFontStyle("NormalFontBold"))
+        ]
+
+        + SVerticalBox::Slot()
+        .AutoHeight()
+        .Padding(8.f, 2.f)
+        [
+            SNew(SCheckBox)
+            .IsChecked_Lambda([this]()
+            {
+                return bShouldImportSkeleton ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+            })
+            .OnCheckStateChanged_Lambda([this](ECheckBoxState State)
+            {
+                bShouldImportSkeleton = (State == ECheckBoxState::Checked);
+            })
+            [
+                SNew(STextBlock).Text(LOCTEXT("ImportSkeleton", "Import Skeleton"))
+            ]
+        ]
+
+        + SVerticalBox::Slot()
+        .AutoHeight()
+        .Padding(8.f, 2.f)
+        [
+            SNew(SCheckBox)
+            .IsChecked_Lambda([this]()
+            {
+                return bShouldImportMesh ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+            })
+            .OnCheckStateChanged_Lambda([this](ECheckBoxState State)
+            {
+                bShouldImportMesh = (State == ECheckBoxState::Checked);
+            })
+            [
+                SNew(STextBlock).Text(LOCTEXT("ImportMesh", "Import Mesh"))
+            ]
+        ]
+
+        + SVerticalBox::Slot()
+        .AutoHeight()
+        .Padding(8.f, 2.f)
+        [
+            SNew(SCheckBox)
+            .IsChecked_Lambda([this]()
+            {
+                return bShouldImportMaterials ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+            })
+            .OnCheckStateChanged_Lambda([this](ECheckBoxState State)
+            {
+                bShouldImportMaterials = (State == ECheckBoxState::Checked);
+            })
+            [
+                SNew(STextBlock).Text(LOCTEXT("ImportMaterials", "Import Materials"))
+            ]
+        ]
+
+        + SVerticalBox::Slot()
+        .AutoHeight()
+        .Padding(8.f, 2.f)
+        [
+            SNew(SCheckBox)
+            .IsChecked_Lambda([this]()
+            {
+                return bShouldImportMorphTargets ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+            })
+            .OnCheckStateChanged_Lambda([this](ECheckBoxState State)
+            {
+                bShouldImportMorphTargets = (State == ECheckBoxState::Checked);
+            })
+            [
+                SNew(STextBlock).Text(LOCTEXT("ImportMorphTargets", "Import Morph Targets"))
+            ]
+        ]
+
+        + SVerticalBox::Slot()
+        .AutoHeight()
+        .Padding(8.f, 4.f, 8.f, 8.f)
+        [
+            SNew(SHorizontalBox)
+
+            + SHorizontalBox::Slot()
+            .AutoWidth()
+            .VAlign(VAlign_Center)
+            .Padding(0.f, 0.f, 8.f, 0.f)
+            [
+                SNew(STextBlock)
+                .Text(LOCTEXT("MaxBoneInfluences", "Max Bone Influences:"))
+            ]
+
+            + SHorizontalBox::Slot()
+            .AutoWidth()
+            [
+                SNew(SComboBox<TSharedPtr<int32>>)
+                .OptionsSource(&BoneInfluenceOptions)
+                .OnGenerateWidget_Lambda([](TSharedPtr<int32> Item)
+                {
+                    return SNew(STextBlock)
+                        .Text(FText::AsNumber(*Item));
+                })
+                .OnSelectionChanged_Lambda([this](TSharedPtr<int32> NewValue, ESelectInfo::Type)
+                {
+                    if (NewValue.IsValid())
+                        SelectedBoneInfluences = NewValue;
+                })
+                .InitiallySelectedItem(SelectedBoneInfluences)
+                [
+                    SNew(STextBlock)
+                    .Text_Lambda([this]()
+                    {
+                        return SelectedBoneInfluences.IsValid()
+                            ? FText::AsNumber(*SelectedBoneInfluences)
+                            : FText::AsNumber(8);
+                    })
+                ]
+            ]
+        ]
+
+        + SVerticalBox::Slot()
+        .AutoHeight()
+        [
+            SNew(SSeparator)
+        ]
+
+        // ── Buttons ───────────────────────────────────────────────────────────
+        + SVerticalBox::Slot()
+        .AutoHeight()
+        .HAlign(HAlign_Right)
+        .Padding(8.f)
+        [
+            SNew(SHorizontalBox)
+
+            + SHorizontalBox::Slot()
+            .AutoWidth()
+            .Padding(0.f, 0.f, 8.f, 0.f)
+            [
+                SNew(SButton)
+                .Text(LOCTEXT("CancelButton", "Cancel"))
+                .OnClicked(this, &SDsonImportWindow::OnCancelClicked)
+            ]
+
+            + SHorizontalBox::Slot()
+            .AutoWidth()
+            [
+                SNew(SButton)
+                .Text(LOCTEXT("ImportButton", "Import"))
+                .IsEnabled(this, &SDsonImportWindow::IsImportEnabled)
+                .OnClicked(this, &SDsonImportWindow::OnImportClicked)
+            ]
+        ]
+    ];
+}
+
+FReply SDsonImportWindow::OnBrowseClicked()
+{
+    IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
+    if (!DesktopPlatform)
+        return FReply::Handled();
+
+    TArray<FString> OutFiles;
+    const void* ParentWindowHandle = FSlateApplication::Get().FindBestParentWindowHandleForDialogs(AsShared());
+    const bool bOpened = DesktopPlatform->OpenFileDialog(
+        ParentWindowHandle,
+        TEXT("Select DSON File"),
+        FPaths::GetPath(SelectedFilePath),
+        TEXT(""),
+        TEXT("DSON Files (*.duf;*.dsf)|*.duf;*.dsf"),
+        EFileDialogFlags::None,
+        OutFiles);
+
+    if (bOpened && OutFiles.Num() > 0)
+    {
+        SelectedFilePath = OutFiles[0];
+        RunValidation(SelectedFilePath);
+    }
+
+    return FReply::Handled();
+}
+
+FReply SDsonImportWindow::OnImportClicked()
+{
+    PendingSettings.DsonFilePath = SelectedFilePath;
+    PendingSettings.Generation = ValidationResult.Generation;
+    PendingSettings.bImportSkeleton = bShouldImportSkeleton;
+    PendingSettings.bImportMesh = bShouldImportMesh;
+    PendingSettings.bImportMaterials = bShouldImportMaterials;
+    PendingSettings.bImportMorphTargets = bShouldImportMorphTargets;
+    PendingSettings.MaxBoneInfluences = SelectedBoneInfluences.IsValid() ? *SelectedBoneInfluences : 8;
+
+    // Find first resolved dependency as the base figure DSF
+    for (const FDsonDependency& Dep : ValidationResult.Dependencies)
+    {
+        if (Dep.bResolved)
+        {
+            PendingSettings.ResolvedFigureDsfPath = Dep.ResolvedPath;
+            break;
+        }
+    }
+
+    OnImportConfirmed.ExecuteIfBound(PendingSettings);
+
+    TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow(AsShared());
+    if (Window.IsValid())
+        Window->RequestDestroyWindow();
+
+    return FReply::Handled();
+}
+
+FReply SDsonImportWindow::OnCancelClicked()
+{
+    TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow(AsShared());
+    if (Window.IsValid())
+        Window->RequestDestroyWindow();
+
+    return FReply::Handled();
+}
+
+void SDsonImportWindow::RunValidation(const FString& FilePath)
+{
+    ValidationResult = FDsonValidator::Validate(FilePath, ContentRoots);
+
+    if (ValidationResult.bIsValid)
+    {
+        PendingSettings.DsonFilePath = FilePath;
+        PendingSettings.Generation = ValidationResult.Generation;
+        PendingSettings.ResolvedFigureDsfPath.Empty();
+        for (const FDsonDependency& Dep : ValidationResult.Dependencies)
+        {
+            if (Dep.bResolved)
+            {
+                PendingSettings.ResolvedFigureDsfPath = Dep.ResolvedPath;
+                break;
+            }
+        }
+    }
+}
+
+EVisibility SDsonImportWindow::GetValidationSuccessVisibility() const
+{
+    return (ValidationResult.bIsValid && !SelectedFilePath.IsEmpty())
+        ? EVisibility::Visible
+        : EVisibility::Collapsed;
+}
+
+EVisibility SDsonImportWindow::GetValidationErrorVisibility() const
+{
+    return (!ValidationResult.bIsValid && !SelectedFilePath.IsEmpty())
+        ? EVisibility::Visible
+        : EVisibility::Collapsed;
+}
+
+EVisibility SDsonImportWindow::GetNoDazWarningVisibility() const
+{
+    return ContentRoots.IsEmpty() ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+EVisibility SDsonImportWindow::GetDependencyListVisibility() const
+{
+    return (ValidationResult.bIsValid && ValidationResult.Dependencies.Num() > 0)
+        ? EVisibility::Visible
+        : EVisibility::Collapsed;
+}
+
+bool SDsonImportWindow::IsImportEnabled() const
+{
+    return ValidationResult.bIsValid && ValidationResult.AllDependenciesResolved();
+}
+
+FText SDsonImportWindow::GetValidationStatusText() const
+{
+    if (SelectedFilePath.IsEmpty())
+        return FText::GetEmpty();
+
+    if (ValidationResult.bIsValid)
+    {
+        const FString GenStr = ValidationResult.GetGenerationString();
+        FString TypeStr;
+        switch (ValidationResult.AssetType)
+        {
+            case EDsonAssetType::Figure:    TypeStr = TEXT("Figure");    break;
+            case EDsonAssetType::Character: TypeStr = TEXT("Character"); break;
+            case EDsonAssetType::Modifier:  TypeStr = TEXT("Modifier");  break;
+            default:                        TypeStr = TEXT("Asset");     break;
+        }
+        return FText::FromString(FString::Printf(TEXT("%s %s"), *GenStr, *TypeStr));
+    }
+
+    return FText::FromString(ValidationResult.ErrorMessage.IsEmpty()
+        ? TEXT("Not a supported figure file")
+        : ValidationResult.ErrorMessage);
+}
+
+FText SDsonImportWindow::GetDependencyStatusText() const
+{
+    if (!ValidationResult.bIsValid || ValidationResult.Dependencies.IsEmpty())
+        return FText::GetEmpty();
+
+    if (ValidationResult.AllDependenciesResolved())
+    {
+        return FText::FromString(FString::Printf(
+            TEXT("All dependencies resolved (%d file%s)"),
+            ValidationResult.Dependencies.Num(),
+            ValidationResult.Dependencies.Num() == 1 ? TEXT("") : TEXT("s")));
+    }
+
+    TArray<FString> Missing;
+    for (const FDsonDependency& Dep : ValidationResult.Dependencies)
+    {
+        if (!Dep.bResolved)
+            Missing.Add(FPaths::GetCleanFilename(Dep.Url) + TEXT(" — not found"));
+    }
+    return FText::FromString(TEXT("Missing dependencies:\n") + FString::Join(Missing, TEXT("\n")));
+}
+
+FText SDsonImportWindow::GetUnresolvedDependencyText() const
+{
+    if (ValidationResult.AllDependenciesResolved() || !ValidationResult.bIsValid)
+        return FText::GetEmpty();
+
+    FString Lines;
+    for (const FDsonDependency& Dep : ValidationResult.Dependencies)
+    {
+        if (!Dep.bResolved)
+            Lines += FString::Printf(TEXT("Missing: %s\n"), *FPaths::GetCleanFilename(Dep.Url));
+    }
+
+    if (!ContentRoots.IsEmpty())
+    {
+        Lines += TEXT("Searched in:\n");
+        for (const FString& Root : ContentRoots)
+            Lines += FString::Printf(TEXT("  %s\n"), *Root);
+    }
+
+    return FText::FromString(Lines.TrimEnd());
+}
+
+#undef LOCTEXT_NAMESPACE
