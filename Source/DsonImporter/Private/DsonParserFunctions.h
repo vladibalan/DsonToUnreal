@@ -1,6 +1,6 @@
 #pragma once
 
-// Opaque handle — mirrors the typedef in DsonParserAPI.h
+// Opaque handle returned by DsonDocument_Create and passed to all API functions
 typedef void* DsonDocumentHandle;
 
 // Function pointer types for each API function currently called by the plugin

@@ -38,10 +38,6 @@ FDsonValidationResult FDsonValidator::Validate(
         return Result;
     }
 
-    UE_LOG(LogDsonImporter, Verbose,
-        TEXT("DsonValidator: file exists on disk: %s"),
-        FPaths::FileExists(FilePath) ? TEXT("YES") : TEXT("NO — path may be wrong"));
-
     if (!FPaths::FileExists(FilePath))
     {
         Result.ErrorMessage = TEXT("File does not exist");
@@ -78,9 +74,6 @@ FDsonValidationResult FDsonValidator::Validate(
             *FilePath);
         return Result;
     }
-
-    UE_LOG(LogDsonImporter, Verbose,
-        TEXT("DsonValidator: file read by UE5 — %d characters"), JsonContent.Len());
 
     // Convert UTF-16 FString to UTF-8 for DsonParser
     const FTCHARToUTF8 Utf8(*JsonContent);
