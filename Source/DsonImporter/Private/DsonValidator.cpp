@@ -1,6 +1,7 @@
 #include "DsonValidator.h"
 #include "DsonContentRoots.h"
-#include "DsonParserAPI.h"
+#include "DsonParserFunctions.h"
+#include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "DsonImporter.h"
 
@@ -31,6 +32,12 @@ FDsonValidationResult FDsonValidator::Validate(
 {
     FDsonValidationResult Result;
 
+    if (!GDsonParser.IsValid())
+    {
+        Result.ErrorMessage = TEXT("DsonParser library is not loaded");
+        return Result;
+    }
+
     UE_LOG(LogDsonImporter, Log,
         TEXT("DsonValidator: file exists on disk: %s"),
         FPaths::FileExists(FilePath) ? TEXT("YES") : TEXT("NO — path may be wrong"));
@@ -46,7 +53,7 @@ FDsonValidationResult FDsonValidator::Validate(
     UE_LOG(LogDsonImporter, Log,
         TEXT("DsonValidator: loading file: %s"), *FilePath);
 
-    DsonDocumentHandle DocHandle = DsonDocument_Create();
+    DsonDocumentHandle DocHandle = GDsonParser.Create();
     UE_LOG(LogDsonImporter, Log,
         TEXT("DsonValidator: document handle %s"),
         DocHandle ? TEXT("created successfully") : TEXT("FAILED — null handle"));
@@ -59,14 +66,41 @@ FDsonValidationResult FDsonValidator::Validate(
         return Result;
     }
 
-    const int LoadResult = DsonDocument_LoadFromFile(DocHandle, TCHAR_TO_UTF8(*FilePath));
+    // Read the file using UE5's native file API — handles all path encoding correctly
+    FString JsonContent;
+    if (!FFileHelper::LoadFileToString(JsonContent, *FilePath))
+    {
+        GDsonParser.Destroy(DocHandle);
+        Result.ErrorMessage = FString::Printf(
+            TEXT("UE5 could not read file: %s"), *FilePath);
+        UE_LOG(LogDsonImporter, Warning,
+            TEXT("DsonValidator: FFileHelper::LoadFileToString failed for: %s"),
+            *FilePath);
+        return Result;
+    }
+
     UE_LOG(LogDsonImporter, Log,
-        TEXT("DsonValidator: LoadFile returned %s"),
+        TEXT("DsonValidator: file read by UE5 — %d characters"), JsonContent.Len());
+
+    // Convert UTF-16 FString to UTF-8 for DsonParser
+    const FTCHARToUTF8 Utf8(*JsonContent);
+
+    // Check LoadFromString is available
+    if (!GDsonParser.LoadFromString)
+    {
+        GDsonParser.Destroy(DocHandle);
+        Result.ErrorMessage = TEXT("DsonDocument_LoadFromString not available");
+        return Result;
+    }
+
+    int LoadResult = GDsonParser.LoadFromString(DocHandle, Utf8.Get());
+    UE_LOG(LogDsonImporter, Log,
+        TEXT("DsonValidator: LoadFromString returned %s"),
         LoadResult == 0 ? TEXT("success") : TEXT("failure"));
 
     if (LoadResult != 0)
     {
-        const char* LastError = DsonParser_GetLastError();
+        const char* LastError = GDsonParser.GetLastError();
         const FString ErrorDetail = (LastError && LastError[0] != '\0')
             ? UTF8_TO_TCHAR(LastError)
             : TEXT("no error detail available — check that the file is a valid DSON/JSON file and is not corrupted");
@@ -77,14 +111,14 @@ FDsonValidationResult FDsonValidator::Validate(
             *FilePath);
 
         UE_LOG(LogDsonImporter, Warning,
-            TEXT("DsonValidator: LoadFile failed — %s — file: %s"),
+            TEXT("DsonValidator: LoadFromString failed — %s — file: %s"),
             *ErrorDetail, *FilePath);
 
-        DsonDocument_Destroy(DocHandle);
+        GDsonParser.Destroy(DocHandle);
         return Result;
     }
 
-    const char* AssetTypeStr = DsonDocument_GetAssetType(DocHandle);
+    const char* AssetTypeStr = GDsonParser.GetAssetType(DocHandle);
     UE_LOG(LogDsonImporter, Log,
         TEXT("DsonValidator: asset type = '%s'"),
         AssetTypeStr ? UTF8_TO_TCHAR(AssetTypeStr) : TEXT("(null)"));
@@ -97,13 +131,13 @@ FDsonValidationResult FDsonValidator::Validate(
         Result.ErrorMessage = FString::Printf(
             TEXT("Unsupported asset type: '%s'. Expected 'figure' or 'character'."),
             AssetTypeStr ? UTF8_TO_TCHAR(AssetTypeStr) : TEXT("(none)"));
-        DsonDocument_Destroy(DocHandle);
+        GDsonParser.Destroy(DocHandle);
         UE_LOG(LogDsonImporter, Warning,
             TEXT("DsonValidator: rejected — %s"), *Result.ErrorMessage);
         return Result;
     }
 
-    const char* AssetId = DsonDocument_GetAssetId(DocHandle);
+    const char* AssetId = GDsonParser.GetAssetId(DocHandle);
     UE_LOG(LogDsonImporter, Log,
         TEXT("DsonValidator: asset id = '%s'"),
         AssetId ? UTF8_TO_TCHAR(AssetId) : TEXT("(null)"));
@@ -116,7 +150,7 @@ FDsonValidationResult FDsonValidator::Validate(
 
     ResolveDependencies(DocHandle, Result.AssetType, ContentRoots, Result.Dependencies);
 
-    DsonDocument_Destroy(DocHandle);
+    GDsonParser.Destroy(DocHandle);
 
     Result.bIsValid = true;
     return Result;
@@ -169,14 +203,14 @@ void FDsonValidator::ResolveDependencies(
 
     // Character / scene files reference external figure DSFs via scene node geometry URLs
     TSet<FString> SeenUrls;
-    const int SceneNodeCount = DsonDocument_GetSceneNodeCount(DocHandle);
+    const int SceneNodeCount = GDsonParser.GetSceneNodeCount(DocHandle);
 
     for (int i = 0; i < SceneNodeCount; ++i)
     {
-        const int GeomCount = DsonDocument_GetSceneNodeGeometryCount(DocHandle, i);
+        const int GeomCount = GDsonParser.GetSceneNodeGeometryCount(DocHandle, i);
         for (int j = 0; j < GeomCount; ++j)
         {
-            const char* RawUrl = DsonDocument_GetSceneNodeGeometryUrl(DocHandle, i, j);
+            const char* RawUrl = GDsonParser.GetSceneNodeGeometryUrl(DocHandle, i, j);
             if (!RawUrl || RawUrl[0] == '\0')
                 continue;
 
