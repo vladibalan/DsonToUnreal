@@ -179,12 +179,6 @@ void FDsonSkeletonBuilder::BuildReferenceSkeletonFromDsf(uint64_t DsfHandle, FRe
     TMap<FString, int32> IdToRefIndex;
     IdToRefIndex.Reserve(Bones.Num());
 
-    // Build world-space position map for local-space conversion
-    TMap<FString, FVector> BoneWorldPositions;
-    BoneWorldPositions.Reserve(Bones.Num());
-    for (const FBoneEntry& B : Bones)
-        BoneWorldPositions.Add(B.Id, B.Transform.GetTranslation());
-
     FReferenceSkeletonModifier Modifier(OutRefSkeleton, nullptr);
     int32 RefBoneCount = 0;
 
@@ -204,6 +198,11 @@ void FDsonSkeletonBuilder::BuildReferenceSkeletonFromDsf(uint64_t DsfHandle, FRe
             ParentRefIndex = *Found;
         }
 
+        // B.Transform holds this bone's WORLD-space transform:
+        //   rotation    = world-space joint orientation (UE space)
+        //   translation = world-space joint position (UE space, cm)
+        // UE5 ref-pose bones are stored as parent-relative LOCAL transforms, so we
+        // convert here once the parent's world transform is known.
         FTransform LocalTransform = B.Transform;
         if (ParentRefIndex != INDEX_NONE)
         {
@@ -211,11 +210,24 @@ void FDsonSkeletonBuilder::BuildReferenceSkeletonFromDsf(uint64_t DsfHandle, FRe
                 [&](const FBoneEntry& E){ return E.Id == B.ParentId; });
             if (ParentEntry)
             {
+                const FQuat   ParentWorldRot = ParentEntry->Transform.GetRotation();
                 const FVector ParentWorldPos = ParentEntry->Transform.GetTranslation();
-                const FVector LocalPos = B.Transform.GetTranslation() - ParentWorldPos;
+                const FQuat   SelfWorldRot   = B.Transform.GetRotation();
+                const FVector SelfWorldPos   = B.Transform.GetTranslation();
+
+                const FQuat ParentWorldRotInv = ParentWorldRot.Inverse();
+
+                // Local rotation: delta from parent's world frame to this bone's.
+                const FQuat LocalRot = ParentWorldRotInv * SelfWorldRot;
+                // Local translation: world offset expressed in the parent's rotated frame.
+                const FVector LocalPos =
+                    ParentWorldRotInv.RotateVector(SelfWorldPos - ParentWorldPos);
+
+                LocalTransform.SetRotation(LocalRot);
                 LocalTransform.SetTranslation(LocalPos);
             }
         }
+        // Root bones keep their world transform as their local transform.
 
         FMeshBoneInfo BoneInfo;
         BoneInfo.Name        = FName(*B.Name);
@@ -231,28 +243,106 @@ void FDsonSkeletonBuilder::BuildReferenceSkeletonFromDsf(uint64_t DsfHandle, FRe
 // MakeBoneTransform
 // ---------------------------------------------------------------------------
 
+namespace
+{
+    // DAZ (Y-up, right-hand) → UE5 (Z-up, left-hand) axis remap, matching the one
+    // used for positions: UE_X = DAZ_Z, UE_Y = DAZ_X, UE_Z = DAZ_Y.
+    //
+    // As a rotation this even (det = +1) axis permutation is a 120° turn about the
+    // (1,1,1) axis, i.e. the quaternion (w,x,y,z) = (0.5, 0.5, 0.5, 0.5). A rotation
+    // expressed in DAZ space is carried into UE space by quaternion conjugation:
+    //     q_ue = B * q_daz * B^-1
+    // Using quaternions (rather than FMatrix) keeps this independent of UE's
+    // row-vector matrix convention. Verified: this reproduces the bone directions
+    // and local rotations derived directly from the figure's joint data.
+    const FQuat& DazToUeBasisQuat()
+    {
+        static const FQuat B(0.5, 0.5, 0.5, 0.5); // (X, Y, Z, W)
+        return B;
+    }
+
+    // Single-axis rotation quaternion. 'axis' is 'x'|'y'|'z' (lowercase), angle in degrees.
+    FQuat AxisQuat(char Axis, double AngleDeg)
+    {
+        FVector V = FVector::ZeroVector;
+        switch (Axis)
+        {
+            case 'x': V = FVector(1.0, 0.0, 0.0); break;
+            case 'y': V = FVector(0.0, 1.0, 0.0); break;
+            case 'z': V = FVector(0.0, 0.0, 1.0); break;
+            default:  return FQuat::Identity;
+        }
+        return FQuat(V, FMath::DegreesToRadians(static_cast<float>(AngleDeg)));
+    }
+
+    // Compose DAZ orientation Euler angles into a single quaternion, honouring the
+    // node's rotation order. In DAZ the first axis listed is applied first (innermost),
+    // so for order "XYZ" the composite is Rz * Ry * Rx. RotationOrder is e.g. "XYZ",
+    // "XZY", "YZX". Falls back to "XYZ" when missing/unrecognised.
+    FQuat ComposeDazOrientation(double OX, double OY, double OZ, const FString& RotationOrder)
+    {
+        FString Order = RotationOrder.IsEmpty() ? TEXT("XYZ") : RotationOrder.ToUpper();
+        if (Order.Len() != 3)
+            Order = TEXT("XYZ");
+
+        auto AngleFor = [&](char UpperAxis) -> double
+        {
+            switch (UpperAxis)
+            {
+                case 'X': return OX;
+                case 'Y': return OY;
+                case 'Z': return OZ;
+                default:  return 0.0;
+            }
+        };
+
+        // Apply first-listed axis first (innermost). Composite = q3 * q2 * q1, where
+        // q1 is the first listed. Building left-to-right as Composite = Composite * qi
+        // starting from identity yields exactly that.
+        FQuat Composite = FQuat::Identity;
+        for (int32 i = 0; i < 3; ++i)
+        {
+            const char UpperAxis = static_cast<char>(Order[i]);
+            const char LowerAxis = static_cast<char>(FChar::ToLower(Order[i]));
+            Composite = AxisQuat(LowerAxis, AngleFor(UpperAxis)) * Composite;
+        }
+        return Composite;
+    }
+}
+
 FTransform FDsonSkeletonBuilder::MakeBoneTransform(uint64_t DsfHandle, int32 NodeIndex, double UnitScale)
 {
     const double CX = GDsonParser.GetNodeCenterPointX ? GDsonParser.GetNodeCenterPointX(DsfHandle, NodeIndex) : 0.0;
     const double CY = GDsonParser.GetNodeCenterPointY ? GDsonParser.GetNodeCenterPointY(DsfHandle, NodeIndex) : 0.0;
     const double CZ = GDsonParser.GetNodeCenterPointZ ? GDsonParser.GetNodeCenterPointZ(DsfHandle, NodeIndex) : 0.0;
 
-    // DAZ (Y-up, right-hand) → UE5 (Z-up, left-hand): X←Z, Y←X, Z←Y
-    const double ToCm = UnitScale ;
+    // World-space joint position. DAZ→UE: UE_X←DAZ_Z, UE_Y←DAZ_X, UE_Z←DAZ_Y.
+    // ToCm = UnitScale: Genesis geometry/joints are authored in cm and unit_scale
+    // defaults to 1.0, so 1 DAZ unit = 1 cm. Do NOT reintroduce a *100 here.
+    const double ToCm = UnitScale;
     const FVector Translation(CZ * ToCm, CX * ToCm, CY * ToCm);
 
     const double OX = GDsonParser.GetNodeOrientationX ? GDsonParser.GetNodeOrientationX(DsfHandle, NodeIndex) : 0.0;
     const double OY = GDsonParser.GetNodeOrientationY ? GDsonParser.GetNodeOrientationY(DsfHandle, NodeIndex) : 0.0;
     const double OZ = GDsonParser.GetNodeOrientationZ ? GDsonParser.GetNodeOrientationZ(DsfHandle, NodeIndex) : 0.0;
 
-    // Apply the same axis remap to the Euler angles (degrees).
-    // DAZ_X → UE_Y (Pitch), DAZ_Y → UE_Z (Yaw), DAZ_Z → UE_X (Roll)
-    // FRotator ctor order: (Pitch, Yaw, Roll)
-    const FQuat Rotation = FRotator(
-        static_cast<float>(OX),   // Pitch  ← DAZ_OX
-        static_cast<float>(OY),   // Yaw    ← DAZ_OY
-        static_cast<float>(OZ)    // Roll   ← DAZ_OZ
-    ).Quaternion();
+    const char* OrderRaw = GDsonParser.GetNodeRotationOrder
+        ? GDsonParser.GetNodeRotationOrder(DsfHandle, NodeIndex) : nullptr;
+    const FString RotationOrder = OrderRaw ? UTF8_TO_TCHAR(OrderRaw) : TEXT("XYZ");
+
+    // The DAZ `orientation` is a JOINT ORIENTATION: it defines the bone's local axis
+    // frame expressed in the figure (world) frame — it is NOT a parent-relative local
+    // rotation, and the Euler angles cannot be axis-permuted directly. Build the DAZ
+    // orientation quaternion honouring the node's rotation order, then change basis
+    // into UE space by conjugation R_ue = B * R_daz * B^-1.
+    //
+    // The result here is the bone's WORLD-space rotation in UE space. The hierarchy
+    // pass in BuildReferenceSkeletonFromDsf converts it to the parent-relative local
+    // rotation that UE5 ref poses require.
+    const FQuat OriDaz = ComposeDazOrientation(OX, OY, OZ, RotationOrder);
+
+    const FQuat& B = DazToUeBasisQuat();
+    const FQuat Rotation = (B * OriDaz * B.Inverse()).GetNormalized();
 
     double GenScale = GDsonParser.GetNodeGeneralScale
         ? GDsonParser.GetNodeGeneralScale(DsfHandle, NodeIndex) : 0.0;
@@ -307,14 +397,16 @@ USkeleton* FDsonSkeletonBuilder::CreateSkeletonAsset(
         for (int32 b = 0; b < DumpSkel.GetRawBoneNum(); ++b)
         {
             const FTransform& Pose = DumpSkel.GetRawRefBonePose()[b];
+            const FQuat Q = Pose.GetRotation();
             UE_LOG(LogDsonImporter, Log,
-                TEXT("  Bone[%d] '%s' parent=%d pos=(%.2f, %.2f, %.2f)"),
+                TEXT("  Bone[%d] '%s' parent=%d pos=(%.2f, %.2f, %.2f) quat=(w%.5f, x%.5f, y%.5f, z%.5f)"),
                 b,
                 *DumpSkel.GetBoneName(b).ToString(),
                 DumpSkel.GetRawParentIndex(b),
                 Pose.GetTranslation().X,
                 Pose.GetTranslation().Y,
-                Pose.GetTranslation().Z);
+                Pose.GetTranslation().Z,
+                Q.W, Q.X, Q.Y, Q.Z);
         }
     }
 
