@@ -179,6 +179,12 @@ void FDsonSkeletonBuilder::BuildReferenceSkeletonFromDsf(uint64_t DsfHandle, FRe
     TMap<FString, int32> IdToRefIndex;
     IdToRefIndex.Reserve(Bones.Num());
 
+    // Build world-space position map for local-space conversion
+    TMap<FString, FVector> BoneWorldPositions;
+    BoneWorldPositions.Reserve(Bones.Num());
+    for (const FBoneEntry& B : Bones)
+        BoneWorldPositions.Add(B.Id, B.Transform.GetTranslation());
+
     FReferenceSkeletonModifier Modifier(OutRefSkeleton, nullptr);
     int32 RefBoneCount = 0;
 
@@ -198,10 +204,23 @@ void FDsonSkeletonBuilder::BuildReferenceSkeletonFromDsf(uint64_t DsfHandle, FRe
             ParentRefIndex = *Found;
         }
 
+        FTransform LocalTransform = B.Transform;
+        if (ParentRefIndex != INDEX_NONE)
+        {
+            const FBoneEntry* ParentEntry = Bones.FindByPredicate(
+                [&](const FBoneEntry& E){ return E.Id == B.ParentId; });
+            if (ParentEntry)
+            {
+                const FVector ParentWorldPos = ParentEntry->Transform.GetTranslation();
+                const FVector LocalPos = B.Transform.GetTranslation() - ParentWorldPos;
+                LocalTransform.SetTranslation(LocalPos);
+            }
+        }
+
         FMeshBoneInfo BoneInfo;
         BoneInfo.Name        = FName(*B.Name);
         BoneInfo.ParentIndex = ParentRefIndex;
-        Modifier.Add(BoneInfo, B.Transform);
+        Modifier.Add(BoneInfo, LocalTransform);
 
         IdToRefIndex.Add(B.Id, RefBoneCount++);
     }
@@ -277,6 +296,26 @@ USkeleton* FDsonSkeletonBuilder::CreateSkeletonAsset(
             GetTransientPackage(), NAME_None, RF_Transient);
         TempMesh->SetRefSkeleton(RefSkeleton);
         Skeleton->MergeAllBonesToBoneTree(TempMesh);
+    }
+
+    // DIAGNOSTIC — remove before Phase 6
+    {
+        const FReferenceSkeleton& DumpSkel = Skeleton->GetReferenceSkeleton();
+        UE_LOG(LogDsonImporter, Log,
+            TEXT("DsonSkeletonBuilder: skeleton has %d bones"),
+            DumpSkel.GetRawBoneNum());
+        for (int32 b = 0; b < DumpSkel.GetRawBoneNum(); ++b)
+        {
+            const FTransform& Pose = DumpSkel.GetRawRefBonePose()[b];
+            UE_LOG(LogDsonImporter, Log,
+                TEXT("  Bone[%d] '%s' parent=%d pos=(%.2f, %.2f, %.2f)"),
+                b,
+                *DumpSkel.GetBoneName(b).ToString(),
+                DumpSkel.GetRawParentIndex(b),
+                Pose.GetTranslation().X,
+                Pose.GetTranslation().Y,
+                Pose.GetTranslation().Z);
+        }
     }
 
 #if 0
