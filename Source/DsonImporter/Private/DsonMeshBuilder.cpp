@@ -135,10 +135,15 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
         const double VX = GDsonParser.GetVertexX ? GDsonParser.GetVertexX(DsfHandle, 0, i) : 0.0;
         const double VY = GDsonParser.GetVertexY ? GDsonParser.GetVertexY(DsfHandle, 0, i) : 0.0;
         const double VZ = GDsonParser.GetVertexZ ? GDsonParser.GetVertexZ(DsfHandle, 0, i) : 0.0;
-        // DAZ (Y-up, RH) → UE5 (Z-up, LH): UE_X=DAZ_Z, UE_Y=DAZ_X, UE_Z=DAZ_Y
+        // DAZ (Y-up, RH) → UE5 (Z-up, LH) with handedness flip:
+        // UE_X=DAZ_Z, UE_Y=-DAZ_X, UE_Z=DAZ_Y. The -DAZ_X reflection converts
+        // right-handed DAZ to left-handed UE and MUST match DsonSkeletonBuilder's
+        // bone conversion, or mesh and skeleton are mirrored relative to each other
+        // and skin weights tear. (Reflection also flips polygon winding — handled
+        // in the triangulation step below.)
         Positions.Add(FVector3f(
             (float)(VZ * ToCm),
-            (float)(VX * ToCm),
+            (float)(-VX * ToCm),
             (float)(VY * ToCm)
         ));
     }
@@ -249,18 +254,23 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
                 ? UVPolyVertIndices[UVFlatOffset + c] : 0;
         }
 
-        // Triangle 1: corners (0, 1, 2)
+        // The DAZ→UE conversion negates one axis (a reflection), which reverses
+        // polygon winding. To keep faces wound consistently (normals outward) we
+        // emit corners in reversed order: (0,2,1) and (0,3,2) instead of the
+        // natural (0,1,2) / (0,2,3).
+
+        // Triangle 1: corners (0, 2, 1) — reversed
         FDsonTriangle& T0 = Triangles.AddDefaulted_GetRef();
-        T0.VertIndex[0] = VIdx[0];  T0.VertIndex[1] = VIdx[1];  T0.VertIndex[2] = VIdx[2];
-        T0.UVIndex[0]   = UVIdx[0]; T0.UVIndex[1]   = UVIdx[1]; T0.UVIndex[2]   = UVIdx[2];
+        T0.VertIndex[0] = VIdx[0];  T0.VertIndex[1] = VIdx[2];  T0.VertIndex[2] = VIdx[1];
+        T0.UVIndex[0]   = UVIdx[0]; T0.UVIndex[1]   = UVIdx[2]; T0.UVIndex[2]   = UVIdx[1];
         T0.MaterialIndex = MatIdx;
 
         if (CornerCount == 4)
         {
-            // Triangle 2: corners (0, 2, 3)
+            // Triangle 2: corners (0, 3, 2) — reversed
             FDsonTriangle& T1 = Triangles.AddDefaulted_GetRef();
-            T1.VertIndex[0] = VIdx[0];  T1.VertIndex[1] = VIdx[2];  T1.VertIndex[2] = VIdx[3];
-            T1.UVIndex[0]   = UVIdx[0]; T1.UVIndex[1]   = UVIdx[2]; T1.UVIndex[2]   = UVIdx[3];
+            T1.VertIndex[0] = VIdx[0];  T1.VertIndex[1] = VIdx[3];  T1.VertIndex[2] = VIdx[2];
+            T1.UVIndex[0]   = UVIdx[0]; T1.UVIndex[1]   = UVIdx[3]; T1.UVIndex[2]   = UVIdx[2];
             T1.MaterialIndex = MatIdx;
         }
 

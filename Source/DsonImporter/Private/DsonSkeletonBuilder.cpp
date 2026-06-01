@@ -245,20 +245,32 @@ void FDsonSkeletonBuilder::BuildReferenceSkeletonFromDsf(uint64_t DsfHandle, FRe
 
 namespace
 {
-    // DAZ (Y-up, right-hand) → UE5 (Z-up, left-hand) axis remap, matching the one
-    // used for positions: UE_X = DAZ_Z, UE_Y = DAZ_X, UE_Z = DAZ_Y.
+    // DAZ (Y-up, RIGHT-handed) → UE5 (Z-up, LEFT-handed). Converting between opposite
+    // handedness REQUIRES a reflection (a determinant −1 map). The position remap is:
+    //     UE_X =  DAZ_Z
+    //     UE_Y = -DAZ_X      ← negated; this is the reflection that flips handedness
+    //     UE_Z =  DAZ_Y
     //
-    // As a rotation this even (det = +1) axis permutation is a 120° turn about the
-    // (1,1,1) axis, i.e. the quaternion (w,x,y,z) = (0.5, 0.5, 0.5, 0.5). A rotation
-    // expressed in DAZ space is carried into UE space by quaternion conjugation:
-    //     q_ue = B * q_daz * B^-1
-    // Using quaternions (rather than FMatrix) keeps this independent of UE's
-    // row-vector matrix convention. Verified: this reproduces the bone directions
-    // and local rotations derived directly from the figure's joint data.
-    const FQuat& DazToUeBasisQuat()
+    // Without the negation the map is a pure rotation (det +1) which cannot convert
+    // handedness: it silently mirrors the whole figure, swapping anatomical left/right
+    // (l_* bones land on the figure's right). The negation fixes that.
+    //
+    // For rotations, the DAZ orientation is carried into UE space by conjugation
+    //     R_ue = M^-1 * R_daz * M
+    // where M is this basis change as a UE row-vector FMatrix (v_ue = v_daz * M).
+    // M is orthogonal with det −1; conjugating a proper rotation by it yields another
+    // proper rotation (det +1), so bones stay valid rotations — verified against the
+    // figure's joint data (FK reconstructs to zero error).
+    const FMatrix& DazToUeBasisMatrix()
     {
-        static const FQuat B(0.5, 0.5, 0.5, 0.5); // (X, Y, Z, W)
-        return B;
+        // Row-vector convention: FMatrix(r0,r1,r2,r3) sets ROWS, transform is p' = p * M.
+        // Rows chosen so (x,y,z) * M = (z, -x, y):
+        static const FMatrix M(
+            FPlane(0.0, -1.0, 0.0, 0.0),
+            FPlane(0.0,  0.0, 1.0, 0.0),
+            FPlane(1.0,  0.0, 0.0, 0.0),
+            FPlane(0.0,  0.0, 0.0, 1.0));
+        return M;
     }
 
     // Single-axis rotation quaternion. 'axis' is 'x'|'y'|'z' (lowercase), angle in degrees.
@@ -316,11 +328,13 @@ FTransform FDsonSkeletonBuilder::MakeBoneTransform(uint64_t DsfHandle, int32 Nod
     const double CY = GDsonParser.GetNodeCenterPointY ? GDsonParser.GetNodeCenterPointY(DsfHandle, NodeIndex) : 0.0;
     const double CZ = GDsonParser.GetNodeCenterPointZ ? GDsonParser.GetNodeCenterPointZ(DsfHandle, NodeIndex) : 0.0;
 
-    // World-space joint position. DAZ→UE: UE_X←DAZ_Z, UE_Y←DAZ_X, UE_Z←DAZ_Y.
-    // ToCm = UnitScale: Genesis geometry/joints are authored in cm and unit_scale
-    // defaults to 1.0, so 1 DAZ unit = 1 cm. Do NOT reintroduce a *100 here.
+    // World-space joint position. DAZ→UE with handedness flip: UE_X←DAZ_Z,
+    // UE_Y←-DAZ_X, UE_Z←DAZ_Y. The -DAZ_X is the reflection that converts DAZ's
+    // right-handed frame to UE's left-handed frame (see DazToUeBasisMatrix).
+    // ToCm = UnitScale: Genesis is authored in cm and unit_scale defaults to 1.0.
+    // Do NOT reintroduce a *100 here.
     const double ToCm = UnitScale;
-    const FVector Translation(CZ * ToCm, CX * ToCm, CY * ToCm);
+    const FVector Translation(CZ * ToCm, -CX * ToCm, CY * ToCm);
 
     const double OX = GDsonParser.GetNodeOrientationX ? GDsonParser.GetNodeOrientationX(DsfHandle, NodeIndex) : 0.0;
     const double OY = GDsonParser.GetNodeOrientationY ? GDsonParser.GetNodeOrientationY(DsfHandle, NodeIndex) : 0.0;
@@ -341,8 +355,12 @@ FTransform FDsonSkeletonBuilder::MakeBoneTransform(uint64_t DsfHandle, int32 Nod
     // rotation that UE5 ref poses require.
     const FQuat OriDaz = ComposeDazOrientation(OX, OY, OZ, RotationOrder);
 
-    const FQuat& B = DazToUeBasisQuat();
-    const FQuat Rotation = (B * OriDaz * B.Inverse()).GetNormalized();
+    // Carry the DAZ orientation into UE space by conjugating with the basis matrix:
+    //   R_ue = M^-1 * R_daz * M   (UE row-vector convention; see DazToUeBasisMatrix).
+    const FMatrix M       = DazToUeBasisMatrix();
+    const FMatrix OriDazM = FRotationMatrix::Make(OriDaz);
+    const FMatrix OriUeM  = M.Inverse() * OriDazM * M;
+    const FQuat   Rotation = OriUeM.ToQuat().GetNormalized();
 
     double GenScale = GDsonParser.GetNodeGeneralScale
         ? GDsonParser.GetNodeGeneralScale(DsfHandle, NodeIndex) : 0.0;
