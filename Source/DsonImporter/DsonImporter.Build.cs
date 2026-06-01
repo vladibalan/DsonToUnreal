@@ -31,6 +31,9 @@ public class DsonImporter : ModuleRules
             "ToolMenus",
             "InputCore",
             "DesktopPlatform",
+            "AssetRegistry",
+            "ContentBrowser",
+            "EditorFramework",
         });
     }
 }

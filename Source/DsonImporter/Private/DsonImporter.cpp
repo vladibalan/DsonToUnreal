@@ -67,6 +67,31 @@ void FDsonImporterModule::StartupModule()
 
 #undef LOAD_FN
 
+#define LOAD_FN_WARN(Member, ExportName) \
+    GDsonParser.Member = (decltype(GDsonParser.Member)) \
+        FPlatformProcess::GetDllExport(DsonParserHandle, TEXT(#ExportName)); \
+    if (!GDsonParser.Member) { \
+        UE_LOG(LogDsonImporter, Warning, \
+            TEXT("DsonParser: missing export: " #ExportName)); \
+    }
+
+    LOAD_FN_WARN(GetNodeCount,        DsonDocument_GetNodeCount)
+    LOAD_FN_WARN(GetNodeId,           DsonDocument_GetNodeId)
+    LOAD_FN_WARN(GetNodeName,         DsonDocument_GetNodeName)
+    LOAD_FN_WARN(GetNodeType,         DsonDocument_GetNodeType)
+    LOAD_FN_WARN(GetNodeParent,       DsonDocument_GetNodeParent)
+    LOAD_FN_WARN(GetNodeCenterPointX, DsonDocument_GetNodeCenterPointX)
+    LOAD_FN_WARN(GetNodeCenterPointY, DsonDocument_GetNodeCenterPointY)
+    LOAD_FN_WARN(GetNodeCenterPointZ, DsonDocument_GetNodeCenterPointZ)
+    LOAD_FN_WARN(GetNodeOrientationX, DsonDocument_GetNodeOrientationX)
+    LOAD_FN_WARN(GetNodeOrientationY, DsonDocument_GetNodeOrientationY)
+    LOAD_FN_WARN(GetNodeOrientationZ, DsonDocument_GetNodeOrientationZ)
+    LOAD_FN_WARN(GetNodeRotationOrder,DsonDocument_GetNodeRotationOrder)
+    LOAD_FN_WARN(GetNodeGeneralScale, DsonDocument_GetNodeGeneralScale)
+    LOAD_FN_WARN(GetUnitScale,        DsonDocument_GetUnitScale)
+
+#undef LOAD_FN_WARN
+
     if (!GDsonParser.IsValid())
     {
         UE_LOG(LogDsonImporter, Error,

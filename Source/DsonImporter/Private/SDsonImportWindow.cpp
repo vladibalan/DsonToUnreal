@@ -15,6 +15,11 @@
 #include "Styling/AppStyle.h"
 #include "DesktopPlatformModule.h"
 #include "IDesktopPlatform.h"
+#include "DsonSkeletonBuilder.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "ContentBrowserModule.h"
+#include "IContentBrowserSingleton.h"
 
 #define LOCTEXT_NAMESPACE "SDsonImportWindow"
 
@@ -225,6 +230,38 @@ FReply SDsonImportWindow::OnImportClicked()
     }
 
     OnImportConfirmed.ExecuteIfBound(PendingSettings);
+
+    USkeleton* Skeleton = FDsonSkeletonBuilder::Build(PendingSettings);
+    if (Skeleton)
+    {
+        UE_LOG(LogDsonImporter, Log,
+            TEXT("Skeleton imported successfully: %s"), *Skeleton->GetPathName());
+
+        FNotificationInfo Info(FText::FromString(TEXT("Skeleton imported successfully")));
+        Info.ExpireDuration = 4.0f;
+        Info.bUseLargeFont  = false;
+        TSharedPtr<SNotificationItem> Notification =
+            FSlateNotificationManager::Get().AddNotification(Info);
+        if (Notification.IsValid())
+            Notification->SetCompletionState(SNotificationItem::CS_Success);
+
+        FContentBrowserModule& CBModule =
+            FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
+        CBModule.Get().SyncBrowserToAssets({ FAssetData(Skeleton) });
+    }
+    else
+    {
+        UE_LOG(LogDsonImporter, Error,
+            TEXT("Skeleton import failed. Check the Output Log for details."));
+
+        FNotificationInfo Info(FText::FromString(TEXT("Skeleton import failed — see Output Log")));
+        Info.ExpireDuration = 6.0f;
+        Info.bUseLargeFont  = false;
+        TSharedPtr<SNotificationItem> Notification =
+            FSlateNotificationManager::Get().AddNotification(Info);
+        if (Notification.IsValid())
+            Notification->SetCompletionState(SNotificationItem::CS_Fail);
+    }
 
     TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow(AsShared());
     if (Window.IsValid())
