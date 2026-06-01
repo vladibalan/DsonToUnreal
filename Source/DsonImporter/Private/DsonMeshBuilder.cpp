@@ -137,42 +137,42 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
 
     // Step 3 — Read UV set 0
     const int32 RawUVSetCount = GDsonParser.GetUVSetCount
-        ? GDsonParser.GetUVSetCount(DsfHandle, 0) : 0;
+        ? GDsonParser.GetUVSetCount(DsfHandle) : 0;
     if (RawUVSetCount < 0)
         UE_LOG(LogDsonImporter, Warning,
-            TEXT("DsonMeshBuilder: GetUVSetCount returned %d for geom 0"), RawUVSetCount);
+            TEXT("DsonMeshBuilder: GetUVSetCount returned %d"), RawUVSetCount);
     const int32 UVSetCount = FMath::Max(0, RawUVSetCount);
     TArray<FVector2f> UVs;
     if (UVSetCount > 0)
     {
         const int32 RawUVCount = GDsonParser.GetUVCount
-            ? GDsonParser.GetUVCount(DsfHandle, 0, 0) : 0;
+            ? GDsonParser.GetUVCount(DsfHandle, 0) : 0;
         if (RawUVCount < 0)
             UE_LOG(LogDsonImporter, Warning,
-                TEXT("DsonMeshBuilder: GetUVCount returned %d for geom 0 uvset 0"), RawUVCount);
+                TEXT("DsonMeshBuilder: GetUVCount returned %d for uvset 0"), RawUVCount);
         const int32 UVCount = FMath::Max(0, RawUVCount);
         UVs.Reserve(UVCount);
         for (int32 i = 0; i < UVCount; ++i)
         {
-            const double U = GDsonParser.GetUVU ? GDsonParser.GetUVU(DsfHandle, 0, 0, i) : 0.0;
-            const double V = GDsonParser.GetUVV ? GDsonParser.GetUVV(DsfHandle, 0, 0, i) : 0.0;
+            const double U = GDsonParser.GetUVU ? GDsonParser.GetUVU(DsfHandle, 0, i) : 0.0;
+            const double V = GDsonParser.GetUVV ? GDsonParser.GetUVV(DsfHandle, 0, i) : 0.0;
             UVs.Add(FVector2f((float)U, 1.0f - (float)V));  // flip V for UE5
         }
     }
 
     // Step 4 — Read material group names
-    const int32 RawMatGroupCount = GDsonParser.GetMaterialGroupCount
-        ? GDsonParser.GetMaterialGroupCount(DsfHandle, 0) : 0;
+    const int32 RawMatGroupCount = GDsonParser.GetPolygonMaterialGroupCount
+        ? GDsonParser.GetPolygonMaterialGroupCount(DsfHandle, 0) : 0;
     if (RawMatGroupCount < 0)
         UE_LOG(LogDsonImporter, Warning,
-            TEXT("DsonMeshBuilder: GetMaterialGroupCount returned %d for geom 0"), RawMatGroupCount);
+            TEXT("DsonMeshBuilder: GetPolygonMaterialGroupCount returned %d for geom 0"), RawMatGroupCount);
     const int32 MatGroupCount = FMath::Max(0, RawMatGroupCount);
     TArray<FString> MaterialGroupNames;
     MaterialGroupNames.Reserve(MatGroupCount);
     for (int32 m = 0; m < MatGroupCount; ++m)
     {
-        const char* NameRaw = GDsonParser.GetMaterialGroupName
-            ? GDsonParser.GetMaterialGroupName(DsfHandle, 0, m) : nullptr;
+        const char* NameRaw = GDsonParser.GetPolygonMaterialGroupName
+            ? GDsonParser.GetPolygonMaterialGroupName(DsfHandle, 0, m) : nullptr;
         MaterialGroupNames.Add(NameRaw
             ? UTF8_TO_TCHAR(NameRaw)
             : FString::Printf(TEXT("MatGroup_%d"), m));
@@ -195,6 +195,17 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
     const int32 FaceCount = FMath::Max(0, RawFaceCount);
     Triangles.Reserve(FaceCount * 2);
 
+    // Build flat UV polygon vertex index array for uvset 0
+    TArray<int32> UVPolyVertIndices;
+    if (UVSetCount > 0 && GDsonParser.GetUVPolygonVertexIndexCount && GDsonParser.GetUVPolygonVertexIndex)
+    {
+        const int32 FlatCount = GDsonParser.GetUVPolygonVertexIndexCount(DsfHandle, 0);
+        UVPolyVertIndices.Reserve(FlatCount > 0 ? FlatCount : 0);
+        for (int32 i = 0; i < FlatCount; ++i)
+            UVPolyVertIndices.Add(GDsonParser.GetUVPolygonVertexIndex(DsfHandle, 0, i));
+    }
+
+    int32 UVFlatOffset = 0;
     for (int32 f = 0; f < FaceCount; ++f)
     {
         const int32 RawCornerCount = GDsonParser.GetPolylistFaceVertexCount
@@ -207,11 +218,15 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
             ? GDsonParser.GetPolylistFaceMaterialIndex(DsfHandle, 0, f) : 0;
 
         if (CornerCount < 3)
+        {
+            UVFlatOffset += CornerCount;
             continue;
+        }
         if (CornerCount > 4)
         {
             UE_LOG(LogDsonImporter, Warning,
                 TEXT("DsonMeshBuilder: face %d has %d corners (>4), skipping"), f, CornerCount);
+            UVFlatOffset += CornerCount;
             continue;
         }
 
@@ -222,8 +237,8 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
             VIdx[c] = GDsonParser.GetPolylistFaceVertex
                 ? GDsonParser.GetPolylistFaceVertex(DsfHandle, 0, f, c) : 0;
 
-            UVIdx[c] = (UVSetCount > 0 && GDsonParser.GetUVPolygonVertexIndex)
-                ? GDsonParser.GetUVPolygonVertexIndex(DsfHandle, 0, 0, f, c) : 0;
+            UVIdx[c] = UVPolyVertIndices.IsValidIndex(UVFlatOffset + c)
+                ? UVPolyVertIndices[UVFlatOffset + c] : 0;
         }
 
         // Triangle 1: corners (0, 1, 2)
@@ -240,6 +255,8 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
             T1.UVIndex[0]   = UVIdx[0]; T1.UVIndex[1]   = UVIdx[2]; T1.UVIndex[2]   = UVIdx[3];
             T1.MaterialIndex = MatIdx;
         }
+
+        UVFlatOffset += CornerCount;
     }
 
     // Step 6 — Create USkeletalMesh asset

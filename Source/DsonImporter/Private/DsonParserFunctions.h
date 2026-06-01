@@ -42,13 +42,14 @@ typedef int32_t  (*DsonDocument_GetPolylistCountFn)(uint64_t handle, int32_t geo
 typedef int32_t  (*DsonDocument_GetPolylistFaceVertexCountFn)(uint64_t handle, int32_t geomIndex, int32_t faceIndex);
 typedef int32_t  (*DsonDocument_GetPolylistFaceVertexFn)(uint64_t handle, int32_t geomIndex, int32_t faceIndex, int32_t cornerIndex);
 typedef int32_t  (*DsonDocument_GetPolylistFaceMaterialIndexFn)(uint64_t handle, int32_t geomIndex, int32_t faceIndex);
-typedef int32_t  (*DsonDocument_GetUVSetCountFn)(uint64_t handle, int32_t geomIndex);
-typedef int32_t  (*DsonDocument_GetUVCountFn)(uint64_t handle, int32_t geomIndex, int32_t uvSetIndex);
-typedef double   (*DsonDocument_GetUVUFn)(uint64_t handle, int32_t geomIndex, int32_t uvSetIndex, int32_t uvIndex);
-typedef double   (*DsonDocument_GetUVVFn)(uint64_t handle, int32_t geomIndex, int32_t uvSetIndex, int32_t uvIndex);
-typedef int32_t  (*DsonDocument_GetUVPolygonVertexIndexFn)(uint64_t handle, int32_t geomIndex, int32_t uvSetIndex, int32_t faceIndex, int32_t cornerIndex);
-typedef int32_t  (*DsonDocument_GetMaterialGroupCountFn)(uint64_t handle, int32_t geomIndex);
-typedef const char* (*DsonDocument_GetMaterialGroupNameFn)(uint64_t handle, int32_t geomIndex, int32_t matGroupIndex);
+typedef int32_t  (*DsonDocument_GetUVSetCountFn)(uint64_t handle);
+typedef int32_t  (*DsonDocument_GetUVCountFn)(uint64_t handle, int32_t uvSetIndex);
+typedef double   (*DsonDocument_GetUVUFn)(uint64_t handle, int32_t uvSetIndex, int32_t uvIndex);
+typedef double   (*DsonDocument_GetUVVFn)(uint64_t handle, int32_t uvSetIndex, int32_t uvIndex);
+typedef int32_t  (*DsonDocument_GetUVPolygonVertexIndexCountFn)(uint64_t handle, int32_t uvSetIndex);
+typedef int32_t  (*DsonDocument_GetUVPolygonVertexIndexFn)(uint64_t handle, int32_t uvSetIndex, int32_t index);
+typedef int         (*DsonDocument_GetPolygonMaterialGroupCountFn)(uint64_t handle, int32_t geomIndex);
+typedef const char* (*DsonDocument_GetPolygonMaterialGroupNameFn)(uint64_t handle, int32_t geomIndex, int32_t groupIndex);
 
 struct FDsonParserAPI
 {
@@ -86,13 +87,14 @@ struct FDsonParserAPI
     DsonDocument_GetPolylistFaceVertexCountFn  GetPolylistFaceVertexCount  = nullptr;
     DsonDocument_GetPolylistFaceVertexFn       GetPolylistFaceVertex       = nullptr;
     DsonDocument_GetPolylistFaceMaterialIndexFn GetPolylistFaceMaterialIndex = nullptr;
-    DsonDocument_GetUVSetCountFn               GetUVSetCount               = nullptr;
-    DsonDocument_GetUVCountFn                  GetUVCount                  = nullptr;
-    DsonDocument_GetUVUFn                      GetUVU                      = nullptr;
-    DsonDocument_GetUVVFn                      GetUVV                      = nullptr;
-    DsonDocument_GetUVPolygonVertexIndexFn     GetUVPolygonVertexIndex     = nullptr;
-    DsonDocument_GetMaterialGroupCountFn       GetMaterialGroupCount       = nullptr;
-    DsonDocument_GetMaterialGroupNameFn        GetMaterialGroupName        = nullptr;
+    DsonDocument_GetUVSetCountFn                  GetUVSetCount                  = nullptr;
+    DsonDocument_GetUVCountFn                     GetUVCount                     = nullptr;
+    DsonDocument_GetUVUFn                         GetUVU                         = nullptr;
+    DsonDocument_GetUVVFn                         GetUVV                         = nullptr;
+    DsonDocument_GetUVPolygonVertexIndexCountFn   GetUVPolygonVertexIndexCount   = nullptr;
+    DsonDocument_GetUVPolygonVertexIndexFn        GetUVPolygonVertexIndex        = nullptr;
+    DsonDocument_GetPolygonMaterialGroupCountFn   GetPolygonMaterialGroupCount   = nullptr;
+    DsonDocument_GetPolygonMaterialGroupNameFn    GetPolygonMaterialGroupName    = nullptr;
 
     bool IsValid() const
     {
