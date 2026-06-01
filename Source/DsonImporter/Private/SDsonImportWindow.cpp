@@ -16,6 +16,7 @@
 #include "DesktopPlatformModule.h"
 #include "IDesktopPlatform.h"
 #include "DsonSkeletonBuilder.h"
+#include "DsonMeshBuilder.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
 #include "ContentBrowserModule.h"
@@ -237,6 +238,18 @@ FReply SDsonImportWindow::OnImportClicked()
         UE_LOG(LogDsonImporter, Log,
             TEXT("Skeleton imported successfully: %s"), *Skeleton->GetPathName());
 
+        USkeletalMesh* Mesh = FDsonMeshBuilder::Build(PendingSettings, Skeleton);
+        if (Mesh)
+        {
+            UE_LOG(LogDsonImporter, Log,
+                TEXT("Skeletal mesh imported successfully: %s"), *Mesh->GetPathName());
+        }
+        else
+        {
+            UE_LOG(LogDsonImporter, Error,
+                TEXT("Skeletal mesh import failed. Check the Output Log for details."));
+        }
+
         FNotificationInfo Info(FText::FromString(TEXT("Skeleton imported successfully")));
         Info.ExpireDuration = 4.0f;
         Info.bUseLargeFont  = false;
@@ -247,7 +260,10 @@ FReply SDsonImportWindow::OnImportClicked()
 
         FContentBrowserModule& CBModule =
             FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
-        CBModule.Get().SyncBrowserToAssets({ FAssetData(Skeleton) });
+        if (Mesh)
+            CBModule.Get().SyncBrowserToAssets({ FAssetData(Skeleton), FAssetData(Mesh) });
+        else
+            CBModule.Get().SyncBrowserToAssets({ FAssetData(Skeleton) });
     }
     else
     {

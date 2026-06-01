@@ -18,7 +18,9 @@ public class DsonImporter : ModuleRules
             "UnrealEd",
             // Required for Phase 3 — skeletal mesh building
             "MeshDescription",
+            "StaticMeshDescription",
             "SkeletalMeshDescription",
+            "MeshBuilder",
             "MeshUtilities",
             "RenderCore",
             "RHI",

@@ -90,6 +90,23 @@ void FDsonImporterModule::StartupModule()
     LOAD_FN_WARN(GetNodeGeneralScale, DsonDocument_GetNodeGeneralScale)
     LOAD_FN_WARN(GetUnitScale,        DsonDocument_GetUnitScale)
 
+    LOAD_FN_WARN(GetGeometryCount,            DsonDocument_GetGeometryCount)
+    LOAD_FN_WARN(GetVertexCount,              DsonDocument_GetVertexCount)
+    LOAD_FN_WARN(GetVertexX,                  DsonDocument_GetVertexX)
+    LOAD_FN_WARN(GetVertexY,                  DsonDocument_GetVertexY)
+    LOAD_FN_WARN(GetVertexZ,                  DsonDocument_GetVertexZ)
+    LOAD_FN_WARN(GetPolylistCount,            DsonDocument_GetPolylistCount)
+    LOAD_FN_WARN(GetPolylistFaceVertexCount,  DsonDocument_GetPolylistFaceVertexCount)
+    LOAD_FN_WARN(GetPolylistFaceVertex,       DsonDocument_GetPolylistFaceVertex)
+    LOAD_FN_WARN(GetPolylistFaceMaterialIndex,DsonDocument_GetPolylistFaceMaterialIndex)
+    LOAD_FN_WARN(GetUVSetCount,               DsonDocument_GetUVSetCount)
+    LOAD_FN_WARN(GetUVCount,                  DsonDocument_GetUVCount)
+    LOAD_FN_WARN(GetUVU,                      DsonDocument_GetUVU)
+    LOAD_FN_WARN(GetUVV,                      DsonDocument_GetUVV)
+    LOAD_FN_WARN(GetUVPolygonVertexIndex,     DsonDocument_GetUVPolygonVertexIndex)
+    LOAD_FN_WARN(GetMaterialGroupCount,       DsonDocument_GetMaterialGroupCount)
+    LOAD_FN_WARN(GetMaterialGroupName,        DsonDocument_GetMaterialGroupName)
+
 #undef LOAD_FN_WARN
 
     if (!GDsonParser.IsValid())
