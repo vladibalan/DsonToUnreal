@@ -114,14 +114,7 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
     double UnitScale = GDsonParser.GetUnitScale
         ? GDsonParser.GetUnitScale(DsfHandle) : 1.0 / 100.0;
     const double ToCm = UnitScale;
-    
-    UE_LOG(LogDsonImporter, Warning,
-        TEXT("DsonMeshBuilder: UnitScale=%f ToCm=%f (geom0 vert0 raw = %f, %f, %f)"),
-        UnitScale, ToCm,
-        GDsonParser.GetVertexX(DsfHandle, 0, 0),
-        GDsonParser.GetVertexY(DsfHandle, 0, 0),
-        GDsonParser.GetVertexZ(DsfHandle, 0, 0));
-    
+
     const int32 RawVertCount = GDsonParser.GetVertexCount
         ? GDsonParser.GetVertexCount(DsfHandle, 0) : 0;
     if (RawVertCount < 0)

@@ -406,28 +406,6 @@ USkeleton* FDsonSkeletonBuilder::CreateSkeletonAsset(
         Skeleton->MergeAllBonesToBoneTree(TempMesh);
     }
 
-    // DIAGNOSTIC — remove before Phase 6
-    {
-        const FReferenceSkeleton& DumpSkel = Skeleton->GetReferenceSkeleton();
-        UE_LOG(LogDsonImporter, Log,
-            TEXT("DsonSkeletonBuilder: skeleton has %d bones"),
-            DumpSkel.GetRawBoneNum());
-        for (int32 b = 0; b < DumpSkel.GetRawBoneNum(); ++b)
-        {
-            const FTransform& Pose = DumpSkel.GetRawRefBonePose()[b];
-            const FQuat Q = Pose.GetRotation();
-            UE_LOG(LogDsonImporter, Log,
-                TEXT("  Bone[%d] '%s' parent=%d pos=(%.2f, %.2f, %.2f) quat=(w%.5f, x%.5f, y%.5f, z%.5f)"),
-                b,
-                *DumpSkel.GetBoneName(b).ToString(),
-                DumpSkel.GetRawParentIndex(b),
-                Pose.GetTranslation().X,
-                Pose.GetTranslation().Y,
-                Pose.GetTranslation().Z,
-                Q.W, Q.X, Q.Y, Q.Z);
-        }
-    }
-
 #if 0
     // ── Approach 2 (fallback): direct FReferenceSkeleton assignment ──
     // Try if Approach 1 does not compile (e.g. SetRefSkeleton is inaccessible in the SDK
