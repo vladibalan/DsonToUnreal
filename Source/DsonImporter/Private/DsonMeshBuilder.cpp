@@ -8,6 +8,7 @@
 #include "Animation/Skeleton.h"
 #include "Rendering/SkeletalMeshLODImporterData.h"
 #include "Rendering/SkeletalMeshModel.h"
+#include "Rendering/SkeletalMeshRenderData.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "UObject/Package.h"
@@ -433,6 +434,11 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
             TEXT("DsonMeshBuilder: MergeAllBonesToBoneTree failed — skeleton may be mismatched"));
     }
     Mesh->SetSkeleton(Skeleton);
+
+    if (!Mesh->GetResourceForRendering() || !Mesh->GetResourceForRendering()->LODRenderData.IsValidIndex(0))
+    {
+        Mesh->Build();
+    }
 
     // Step 9 — Save
     Package->MarkPackageDirty();
