@@ -16,10 +16,12 @@
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "PackageTools.h"
 #include "IMeshBuilderModule.h"
-#include "Engine/SkeletalMesh.h"
 #include "ImportUtils/SkeletalMeshImportUtils.h"
 #include "Interfaces/ITargetPlatform.h"
 #include "Interfaces/ITargetPlatformManagerModule.h"
+#include "MeshDescription.h"
+#include "SkeletalMeshAttributes.h"
+#include "BoneWeights.h"
 
 // ---------------------------------------------------------------------------
 // Build
@@ -261,134 +263,23 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
         return nullptr;
     }
 
-    // Step 7 — Populate FSkeletalMeshImportData
-    FSkeletalMeshImportData ImportData;
+    // Step 7 — Build FMeshDescription for LOD 0 directly and commit it
 
-    // Material slots
+    // 7a — Populate mesh material slots (must exist before polygon groups reference them)
     for (const FString& GroupName : MaterialGroupNames)
     {
-        SkeletalMeshImportData::FMaterial Mat;
-        Mat.MaterialImportName = GroupName;
-        ImportData.Materials.Add(Mat);
+        FSkeletalMaterial Mat;
+        Mat.ImportedMaterialSlotName = FName(*GroupName);
+        Mesh->GetMaterials().Add(Mat);
     }
-    if (ImportData.Materials.IsEmpty())
+    if (Mesh->GetMaterials().IsEmpty())
     {
-        SkeletalMeshImportData::FMaterial DefaultMat;
-        DefaultMat.MaterialImportName = TEXT("DefaultMaterial");
-        ImportData.Materials.Add(DefaultMat);
+        FSkeletalMaterial DefaultMat;
+        DefaultMat.ImportedMaterialSlotName = FName(TEXT("DefaultMaterial"));
+        Mesh->GetMaterials().Add(DefaultMat);
     }
 
-    // Points (vertex positions)
-    ImportData.Points.Reserve(Positions.Num());
-    for (const FVector3f& P : Positions)
-        ImportData.Points.Add(P);
-
-    // Wedges (one per triangle corner)
-    ImportData.Wedges.Reserve(Triangles.Num() * 3);
-    for (const FDsonTriangle& Tri : Triangles)
-    {
-        for (int32 c = 0; c < 3; ++c)
-        {
-            SkeletalMeshImportData::FVertex Wedge;
-            Wedge.VertexIndex = (uint32)Tri.VertIndex[c];
-            Wedge.UVs[0]      = UVs.IsValidIndex(Tri.UVIndex[c])
-                                    ? UVs[Tri.UVIndex[c]]
-                                    : FVector2f::ZeroVector;
-            Wedge.MatIndex    = (uint16)FMath::Clamp(Tri.MaterialIndex, 0,
-                                    ImportData.Materials.Num() - 1);
-            Wedge.Color       = FColor::White;
-            ImportData.Wedges.Add(Wedge);
-        }
-    }
-
-    // Faces (one per triangle)
-    ImportData.Faces.Reserve(Triangles.Num());
-    for (int32 t = 0; t < Triangles.Num(); ++t)
-    {
-        SkeletalMeshImportData::FTriangle Face;
-        Face.WedgeIndex[0]   = (uint32)(t * 3 + 0);
-        Face.WedgeIndex[1]   = (uint32)(t * 3 + 1);
-        Face.WedgeIndex[2]   = (uint32)(t * 3 + 2);
-        Face.MatIndex        = (uint16)FMath::Clamp(
-                                   Triangles[t].MaterialIndex, 0,
-                                   ImportData.Materials.Num() - 1);
-        Face.AuxMatIndex     = Face.MatIndex;
-        Face.SmoothingGroups = 255;
-        Face.TangentX[0] = Face.TangentX[1] = Face.TangentX[2] = FVector3f::ZeroVector;
-        Face.TangentY[0] = Face.TangentY[1] = Face.TangentY[2] = FVector3f::ZeroVector;
-        Face.TangentZ[0] = Face.TangentZ[1] = Face.TangentZ[2] = FVector3f::ZeroVector;
-        ImportData.Faces.Add(Face);
-    }
-
-    ImportData.NumTexCoords        = 1;
-    ImportData.bHasVertexColors    = false;
-    ImportData.bHasNormals         = false;
-    ImportData.bHasTangents        = false;
-
-    // Influences — one root-bone influence per vertex (Phase 5 replaces these)
-    ImportData.Influences.Reserve(Positions.Num());
-    for (int32 i = 0; i < Positions.Num(); ++i)
-    {
-        SkeletalMeshImportData::FRawBoneInfluence Inf;
-        Inf.VertexIndex = (uint32)i;
-        Inf.BoneIndex   = 0;
-        Inf.Weight      = 1.0f;
-        ImportData.Influences.Add(Inf);
-    }
-
-    // PointToRawMap — identity map required by SaveLODImportedData → GetMeshDescription;
-    // without it GetMeshDescription skips the ImportPointIndex vertex attribute entirely.
-    ImportData.PointToRawMap.SetNumUninitialized(Positions.Num());
-    for (int32 i = 0; i < Positions.Num(); ++i)
-        ImportData.PointToRawMap[i] = i;
-
-    // Step 8 — Build the USkeletalMesh from import data
-    // Follows the exact sequence of FFbxImporter::ImportSkeletalMesh()
-    // (FbxSkeletalMeshImport.cpp lines 1869–2161)
-
-    // 8a — Prepare the mesh object for editing and dirty the DDC key
-    Mesh->PreEditChange(nullptr);
-    Mesh->InvalidateDeriveDataCacheGUID();
-
-    // 8b — Set up LODModels (must be empty, then have exactly one entry at index 0)
-    FSkeletalMeshModel* ImportedResource = Mesh->GetImportedModel();
-    ImportedResource->LODModels.Empty();
-    ImportedResource->LODModels.Add(new FSkeletalMeshLODModel());
-    FSkeletalMeshLODModel& LODModel = ImportedResource->LODModels[0];
-
-    // 8c — Process materials into mesh material slots
-    SkeletalMeshImportUtils::ProcessImportMeshMaterials(Mesh->GetMaterials(), ImportData);
-
-    // 8d — Populate RefBonesBinary from the USkeleton, then build Mesh->GetRefSkeleton()
-    {
-        const FReferenceSkeleton& SkelRefSkeleton = Skeleton->GetReferenceSkeleton();
-        ImportData.RefBonesBinary.Empty();
-        ImportData.RefBonesBinary.Reserve(SkelRefSkeleton.GetRawBoneNum());
-        for (int32 b = 0; b < SkelRefSkeleton.GetRawBoneNum(); ++b)
-        {
-            SkeletalMeshImportData::FBone Bone;
-            Bone.Name        = SkelRefSkeleton.GetBoneName(b).ToString();
-            Bone.ParentIndex = SkelRefSkeleton.GetRawParentIndex(b);
-            Bone.NumChildren = 0; // filled by ProcessImportMeshSkeleton
-            const FTransform& BonePose = SkelRefSkeleton.GetRawRefBonePose()[b];
-            Bone.BonePos.Transform = FTransform3f(BonePose);
-            ImportData.RefBonesBinary.Add(Bone);
-        }
-    }
-
-    int32 SkeletalDepth = 0;
-    if (!SkeletalMeshImportUtils::ProcessImportMeshSkeleton(
-            Skeleton, Mesh->GetRefSkeleton(), SkeletalDepth, ImportData))
-    {
-        UE_LOG(LogDsonImporter, Error,
-            TEXT("DsonMeshBuilder: ProcessImportMeshSkeleton failed"));
-        return nullptr;
-    }
-
-    // 8e — Normalize and sort bone influences
-    SkeletalMeshImportUtils::ProcessImportMeshInfluences(ImportData, Mesh->GetPathName());
-
-    // 8f — LODInfo: must exist before SaveLODImportedData and BuildSkeletalMesh
+    // 8d — LODInfo (required before CreateMeshDescription)
     Mesh->ResetLODInfo();
     FSkeletalMeshLODInfo& NewLODInfo = Mesh->AddLODInfo();
     NewLODInfo.ReductionSettings.NumOfTrianglesPercentage = 1.0f;
@@ -396,19 +287,143 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
     NewLODInfo.ReductionSettings.MaxDeviationPercentage   = 0.0f;
     NewLODInfo.LODHysteresis                              = 0.02f;
 
-    // 8g — Convert ImportData to MeshDescription and commit it; must precede Build
-    PRAGMA_DISABLE_DEPRECATION_WARNINGS
-    Mesh->SaveLODImportedData(0, ImportData);
-    PRAGMA_ENABLE_DEPRECATION_WARNINGS
+    // 8b — LODModels[0] must exist before CommitMeshDescription (line 2514 of SkeletalMesh.cpp
+    //      ensures LODModels.IsValidIndex(0) to stamp bulk-data fields onto the LODModel)
+    FSkeletalMeshModel* ImportedResource = Mesh->GetImportedModel();
+    ImportedResource->LODModels.Empty();
+    ImportedResource->LODModels.Add(new FSkeletalMeshLODModel());
+    FSkeletalMeshLODModel& LODModel = ImportedResource->LODModels[0];
 
-    // 8h — Bounds, vertex-color state, and tex-coord count
-    FBox3f BoundingBox(ImportData.Points.GetData(), ImportData.Points.Num());
+    // 7b — Create the MeshDescription and register all skeletal mesh attributes
+    FMeshDescription* MeshDesc = Mesh->CreateMeshDescription(0);
+    check(MeshDesc);
+    FSkeletalMeshAttributes SkelAttribs(*MeshDesc);
+    SkelAttribs.Register();
+
+    // 7c — Populate bone attributes from the reference skeleton
+    {
+        const FReferenceSkeleton& RefSkel = Skeleton->GetReferenceSkeleton();
+        SkelAttribs.ReserveNewBones(RefSkel.GetRawBoneNum());
+
+        FSkeletalMeshAttributes::FBoneNameAttributesRef        BoneNames   = SkelAttribs.GetBoneNames();
+        FSkeletalMeshAttributes::FBoneParentIndexAttributesRef BoneParents = SkelAttribs.GetBoneParentIndices();
+        FSkeletalMeshAttributes::FBonePoseAttributesRef        BonePoses   = SkelAttribs.GetBonePoses();
+
+        for (int32 b = 0; b < RefSkel.GetRawBoneNum(); ++b)
+        {
+            const FBoneID BoneID = SkelAttribs.CreateBone();
+            BoneNames  .Set(BoneID, RefSkel.GetBoneName(b));
+            BoneParents.Set(BoneID, RefSkel.GetRawParentIndex(b));
+            BonePoses  .Set(BoneID, RefSkel.GetRawRefBonePose()[b]);
+        }
+    }
+
+    // 7d — Vertex positions and skin weights (one root-bone influence per vertex)
+    TVertexAttributesRef<FVector3f> VertexPositions   = SkelAttribs.GetVertexPositions();
+    FSkinWeightsVertexAttributesRef VertexSkinWeights = SkelAttribs.GetVertexSkinWeights();
+
+    TArray<FVertexID> VertexIDs;
+    VertexIDs.Reserve(Positions.Num());
+    {
+        using namespace UE::AnimationCore;
+        TArray<FBoneWeight> SingleInfluence;
+        SingleInfluence.Add(FBoneWeight(static_cast<FBoneIndexType>(0), 1.0f));
+
+        for (int32 i = 0; i < Positions.Num(); ++i)
+        {
+            const FVertexID VID = MeshDesc->CreateVertex();
+            VertexIDs.Add(VID);
+            VertexPositions  .Set(VID, Positions[i]);
+            VertexSkinWeights.Set(VID, SingleInfluence);
+        }
+    }
+
+    // 7e — UV channels, polygon groups, vertex instances, and triangles
+    TVertexInstanceAttributesRef<FVector2f> VertexInstanceUVs      = SkelAttribs.GetVertexInstanceUVs();
+    TPolygonGroupAttributesRef<FName>       PolyGroupMaterialNames = SkelAttribs.GetPolygonGroupMaterialSlotNames();
+
+    VertexInstanceUVs.SetNumChannels(1);
+
+    const int32 NumMaterials = Mesh->GetMaterials().Num();
+    TArray<FPolygonGroupID> PolyGroups;
+    PolyGroups.Reserve(NumMaterials);
+    for (int32 m = 0; m < NumMaterials; ++m)
+    {
+        const FPolygonGroupID PGID = MeshDesc->CreatePolygonGroup();
+        PolyGroupMaterialNames.Set(PGID, Mesh->GetMaterials()[m].ImportedMaterialSlotName);
+        PolyGroups.Add(PGID);
+    }
+
+    {
+        TArray<FVertexInstanceID> CornerInstances;
+        CornerInstances.SetNum(3);
+        for (int32 t = 0; t < Triangles.Num(); ++t)
+        {
+            const FDsonTriangle& Tri       = Triangles[t];
+            const int32          SafeMatIdx = FMath::Clamp(Tri.MaterialIndex, 0, PolyGroups.Num() - 1);
+
+            for (int32 c = 0; c < 3; ++c)
+            {
+                const FVertexID         VID  = VertexIDs[Tri.VertIndex[c]];
+                const FVertexInstanceID VIID = MeshDesc->CreateVertexInstance(VID);
+                const FVector2f         UV   = UVs.IsValidIndex(Tri.UVIndex[c])
+                                                   ? UVs[Tri.UVIndex[c]] : FVector2f::ZeroVector;
+                VertexInstanceUVs.Set(VIID, 0, UV);
+                CornerInstances[c] = VIID;
+            }
+
+            MeshDesc->CreateTriangle(PolyGroups[SafeMatIdx], CornerInstances);
+        }
+    }
+
+    // 7f — Commit to bulk storage (replaces deprecated SaveLODImportedData)
+    if (!Mesh->CommitMeshDescription(0))
+    {
+        UE_LOG(LogDsonImporter, Error,
+            TEXT("DsonMeshBuilder: CommitMeshDescription failed for '%s'"),
+            *Settings.ResolvedFigureDsfPath);
+        return nullptr;
+    }
+
+    // Step 8 — Build the USkeletalMesh from the committed MeshDescription
+
+    // 8a — Prepare asset
+    Mesh->PreEditChange(nullptr);
+    Mesh->InvalidateDeriveDataCacheGUID();
+
+    // 8c — Populate Mesh->GetRefSkeleton() via a minimal FSkeletalMeshImportData;
+    //      BuildSkeletalMesh reads the mesh's own FReferenceSkeleton, not the MeshDescription bones.
+    {
+        const FReferenceSkeleton& SkelRef = Skeleton->GetReferenceSkeleton();
+        FSkeletalMeshImportData TempData;
+        TempData.RefBonesBinary.Reserve(SkelRef.GetRawBoneNum());
+        for (int32 b = 0; b < SkelRef.GetRawBoneNum(); ++b)
+        {
+            SkeletalMeshImportData::FBone Bone;
+            Bone.Name        = SkelRef.GetBoneName(b).ToString();
+            Bone.ParentIndex = SkelRef.GetRawParentIndex(b);
+            Bone.NumChildren = 0;
+            Bone.BonePos.Transform = FTransform3f(SkelRef.GetRawRefBonePose()[b]);
+            TempData.RefBonesBinary.Add(Bone);
+        }
+        int32 SkeletalDepth = 0;
+        if (!SkeletalMeshImportUtils::ProcessImportMeshSkeleton(
+                Skeleton, Mesh->GetRefSkeleton(), SkeletalDepth, TempData))
+        {
+            UE_LOG(LogDsonImporter, Error,
+                TEXT("DsonMeshBuilder: ProcessImportMeshSkeleton failed"));
+            return nullptr;
+        }
+    }
+
+    // 8e — Bounds, vertex-color state, and tex-coord count
+    FBox3f BoundingBox(Positions.GetData(), Positions.Num());
     Mesh->SetImportedBounds(FBoxSphereBounds(FBox(BoundingBox)));
-    Mesh->SetHasVertexColors(ImportData.bHasVertexColors);
-    Mesh->SetVertexColorGuid(Mesh->GetHasVertexColors() ? FGuid::NewGuid() : FGuid());
-    LODModel.NumTexCoords = FMath::Max<uint32>(1, ImportData.NumTexCoords);
+    Mesh->SetHasVertexColors(false);
+    Mesh->SetVertexColorGuid(FGuid());
+    LODModel.NumTexCoords = 1;
 
-    // 8i — Build settings, then invoke IMeshBuilderModule (requires LODInfo + MeshDescription)
+    // 8f — Build settings, then invoke IMeshBuilderModule (requires LODInfo + MeshDescription)
     Mesh->GetLODInfo(0)->BuildSettings.bRecomputeNormals  = true;
     Mesh->GetLODInfo(0)->BuildSettings.bRecomputeTangents = true;
 
@@ -426,7 +441,7 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
         return nullptr;
     }
 
-    // 8j — Post-build: inv-ref matrices, skeleton merge, then skeleton assignment
+    // 8g — Post-build: inv-ref matrices, skeleton merge, then skeleton assignment
     Mesh->CalculateInvRefMatrices();
     if (!Skeleton->MergeAllBonesToBoneTree(Mesh))
     {
