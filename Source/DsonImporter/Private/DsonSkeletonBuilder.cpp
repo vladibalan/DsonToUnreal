@@ -95,7 +95,7 @@ bool FDsonSkeletonBuilder::LoadDsfDocument(const FString& Path, uint64_t& OutHan
 
 void FDsonSkeletonBuilder::BuildReferenceSkeletonFromDsf(uint64_t DsfHandle, FReferenceSkeleton& OutRefSkeleton)
 {
-    double UnitScale = GDsonParser.GetUnitScale ? GDsonParser.GetUnitScale(DsfHandle) : 0.0;
+    double UnitScale = GDsonParser.GetUnitScale ? GDsonParser.GetUnitScale(DsfHandle) : 1.0 / 100.0;
     if (UnitScale == 0.0)
         UnitScale = 1.0 / 100.0; // DAZ default: 1 DAZ unit = 1 cm
 
@@ -238,7 +238,7 @@ FTransform FDsonSkeletonBuilder::MakeBoneTransform(uint64_t DsfHandle, int32 Nod
     const double CZ = GDsonParser.GetNodeCenterPointZ ? GDsonParser.GetNodeCenterPointZ(DsfHandle, NodeIndex) : 0.0;
 
     // DAZ (Y-up, right-hand) → UE5 (Z-up, left-hand): X←Z, Y←X, Z←Y
-    const double ToCm = UnitScale * 100.0;
+    const double ToCm = UnitScale ;
     const FVector Translation(CZ * ToCm, CX * ToCm, CY * ToCm);
 
     const double OX = GDsonParser.GetNodeOrientationX ? GDsonParser.GetNodeOrientationX(DsfHandle, NodeIndex) : 0.0;
