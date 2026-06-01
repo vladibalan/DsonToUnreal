@@ -19,6 +19,13 @@
 
 USkeleton* FDsonSkeletonBuilder::Build(const FDsonImportSettings& Settings)
 {
+    if (!GDsonParser.IsValid())
+    {
+        UE_LOG(LogDsonImporter, Error,
+            TEXT("DsonSkeletonBuilder: DsonParser API not fully loaded"));
+        return nullptr;
+    }
+
     uint64_t DsfHandle = 0;
     if (!LoadDsfDocument(Settings.ResolvedFigureDsfPath, DsfHandle))
         return nullptr;
