@@ -406,14 +406,6 @@ USkeleton* FDsonSkeletonBuilder::CreateSkeletonAsset(
         Skeleton->MergeAllBonesToBoneTree(TempMesh);
     }
 
-#if 0
-    // ── Approach 2 (fallback): direct FReferenceSkeleton assignment ──
-    // Try if Approach 1 does not compile (e.g. SetRefSkeleton is inaccessible in the SDK
-    // version you are targeting). Neither member is public in 5.4, so this may also fail.
-    //   Skeleton->ReferenceSkeleton = RefSkeleton;
-    //   Skeleton->CalculateInvRefMatrices();
-#endif
-
     Package->MarkPackageDirty();
 
     const FString FileName = FPackageName::LongPackageNameToFilename(
