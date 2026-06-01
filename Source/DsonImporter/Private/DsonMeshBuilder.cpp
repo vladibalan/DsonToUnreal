@@ -254,23 +254,25 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
                 ? UVPolyVertIndices[UVFlatOffset + c] : 0;
         }
 
-        // The DAZ→UE conversion negates one axis (a reflection), which reverses
-        // polygon winding. To keep faces wound consistently (normals outward) we
-        // emit corners in reversed order: (0,2,1) and (0,3,2) instead of the
-        // natural (0,1,2) / (0,2,3).
+        // Winding: the vertex conversion negates one axis (a reflection), which flips
+        // winding sense once relative to the source. The source mesh, brought into UE's
+        // left-handed space, needs exactly one net flip to face normals outward — the
+        // axis negation supplies it, so we keep the NATURAL corner order here.
+        // (Empirically verified: natural order + Y-negation gives outward normals;
+        // reversing here as well would double-flip and leave normals inward.)
 
-        // Triangle 1: corners (0, 2, 1) — reversed
+        // Triangle 1: corners (0, 1, 2)
         FDsonTriangle& T0 = Triangles.AddDefaulted_GetRef();
-        T0.VertIndex[0] = VIdx[0];  T0.VertIndex[1] = VIdx[2];  T0.VertIndex[2] = VIdx[1];
-        T0.UVIndex[0]   = UVIdx[0]; T0.UVIndex[1]   = UVIdx[2]; T0.UVIndex[2]   = UVIdx[1];
+        T0.VertIndex[0] = VIdx[0];  T0.VertIndex[1] = VIdx[1];  T0.VertIndex[2] = VIdx[2];
+        T0.UVIndex[0]   = UVIdx[0]; T0.UVIndex[1]   = UVIdx[1]; T0.UVIndex[2]   = UVIdx[2];
         T0.MaterialIndex = MatIdx;
 
         if (CornerCount == 4)
         {
-            // Triangle 2: corners (0, 3, 2) — reversed
+            // Triangle 2: corners (0, 2, 3)
             FDsonTriangle& T1 = Triangles.AddDefaulted_GetRef();
-            T1.VertIndex[0] = VIdx[0];  T1.VertIndex[1] = VIdx[3];  T1.VertIndex[2] = VIdx[2];
-            T1.UVIndex[0]   = UVIdx[0]; T1.UVIndex[1]   = UVIdx[3]; T1.UVIndex[2]   = UVIdx[2];
+            T1.VertIndex[0] = VIdx[0];  T1.VertIndex[1] = VIdx[2];  T1.VertIndex[2] = VIdx[3];
+            T1.UVIndex[0]   = UVIdx[0]; T1.UVIndex[1]   = UVIdx[2]; T1.UVIndex[2]   = UVIdx[3];
             T1.MaterialIndex = MatIdx;
         }
 
