@@ -1,6 +1,7 @@
 #include "DsonMeshBuilder.h"
 #include "DsonImporter.h"
 #include "DsonParserFunctions.h"
+#include "DsonSkinWeightsBuilder.h"
 #include "SDsonImportWindow.h"
 
 #include "Engine/SkeletalMesh.h"
@@ -391,6 +392,15 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
 
             MeshDesc->CreateTriangle(PolyGroups[SafeMatIdx], CornerInstances);
         }
+    }
+
+    // Apply real skin weights from the DSF skin modifier (replaces placeholder)
+    if (!FDsonSkinWeightsBuilder::Apply(DsfHandle, Mesh, Skeleton))
+    {
+        UE_LOG(LogDsonImporter, Warning,
+            TEXT("DsonMeshBuilder: skin weight application failed, "
+                 "mesh will use root-bone fallback for all vertices"));
+        // Non-fatal: continue with placeholder weights
     }
 
     // 7f — Commit to bulk storage (replaces deprecated SaveLODImportedData)

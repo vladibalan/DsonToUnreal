@@ -125,7 +125,7 @@ void FDsonSkeletonBuilder::BuildReferenceSkeletonFromDsf(uint64_t DsfHandle, FRe
         const char* PrRaw  = GDsonParser.GetNodeParent ? GDsonParser.GetNodeParent(DsfHandle, i) : nullptr;
 
         Entry.Id       = IdRaw ? UTF8_TO_TCHAR(IdRaw) : FString::Printf(TEXT("Bone_%d"), i);
-        Entry.Name     = NmRaw ? UTF8_TO_TCHAR(NmRaw) : Entry.Id;
+        Entry.Name     = Entry.Id;
         {
             FString RawParent = PrRaw ? UTF8_TO_TCHAR(PrRaw) : TEXT("");
             // DAZ parent refs are URL fragment ids like "#hip" — strip the leading '#'

@@ -108,6 +108,21 @@ void FDsonImporterModule::StartupModule()
     LOAD_FN_WARN(GetPolygonMaterialGroupCount,   DsonDocument_GetPolygonMaterialGroupCount)
     LOAD_FN_WARN(GetPolygonMaterialGroupName,    DsonDocument_GetPolygonMaterialGroupName)
 
+    LOAD_FN_WARN(GetModifierId,                  DsonDocument_GetModifierId)
+    LOAD_FN_WARN(GetModifierName,                DsonDocument_GetModifierName)
+    LOAD_FN_WARN(GetModifierType,                DsonDocument_GetModifierType)
+    LOAD_FN_WARN(GetModifierCount,               DsonDocument_GetModifierCount)
+    LOAD_FN_WARN(GetModifierSkinVertexCount,      DsonDocument_GetModifierSkinVertexCount)
+    LOAD_FN_WARN(GetModifierSkinJointCount,       DsonDocument_GetModifierSkinJointCount)
+    LOAD_FN_WARN(GetSkinJointCount,              DsonDocument_GetSkinJointCount)
+    LOAD_FN_WARN(GetSkinJointNodeId,             DsonDocument_GetSkinJointNodeId)
+    LOAD_FN_WARN(GetSkinJointWeightCount,        DsonDocument_GetSkinJointWeightCount)
+    LOAD_FN_WARN(GetSkinJointWeightVertexIndex,  DsonDocument_GetSkinJointWeightVertexIndex)
+    LOAD_FN_WARN(GetSkinJointWeight,             DsonDocument_GetSkinJointWeight)
+    LOAD_FN_WARN(GetVertexInfluenceCount,        DsonDocument_GetVertexInfluenceCount)
+    LOAD_FN_WARN(GetVertexBoneInfluence,         DsonDocument_GetVertexBoneInfluence)
+    LOAD_FN_WARN(GetVertexBoneInfluenceCapped,   DsonDocument_GetVertexBoneInfluenceCapped)
+
 #undef LOAD_FN_WARN
 
     if (!GDsonParser.IsValid())

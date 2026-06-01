@@ -51,6 +51,26 @@ typedef int32_t  (*DsonDocument_GetUVPolygonVertexIndexFn)(uint64_t handle, int3
 typedef int         (*DsonDocument_GetPolygonMaterialGroupCountFn)(uint64_t handle, int32_t geomIndex);
 typedef const char* (*DsonDocument_GetPolygonMaterialGroupNameFn)(uint64_t handle, int32_t geomIndex, int32_t groupIndex);
 
+// Modifier info
+typedef const char* (*DsonDocument_GetModifierIdFn)(uint64_t handle, int32_t index);
+typedef const char* (*DsonDocument_GetModifierNameFn)(uint64_t handle, int32_t index);
+typedef const char* (*DsonDocument_GetModifierTypeFn)(uint64_t handle, int32_t index);
+typedef int32_t     (*DsonDocument_GetModifierCountFn)(uint64_t handle);
+typedef int32_t     (*DsonDocument_GetModifierSkinVertexCountFn)(uint64_t handle, int32_t modifierIndex);
+typedef int32_t     (*DsonDocument_GetModifierSkinJointCountFn)(uint64_t handle, int32_t modifierIndex);
+
+// Skin weights — joint-based access
+typedef int32_t     (*DsonDocument_GetSkinJointCountFn)(uint64_t handle, int32_t modifierIndex);
+typedef const char* (*DsonDocument_GetSkinJointNodeIdFn)(uint64_t handle, int32_t modifierIndex, int32_t jointIndex);
+typedef int32_t     (*DsonDocument_GetSkinJointWeightCountFn)(uint64_t handle, int32_t modifierIndex, int32_t jointIndex);
+typedef int32_t     (*DsonDocument_GetSkinJointWeightVertexIndexFn)(uint64_t handle, int32_t modifierIndex, int32_t jointIndex, int32_t weightIndex);
+typedef double      (*DsonDocument_GetSkinJointWeightFn)(uint64_t handle, int32_t modifierIndex, int32_t jointIndex, int32_t weightIndex);
+
+// Skin weights — per-vertex access (capped and normalized)
+typedef int32_t     (*DsonDocument_GetVertexInfluenceCountFn)(uint64_t handle, int32_t modifierIndex, int32_t vertexIndex, int32_t maxInfluences);
+typedef bool        (*DsonDocument_GetVertexBoneInfluenceFn)(uint64_t handle, int32_t modifierIndex, int32_t vertexIndex, int32_t influenceIndex, const char** boneNodeId, double* weight);
+typedef bool        (*DsonDocument_GetVertexBoneInfluenceCappedFn)(uint64_t handle, int32_t modifierIndex, int32_t vertexIndex, int32_t influenceIndex, int32_t maxInfluences, const char** boneNodeId, double* weight);
+
 struct FDsonParserAPI
 {
     Fn_Create                    Create                    = nullptr;
@@ -95,6 +115,21 @@ struct FDsonParserAPI
     DsonDocument_GetUVPolygonVertexIndexFn        GetUVPolygonVertexIndex        = nullptr;
     DsonDocument_GetPolygonMaterialGroupCountFn   GetPolygonMaterialGroupCount   = nullptr;
     DsonDocument_GetPolygonMaterialGroupNameFn    GetPolygonMaterialGroupName    = nullptr;
+
+    DsonDocument_GetModifierIdFn                  GetModifierId                  = nullptr;
+    DsonDocument_GetModifierNameFn                GetModifierName                = nullptr;
+    DsonDocument_GetModifierTypeFn                GetModifierType                = nullptr;
+    DsonDocument_GetModifierCountFn               GetModifierCount               = nullptr;
+    DsonDocument_GetModifierSkinVertexCountFn      GetModifierSkinVertexCount     = nullptr;
+    DsonDocument_GetModifierSkinJointCountFn       GetModifierSkinJointCount      = nullptr;
+    DsonDocument_GetSkinJointCountFn              GetSkinJointCount              = nullptr;
+    DsonDocument_GetSkinJointNodeIdFn             GetSkinJointNodeId             = nullptr;
+    DsonDocument_GetSkinJointWeightCountFn        GetSkinJointWeightCount        = nullptr;
+    DsonDocument_GetSkinJointWeightVertexIndexFn  GetSkinJointWeightVertexIndex  = nullptr;
+    DsonDocument_GetSkinJointWeightFn             GetSkinJointWeight             = nullptr;
+    DsonDocument_GetVertexInfluenceCountFn        GetVertexInfluenceCount        = nullptr;
+    DsonDocument_GetVertexBoneInfluenceFn         GetVertexBoneInfluence         = nullptr;
+    DsonDocument_GetVertexBoneInfluenceCappedFn   GetVertexBoneInfluenceCapped   = nullptr;
 
     bool IsValid() const
     {
