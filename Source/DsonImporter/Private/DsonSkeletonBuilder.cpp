@@ -126,12 +126,48 @@ void FDsonSkeletonBuilder::BuildReferenceSkeletonFromDsf(uint64_t DsfHandle, FRe
 
         Entry.Id       = IdRaw ? UTF8_TO_TCHAR(IdRaw) : FString::Printf(TEXT("Bone_%d"), i);
         Entry.Name     = NmRaw ? UTF8_TO_TCHAR(NmRaw) : Entry.Id;
-        Entry.ParentId = PrRaw ? UTF8_TO_TCHAR(PrRaw) : TEXT("");
+        {
+            FString RawParent = PrRaw ? UTF8_TO_TCHAR(PrRaw) : TEXT("");
+            // DAZ parent refs are URL fragment ids like "#hip" — strip the leading '#'
+            if (RawParent.StartsWith(TEXT("#")))
+                RawParent.RemoveAt(0, 1, false);
+            Entry.ParentId = MoveTemp(RawParent);
+        }
         Entry.Transform = MakeBoneTransform(DsfHandle, i, UnitScale);
     }
 
     if (Bones.IsEmpty())
         return;
+
+    // Topological sort: parent before child (UE5 requires parent index < child index)
+    TMap<FString, int32> IdToArrayIndex;
+    IdToArrayIndex.Reserve(Bones.Num());
+    for (int32 i = 0; i < Bones.Num(); ++i)
+        IdToArrayIndex.Add(Bones[i].Id, i);
+
+    TArray<FBoneEntry> Sorted;
+    Sorted.Reserve(Bones.Num());
+    TSet<FString> Visited;
+    Visited.Reserve(Bones.Num());
+
+    TFunction<void(const FBoneEntry&)> Visit = [&](const FBoneEntry& Bone)
+    {
+        if (Visited.Contains(Bone.Id))
+            return;
+        if (!Bone.ParentId.IsEmpty())
+        {
+            const int32* ParentArrayIdx = IdToArrayIndex.Find(Bone.ParentId);
+            if (ParentArrayIdx)
+                Visit(Bones[*ParentArrayIdx]);
+        }
+        Visited.Add(Bone.Id);
+        Sorted.Add(Bone);
+    };
+
+    for (const FBoneEntry& B : Bones)
+        Visit(B);
+
+    Bones = MoveTemp(Sorted);
 
     // Set of all bone ids — any parent id NOT in this set means the bone is a root.
     TSet<FString> BoneIdSet;
@@ -143,28 +179,14 @@ void FDsonSkeletonBuilder::BuildReferenceSkeletonFromDsf(uint64_t DsfHandle, FRe
     TMap<FString, int32> IdToRefIndex;
     IdToRefIndex.Reserve(Bones.Num());
 
-    // BFS queue (indices into Bones); seeded with roots
-    TArray<int32> Queue;
-    Queue.Reserve(Bones.Num());
-    for (int32 i = 0; i < Bones.Num(); ++i)
-    {
-        if (!BoneIdSet.Contains(Bones[i].ParentId))
-            Queue.Add(i);
-    }
-
     FReferenceSkeletonModifier Modifier(OutRefSkeleton, nullptr);
     int32 RefBoneCount = 0;
-    int32 QueueHead    = 0;
 
-    while (QueueHead < Queue.Num())
+    for (const FBoneEntry& B : Bones)
     {
-        const int32    ArrayIdx = Queue[QueueHead++];
-        const FBoneEntry& B    = Bones[ArrayIdx];
-
         int32 ParentRefIndex = INDEX_NONE;
         if (BoneIdSet.Contains(B.ParentId))
         {
-            // Non-root: parent must already be in IdToRefIndex (BFS guarantee)
             const int32* Found = IdToRefIndex.Find(B.ParentId);
             if (!Found)
             {
@@ -182,13 +204,6 @@ void FDsonSkeletonBuilder::BuildReferenceSkeletonFromDsf(uint64_t DsfHandle, FRe
         Modifier.Add(BoneInfo, B.Transform);
 
         IdToRefIndex.Add(B.Id, RefBoneCount++);
-
-        // Enqueue children of this bone
-        for (int32 j = 0; j < Bones.Num(); ++j)
-        {
-            if (Bones[j].ParentId == B.Id)
-                Queue.Add(j);
-        }
     }
     // Modifier destructor finalises OutRefSkeleton
 }
