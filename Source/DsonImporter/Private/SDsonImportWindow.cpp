@@ -24,10 +24,6 @@ void SDsonImportWindow::Construct(const FArguments& InArgs)
 
     ContentRoots = FDsonContentRoots::Detect();
 
-    BoneInfluenceOptions.Add(MakeShared<int32>(4));
-    BoneInfluenceOptions.Add(MakeShared<int32>(8));
-    SelectedBoneInfluences = BoneInfluenceOptions[1]; // default: 8
-
     ChildSlot
     [
         SNew(SVerticalBox)
@@ -156,137 +152,6 @@ void SDsonImportWindow::Construct(const FArguments& InArgs)
             SNew(SSeparator)
         ]
 
-        // ── Import options ────────────────────────────────────────────────────
-        + SVerticalBox::Slot()
-        .AutoHeight()
-        .Padding(8.f, 8.f, 8.f, 4.f)
-        [
-            SNew(STextBlock)
-            .Text(LOCTEXT("OptionsLabel", "Import Options"))
-            .Font(FAppStyle::GetFontStyle("NormalFontBold"))
-        ]
-
-        + SVerticalBox::Slot()
-        .AutoHeight()
-        .Padding(8.f, 2.f)
-        [
-            SNew(SCheckBox)
-            .IsChecked_Lambda([this]()
-            {
-                return bShouldImportSkeleton ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
-            })
-            .OnCheckStateChanged_Lambda([this](ECheckBoxState State)
-            {
-                bShouldImportSkeleton = (State == ECheckBoxState::Checked);
-            })
-            [
-                SNew(STextBlock).Text(LOCTEXT("ImportSkeleton", "Import Skeleton"))
-            ]
-        ]
-
-        + SVerticalBox::Slot()
-        .AutoHeight()
-        .Padding(8.f, 2.f)
-        [
-            SNew(SCheckBox)
-            .IsChecked_Lambda([this]()
-            {
-                return bShouldImportMesh ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
-            })
-            .OnCheckStateChanged_Lambda([this](ECheckBoxState State)
-            {
-                bShouldImportMesh = (State == ECheckBoxState::Checked);
-            })
-            [
-                SNew(STextBlock).Text(LOCTEXT("ImportMesh", "Import Mesh"))
-            ]
-        ]
-
-        + SVerticalBox::Slot()
-        .AutoHeight()
-        .Padding(8.f, 2.f)
-        [
-            SNew(SCheckBox)
-            .IsChecked_Lambda([this]()
-            {
-                return bShouldImportMaterials ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
-            })
-            .OnCheckStateChanged_Lambda([this](ECheckBoxState State)
-            {
-                bShouldImportMaterials = (State == ECheckBoxState::Checked);
-            })
-            [
-                SNew(STextBlock).Text(LOCTEXT("ImportMaterials", "Import Materials"))
-            ]
-        ]
-
-        + SVerticalBox::Slot()
-        .AutoHeight()
-        .Padding(8.f, 2.f)
-        [
-            SNew(SCheckBox)
-            .IsChecked_Lambda([this]()
-            {
-                return bShouldImportMorphTargets ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
-            })
-            .OnCheckStateChanged_Lambda([this](ECheckBoxState State)
-            {
-                bShouldImportMorphTargets = (State == ECheckBoxState::Checked);
-            })
-            [
-                SNew(STextBlock).Text(LOCTEXT("ImportMorphTargets", "Import Morph Targets"))
-            ]
-        ]
-
-        + SVerticalBox::Slot()
-        .AutoHeight()
-        .Padding(8.f, 4.f, 8.f, 8.f)
-        [
-            SNew(SHorizontalBox)
-
-            + SHorizontalBox::Slot()
-            .AutoWidth()
-            .VAlign(VAlign_Center)
-            .Padding(0.f, 0.f, 8.f, 0.f)
-            [
-                SNew(STextBlock)
-                .Text(LOCTEXT("MaxBoneInfluences", "Max Bone Influences:"))
-            ]
-
-            + SHorizontalBox::Slot()
-            .AutoWidth()
-            [
-                SNew(SComboBox<TSharedPtr<int32>>)
-                .OptionsSource(&BoneInfluenceOptions)
-                .OnGenerateWidget_Lambda([](TSharedPtr<int32> Item)
-                {
-                    return SNew(STextBlock)
-                        .Text(FText::AsNumber(*Item));
-                })
-                .OnSelectionChanged_Lambda([this](TSharedPtr<int32> NewValue, ESelectInfo::Type)
-                {
-                    if (NewValue.IsValid())
-                        SelectedBoneInfluences = NewValue;
-                })
-                .InitiallySelectedItem(SelectedBoneInfluences)
-                [
-                    SNew(STextBlock)
-                    .Text_Lambda([this]()
-                    {
-                        return SelectedBoneInfluences.IsValid()
-                            ? FText::AsNumber(*SelectedBoneInfluences)
-                            : FText::AsNumber(8);
-                    })
-                ]
-            ]
-        ]
-
-        + SVerticalBox::Slot()
-        .AutoHeight()
-        [
-            SNew(SSeparator)
-        ]
-
         // ── Buttons ───────────────────────────────────────────────────────────
         + SVerticalBox::Slot()
         .AutoHeight()
@@ -348,11 +213,6 @@ FReply SDsonImportWindow::OnImportClicked()
 {
     PendingSettings.DsonFilePath = SelectedFilePath;
     PendingSettings.Generation = ValidationResult.Generation;
-    PendingSettings.bImportSkeleton = bShouldImportSkeleton;
-    PendingSettings.bImportMesh = bShouldImportMesh;
-    PendingSettings.bImportMaterials = bShouldImportMaterials;
-    PendingSettings.bImportMorphTargets = bShouldImportMorphTargets;
-    PendingSettings.MaxBoneInfluences = SelectedBoneInfluences.IsValid() ? *SelectedBoneInfluences : 8;
 
     // Find first resolved dependency as the base figure DSF
     for (const FDsonDependency& Dep : ValidationResult.Dependencies)
