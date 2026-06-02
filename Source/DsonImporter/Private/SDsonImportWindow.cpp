@@ -17,6 +17,7 @@
 #include "IDesktopPlatform.h"
 #include "DsonSkeletonBuilder.h"
 #include "DsonMeshBuilder.h"
+#include "DsonMaterialDiagnostic.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
 #include "ContentBrowserModule.h"
@@ -158,6 +159,29 @@ void SDsonImportWindow::Construct(const FArguments& InArgs)
             SNew(SSeparator)
         ]
 
+        // ── Diagnostics checkbox ──────────────────────────────────────────────
+        + SVerticalBox::Slot()
+        .AutoHeight()
+        .Padding(8.f, 4.f)
+        [
+            SNew(SCheckBox)
+            .IsChecked_Lambda([this]()
+            {
+                return bDumpMaterialDiagnostics
+                    ? ECheckBoxState::Checked
+                    : ECheckBoxState::Unchecked;
+            })
+            .OnCheckStateChanged_Lambda([this](ECheckBoxState NewState)
+            {
+                bDumpMaterialDiagnostics = (NewState == ECheckBoxState::Checked);
+            })
+            [
+                SNew(STextBlock)
+                .Text(LOCTEXT("DumpMaterialDiagnosticsLabel",
+                    "Dump material diagnostics to log (Phase 6 planning)"))
+            ]
+        ]
+
         // ── Buttons ───────────────────────────────────────────────────────────
         + SVerticalBox::Slot()
         .AutoHeight()
@@ -228,6 +252,12 @@ FReply SDsonImportWindow::OnImportClicked()
             PendingSettings.ResolvedFigureDsfPath = Dep.ResolvedPath;
             break;
         }
+    }
+    PendingSettings.bDumpMaterialDiagnostics = bDumpMaterialDiagnostics;
+
+    if (PendingSettings.bDumpMaterialDiagnostics)
+    {
+        FDsonMaterialDiagnostic::Dump(PendingSettings);
     }
 
     OnImportConfirmed.ExecuteIfBound(PendingSettings);
@@ -312,6 +342,7 @@ void SDsonImportWindow::RunValidation(const FString& FilePath)
                 break;
             }
         }
+        PendingSettings.bDumpMaterialDiagnostics = bDumpMaterialDiagnostics;
     }
 }
 
