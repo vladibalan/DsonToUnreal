@@ -175,18 +175,15 @@ DSONPARSER_API int         DsonDocument_GetUVPolygonVertexIndexCount(DsonDocumen
 DSONPARSER_API int         DsonDocument_GetUVPolygonVertexIndex(DsonDocumentHandle handle, int uvSetIndex, int index);
 
 // ---- E. Materials (library materials by index) ----
+//
+// Channels are accessed by index in the range [0, ChannelCount-1]. Each channel carries a DAZ
+// id string (e.g. "Diffuse Color", "Normal Map") and a DAZ type string (e.g. "float_color",
+// "float"). Consumers iterate or search by id to interpret them; the parser stores everything
+// in source-file order and drops nothing.
+//
 DSONPARSER_API const char* DsonDocument_GetMaterialName(DsonDocumentHandle handle, int matIndex);
 DSONPARSER_API const char* DsonDocument_GetMaterialGeometryId(DsonDocumentHandle handle, int matIndex);
 DSONPARSER_API const char* DsonDocument_GetMaterialUVSetId(DsonDocumentHandle handle, int matIndex);
-
-// Per-channel accessors: channelId 0=diffuse 1=specular 2=roughness 3=normal 4=opacity 5=subsurface 6=emission 7=bump
-DSONPARSER_API double      DsonDocument_GetMaterialChannelValue(DsonDocumentHandle handle, int matIndex, int channelId);
-DSONPARSER_API double      DsonDocument_GetMaterialChannelColorR(DsonDocumentHandle handle, int matIndex, int channelId);
-DSONPARSER_API double      DsonDocument_GetMaterialChannelColorG(DsonDocumentHandle handle, int matIndex, int channelId);
-DSONPARSER_API double      DsonDocument_GetMaterialChannelColorB(DsonDocumentHandle handle, int matIndex, int channelId);
-DSONPARSER_API bool        DsonDocument_GetMaterialChannelHasColor(DsonDocumentHandle handle, int matIndex, int channelId);
-DSONPARSER_API const char* DsonDocument_GetMaterialChannelImageUrl(DsonDocumentHandle handle, int matIndex, int channelId);
-DSONPARSER_API const char* DsonDocument_GetMaterialChannelTexturePath(DsonDocumentHandle handle, int matIndex, int channelId);
 
 // Returns the top-level material type field (e.g. "studio/material/iray").
 DSONPARSER_API const char* DsonDocument_GetMaterialType(DsonDocumentHandle handle, int matIndex);
@@ -194,6 +191,37 @@ DSONPARSER_API const char* DsonDocument_GetMaterialType(DsonDocumentHandle handl
 // Points to parser-owned memory; copy immediately if retention past another API call is needed.
 // Returns "" when no matching extra entry exists or matIndex is out of range.
 DSONPARSER_API const char* DsonDocument_GetMaterialShaderType(DsonDocumentHandle handle, int matIndex);
+
+// Indexed channel accessors for library materials (matIndex into material_library).
+DSONPARSER_API int         DsonDocument_GetMaterialChannelCount(DsonDocumentHandle handle, int matIndex);
+DSONPARSER_API const char* DsonDocument_GetMaterialChannelId(DsonDocumentHandle handle, int matIndex, int channelIdx);
+DSONPARSER_API const char* DsonDocument_GetMaterialChannelType(DsonDocumentHandle handle, int matIndex, int channelIdx);
+DSONPARSER_API double      DsonDocument_GetMaterialChannelValue(DsonDocumentHandle handle, int matIndex, int channelIdx);
+DSONPARSER_API double      DsonDocument_GetMaterialChannelColorR(DsonDocumentHandle handle, int matIndex, int channelIdx);
+DSONPARSER_API double      DsonDocument_GetMaterialChannelColorG(DsonDocumentHandle handle, int matIndex, int channelIdx);
+DSONPARSER_API double      DsonDocument_GetMaterialChannelColorB(DsonDocumentHandle handle, int matIndex, int channelIdx);
+DSONPARSER_API bool        DsonDocument_GetMaterialChannelHasColor(DsonDocumentHandle handle, int matIndex, int channelIdx);
+DSONPARSER_API const char* DsonDocument_GetMaterialChannelImageUrl(DsonDocumentHandle handle, int matIndex, int channelIdx);
+DSONPARSER_API const char* DsonDocument_GetMaterialChannelTexturePath(DsonDocumentHandle handle, int matIndex, int channelIdx);
+
+// Surface-level accessors for scene material instances (scene.materials).
+DSONPARSER_API const char* DsonDocument_GetSceneMaterialName(DsonDocumentHandle handle, int sceneMatIndex);
+DSONPARSER_API const char* DsonDocument_GetSceneMaterialGeometryId(DsonDocumentHandle handle, int sceneMatIndex);
+DSONPARSER_API const char* DsonDocument_GetSceneMaterialUVSetId(DsonDocumentHandle handle, int sceneMatIndex);
+DSONPARSER_API const char* DsonDocument_GetSceneMaterialType(DsonDocumentHandle handle, int sceneMatIndex);
+DSONPARSER_API const char* DsonDocument_GetSceneMaterialShaderType(DsonDocumentHandle handle, int sceneMatIndex);
+
+// Indexed channel accessors for scene material instances (scene.materials).
+DSONPARSER_API int         DsonDocument_GetSceneMaterialChannelCount(DsonDocumentHandle handle, int sceneMatIndex);
+DSONPARSER_API const char* DsonDocument_GetSceneMaterialChannelId(DsonDocumentHandle handle, int sceneMatIndex, int channelIdx);
+DSONPARSER_API const char* DsonDocument_GetSceneMaterialChannelType(DsonDocumentHandle handle, int sceneMatIndex, int channelIdx);
+DSONPARSER_API double      DsonDocument_GetSceneMaterialChannelValue(DsonDocumentHandle handle, int sceneMatIndex, int channelIdx);
+DSONPARSER_API double      DsonDocument_GetSceneMaterialChannelColorR(DsonDocumentHandle handle, int sceneMatIndex, int channelIdx);
+DSONPARSER_API double      DsonDocument_GetSceneMaterialChannelColorG(DsonDocumentHandle handle, int sceneMatIndex, int channelIdx);
+DSONPARSER_API double      DsonDocument_GetSceneMaterialChannelColorB(DsonDocumentHandle handle, int sceneMatIndex, int channelIdx);
+DSONPARSER_API bool        DsonDocument_GetSceneMaterialChannelHasColor(DsonDocumentHandle handle, int sceneMatIndex, int channelIdx);
+DSONPARSER_API const char* DsonDocument_GetSceneMaterialChannelImageUrl(DsonDocumentHandle handle, int sceneMatIndex, int channelIdx);
+DSONPARSER_API const char* DsonDocument_GetSceneMaterialChannelTexturePath(DsonDocumentHandle handle, int sceneMatIndex, int channelIdx);
 
 // ---- F. Morph Targets ----
 // morphIndex is an index into the filtered list of modifiers where type == "morph"

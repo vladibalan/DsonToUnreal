@@ -8,15 +8,6 @@
 // Helpers
 // ---------------------------------------------------------------------------
 
-static const TCHAR* MatChannelLabel(int32 Ch)
-{
-    static const TCHAR* Labels[8] = {
-        TEXT("diffuse"), TEXT("specular"), TEXT("roughness"), TEXT("normal"),
-        TEXT("opacity"), TEXT("subsurface"), TEXT("emission"), TEXT("bump")
-    };
-    return (Ch >= 0 && Ch < 8) ? Labels[Ch] : TEXT("?");
-}
-
 static FString GenString(EGenesisGeneration Gen)
 {
     switch (Gen)
@@ -87,7 +78,7 @@ static void DumpOneFile(const FString& FilePath, const FDsonImportSettings& Sett
     UE_LOG(LogDsonImporter, Log, TEXT("Asset type: %s"), *AssetTypeStr);
     UE_LOG(LogDsonImporter, Log, TEXT("Generation: %s"), *GenString(Settings.Generation));
 
-    // ── Library Materials ────────────────────────────────────────────────────
+    // ── Library Materials (compact: one line per channel) ────────────────────
     const int32 MatCount = GDsonParser.GetMaterialCount ? GDsonParser.GetMaterialCount(H) : 0;
     UE_LOG(LogDsonImporter, Log, TEXT(""));
     UE_LOG(LogDsonImporter, Log, TEXT("--- Library Materials (%d) ---"), MatCount);
@@ -106,7 +97,6 @@ static void DumpOneFile(const FString& FilePath, const FDsonImportSettings& Sett
         UE_LOG(LogDsonImporter, Log, TEXT("    type=\"%s\"  shader_type=\"%s\""), *MatType, *ShaderType);
         UE_LOG(LogDsonImporter, Log, TEXT("    geometry=\"%s\"  uv_set=\"%s\""), *GeomId, *UVSetId);
 
-        // Groups
         const int32 GroupCount = GDsonParser.GetMaterialGroupCount
             ? GDsonParser.GetMaterialGroupCount(H, i) : 0;
         TArray<FString> Groups;
@@ -117,34 +107,18 @@ static void DumpOneFile(const FString& FilePath, const FDsonImportSettings& Sett
         }
         UE_LOG(LogDsonImporter, Log, TEXT("    groups: [%s]"), *FString::Join(Groups, TEXT(", ")));
 
-        // 8 channels
-        for (int32 Ch = 0; Ch < 8; ++Ch)
+        const int32 ChCount = GDsonParser.GetMaterialChannelCount
+            ? GDsonParser.GetMaterialChannelCount(H, i) : 0;
+        UE_LOG(LogDsonImporter, Log, TEXT("    Channels (%d):"), ChCount);
+        for (int32 c = 0; c < ChCount; ++c)
         {
-            const double Val     = GDsonParser.GetMaterialChannelValue
-                ? GDsonParser.GetMaterialChannelValue(H, i, Ch) : 0.0;
-            const bool bHasColor = GDsonParser.GetMaterialChannelHasColor
-                ? GDsonParser.GetMaterialChannelHasColor(H, i, Ch) : false;
-            const double CR      = GDsonParser.GetMaterialChannelColorR
-                ? GDsonParser.GetMaterialChannelColorR(H, i, Ch) : 0.0;
-            const double CG      = GDsonParser.GetMaterialChannelColorG
-                ? GDsonParser.GetMaterialChannelColorG(H, i, Ch) : 0.0;
-            const double CB      = GDsonParser.GetMaterialChannelColorB
-                ? GDsonParser.GetMaterialChannelColorB(H, i, Ch) : 0.0;
-            FString ImgUrl  = S(GDsonParser.GetMaterialChannelImageUrl
-                ? GDsonParser.GetMaterialChannelImageUrl(H, i, Ch) : nullptr);
-            FString TexPath = S(GDsonParser.GetMaterialChannelTexturePath
-                ? GDsonParser.GetMaterialChannelTexturePath(H, i, Ch) : nullptr);
-
-            UE_LOG(LogDsonImporter, Log, TEXT("    Channel %d (%s):"), Ch, MatChannelLabel(Ch));
-            UE_LOG(LogDsonImporter, Log, TEXT("      value=%f"), Val);
-            UE_LOG(LogDsonImporter, Log, TEXT("      hasColor=%s  rgb=(%f, %f, %f)"),
-                bHasColor ? TEXT("true") : TEXT("false"), CR, CG, CB);
-            UE_LOG(LogDsonImporter, Log, TEXT("      imageUrl=\"%s\""), *ImgUrl);
-            UE_LOG(LogDsonImporter, Log, TEXT("      texturePath=\"%s\""), *TexPath);
+            FString ChId   = S(GDsonParser.GetMaterialChannelId   ? GDsonParser.GetMaterialChannelId(H, i, c)   : nullptr);
+            FString ChType = S(GDsonParser.GetMaterialChannelType ? GDsonParser.GetMaterialChannelType(H, i, c) : nullptr);
+            UE_LOG(LogDsonImporter, Log, TEXT("      [%d] id=\"%s\" type=\"%s\""), c, *ChId, *ChType);
         }
     }
 
-    // ── Scene Materials ──────────────────────────────────────────────────────
+    // ── Scene Materials (full: per-field breakdown per channel) ──────────────
     const int32 SceneMatCount = GDsonParser.GetSceneMaterialCount
         ? GDsonParser.GetSceneMaterialCount(H) : 0;
     UE_LOG(LogDsonImporter, Log, TEXT(""));
@@ -152,11 +126,17 @@ static void DumpOneFile(const FString& FilePath, const FDsonImportSettings& Sett
 
     for (int32 i = 0; i < SceneMatCount; ++i)
     {
-        FString SceneId  = S(GDsonParser.GetSceneMaterialId  ? GDsonParser.GetSceneMaterialId(H, i)  : nullptr);
-        FString SceneUrl = S(GDsonParser.GetSceneMaterialUrl ? GDsonParser.GetSceneMaterialUrl(H, i) : nullptr);
+        FString SceneId      = S(GDsonParser.GetSceneMaterialId         ? GDsonParser.GetSceneMaterialId(H, i)         : nullptr);
+        FString SceneName    = S(GDsonParser.GetSceneMaterialName       ? GDsonParser.GetSceneMaterialName(H, i)       : nullptr);
+        FString SceneType    = S(GDsonParser.GetSceneMaterialType       ? GDsonParser.GetSceneMaterialType(H, i)       : nullptr);
+        FString SceneShader  = S(GDsonParser.GetSceneMaterialShaderType ? GDsonParser.GetSceneMaterialShaderType(H, i) : nullptr);
+        FString SceneGeomId  = S(GDsonParser.GetSceneMaterialGeometryId ? GDsonParser.GetSceneMaterialGeometryId(H, i) : nullptr);
+        FString SceneUVSetId = S(GDsonParser.GetSceneMaterialUVSetId    ? GDsonParser.GetSceneMaterialUVSetId(H, i)    : nullptr);
+        FString SceneUrl     = S(GDsonParser.GetSceneMaterialUrl        ? GDsonParser.GetSceneMaterialUrl(H, i)        : nullptr);
 
-        UE_LOG(LogDsonImporter, Log, TEXT("[%d] id=\"%s\""), i, *SceneId);
-        UE_LOG(LogDsonImporter, Log, TEXT("    url=\"%s\""), *SceneUrl);
+        UE_LOG(LogDsonImporter, Log, TEXT("[%d] id=\"%s\" name=\"%s\""), i, *SceneId, *SceneName);
+        UE_LOG(LogDsonImporter, Log, TEXT("    type=\"%s\"  shader_type=\"%s\""), *SceneType, *SceneShader);
+        UE_LOG(LogDsonImporter, Log, TEXT("    geometry=\"%s\"  uv_set=\"%s\""), *SceneGeomId, *SceneUVSetId);
 
         const int32 SGCount = GDsonParser.GetSceneMaterialGroupCount
             ? GDsonParser.GetSceneMaterialGroupCount(H, i) : 0;
@@ -167,6 +147,30 @@ static void DumpOneFile(const FString& FilePath, const FDsonImportSettings& Sett
                 ? GDsonParser.GetSceneMaterialGroupName(H, i, g) : nullptr));
         }
         UE_LOG(LogDsonImporter, Log, TEXT("    groups: [%s]"), *FString::Join(SGroups, TEXT(", ")));
+        UE_LOG(LogDsonImporter, Log, TEXT("    url=\"%s\""), *SceneUrl);
+
+        const int32 ChCount = GDsonParser.GetSceneMaterialChannelCount
+            ? GDsonParser.GetSceneMaterialChannelCount(H, i) : 0;
+        UE_LOG(LogDsonImporter, Log, TEXT("    Channels (%d):"), ChCount);
+        for (int32 c = 0; c < ChCount; ++c)
+        {
+            FString ChId    = S(GDsonParser.GetSceneMaterialChannelId   ? GDsonParser.GetSceneMaterialChannelId(H, i, c)   : nullptr);
+            FString ChType  = S(GDsonParser.GetSceneMaterialChannelType ? GDsonParser.GetSceneMaterialChannelType(H, i, c) : nullptr);
+            const double Val     = GDsonParser.GetSceneMaterialChannelValue    ? GDsonParser.GetSceneMaterialChannelValue(H, i, c)    : 0.0;
+            const bool bHasColor = GDsonParser.GetSceneMaterialChannelHasColor ? GDsonParser.GetSceneMaterialChannelHasColor(H, i, c) : false;
+            const double CR      = GDsonParser.GetSceneMaterialChannelColorR   ? GDsonParser.GetSceneMaterialChannelColorR(H, i, c)   : 0.0;
+            const double CG      = GDsonParser.GetSceneMaterialChannelColorG   ? GDsonParser.GetSceneMaterialChannelColorG(H, i, c)   : 0.0;
+            const double CB      = GDsonParser.GetSceneMaterialChannelColorB   ? GDsonParser.GetSceneMaterialChannelColorB(H, i, c)   : 0.0;
+            FString ImgUrl  = S(GDsonParser.GetSceneMaterialChannelImageUrl    ? GDsonParser.GetSceneMaterialChannelImageUrl(H, i, c)    : nullptr);
+            FString TexPath = S(GDsonParser.GetSceneMaterialChannelTexturePath ? GDsonParser.GetSceneMaterialChannelTexturePath(H, i, c) : nullptr);
+
+            UE_LOG(LogDsonImporter, Log, TEXT("      [%d] id=\"%s\" type=\"%s\""), c, *ChId, *ChType);
+            UE_LOG(LogDsonImporter, Log, TEXT("        value=%f"), Val);
+            UE_LOG(LogDsonImporter, Log, TEXT("        hasColor=%s  rgb=(%f, %f, %f)"),
+                bHasColor ? TEXT("true") : TEXT("false"), CR, CG, CB);
+            UE_LOG(LogDsonImporter, Log, TEXT("        imageUrl=\"%s\""), *ImgUrl);
+            UE_LOG(LogDsonImporter, Log, TEXT("        texturePath=\"%s\""), *TexPath);
+        }
     }
 
     GDsonParser.Destroy(Handle);

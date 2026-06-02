@@ -133,6 +133,9 @@ void FDsonImporterModule::StartupModule()
     LOAD_FN_WARN(GetMaterialGroupCount,   DsonDocument_GetMaterialGroupCount)
     LOAD_FN_WARN(GetMaterialGroupName,    DsonDocument_GetMaterialGroupName)
 
+    LOAD_FN_WARN(GetMaterialChannelCount,       DsonDocument_GetMaterialChannelCount)
+    LOAD_FN_WARN(GetMaterialChannelId,          DsonDocument_GetMaterialChannelId)
+    LOAD_FN_WARN(GetMaterialChannelType,        DsonDocument_GetMaterialChannelType)
     LOAD_FN_WARN(GetMaterialChannelValue,       DsonDocument_GetMaterialChannelValue)
     LOAD_FN_WARN(GetMaterialChannelColorR,      DsonDocument_GetMaterialChannelColorR)
     LOAD_FN_WARN(GetMaterialChannelColorG,      DsonDocument_GetMaterialChannelColorG)
@@ -146,6 +149,23 @@ void FDsonImporterModule::StartupModule()
     LOAD_FN_WARN(GetSceneMaterialUrl,        DsonDocument_GetSceneMaterialUrl)
     LOAD_FN_WARN(GetSceneMaterialGroupCount, DsonDocument_GetSceneMaterialGroupCount)
     LOAD_FN_WARN(GetSceneMaterialGroupName,  DsonDocument_GetSceneMaterialGroupName)
+
+    LOAD_FN_WARN(GetSceneMaterialName,          DsonDocument_GetSceneMaterialName)
+    LOAD_FN_WARN(GetSceneMaterialGeometryId,    DsonDocument_GetSceneMaterialGeometryId)
+    LOAD_FN_WARN(GetSceneMaterialUVSetId,       DsonDocument_GetSceneMaterialUVSetId)
+    LOAD_FN_WARN(GetSceneMaterialType,          DsonDocument_GetSceneMaterialType)
+    LOAD_FN_WARN(GetSceneMaterialShaderType,    DsonDocument_GetSceneMaterialShaderType)
+
+    LOAD_FN_WARN(GetSceneMaterialChannelCount,       DsonDocument_GetSceneMaterialChannelCount)
+    LOAD_FN_WARN(GetSceneMaterialChannelId,          DsonDocument_GetSceneMaterialChannelId)
+    LOAD_FN_WARN(GetSceneMaterialChannelType,        DsonDocument_GetSceneMaterialChannelType)
+    LOAD_FN_WARN(GetSceneMaterialChannelValue,       DsonDocument_GetSceneMaterialChannelValue)
+    LOAD_FN_WARN(GetSceneMaterialChannelColorR,      DsonDocument_GetSceneMaterialChannelColorR)
+    LOAD_FN_WARN(GetSceneMaterialChannelColorG,      DsonDocument_GetSceneMaterialChannelColorG)
+    LOAD_FN_WARN(GetSceneMaterialChannelColorB,      DsonDocument_GetSceneMaterialChannelColorB)
+    LOAD_FN_WARN(GetSceneMaterialChannelHasColor,    DsonDocument_GetSceneMaterialChannelHasColor)
+    LOAD_FN_WARN(GetSceneMaterialChannelImageUrl,    DsonDocument_GetSceneMaterialChannelImageUrl)
+    LOAD_FN_WARN(GetSceneMaterialChannelTexturePath, DsonDocument_GetSceneMaterialChannelTexturePath)
 
 #undef LOAD_FN_WARN
 
