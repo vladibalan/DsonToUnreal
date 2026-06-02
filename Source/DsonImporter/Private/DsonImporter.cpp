@@ -123,6 +123,30 @@ void FDsonImporterModule::StartupModule()
     LOAD_FN_WARN(GetVertexBoneInfluence,         DsonDocument_GetVertexBoneInfluence)
     LOAD_FN_WARN(GetVertexBoneInfluenceCapped,   DsonDocument_GetVertexBoneInfluenceCapped)
 
+    LOAD_FN_WARN(GetMaterialCount,        DsonDocument_GetMaterialCount)
+    LOAD_FN_WARN(GetMaterialId,           DsonDocument_GetMaterialId)
+    LOAD_FN_WARN(GetMaterialName,         DsonDocument_GetMaterialName)
+    LOAD_FN_WARN(GetMaterialGeometryId,   DsonDocument_GetMaterialGeometryId)
+    LOAD_FN_WARN(GetMaterialUVSetId,      DsonDocument_GetMaterialUVSetId)
+    LOAD_FN_WARN(GetMaterialType,         DsonDocument_GetMaterialType)
+    LOAD_FN_WARN(GetMaterialShaderType,   DsonDocument_GetMaterialShaderType)
+    LOAD_FN_WARN(GetMaterialGroupCount,   DsonDocument_GetMaterialGroupCount)
+    LOAD_FN_WARN(GetMaterialGroupName,    DsonDocument_GetMaterialGroupName)
+
+    LOAD_FN_WARN(GetMaterialChannelValue,       DsonDocument_GetMaterialChannelValue)
+    LOAD_FN_WARN(GetMaterialChannelColorR,      DsonDocument_GetMaterialChannelColorR)
+    LOAD_FN_WARN(GetMaterialChannelColorG,      DsonDocument_GetMaterialChannelColorG)
+    LOAD_FN_WARN(GetMaterialChannelColorB,      DsonDocument_GetMaterialChannelColorB)
+    LOAD_FN_WARN(GetMaterialChannelHasColor,    DsonDocument_GetMaterialChannelHasColor)
+    LOAD_FN_WARN(GetMaterialChannelImageUrl,    DsonDocument_GetMaterialChannelImageUrl)
+    LOAD_FN_WARN(GetMaterialChannelTexturePath, DsonDocument_GetMaterialChannelTexturePath)
+
+    LOAD_FN_WARN(GetSceneMaterialCount,      DsonDocument_GetSceneMaterialCount)
+    LOAD_FN_WARN(GetSceneMaterialId,         DsonDocument_GetSceneMaterialId)
+    LOAD_FN_WARN(GetSceneMaterialUrl,        DsonDocument_GetSceneMaterialUrl)
+    LOAD_FN_WARN(GetSceneMaterialGroupCount, DsonDocument_GetSceneMaterialGroupCount)
+    LOAD_FN_WARN(GetSceneMaterialGroupName,  DsonDocument_GetSceneMaterialGroupName)
+
 #undef LOAD_FN_WARN
 
     if (!GDsonParser.IsValid())
