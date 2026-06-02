@@ -16,10 +16,12 @@ typedef void* DsonDocumentHandle;
 // Create a new DSON document
 DSONPARSER_API DsonDocumentHandle DsonDocument_Create();
 
-// Load DSON from file
+// Returns 0 on success, non-zero on failure.
+// Call DsonParser_GetLastError() for error detail on failure.
 DSONPARSER_API int DsonDocument_LoadFromFile(DsonDocumentHandle handle, const char* filepath);
 
-// Load DSON from string
+// Returns 0 on success, non-zero on failure.
+// Call DsonParser_GetLastError() for error detail on failure.
 DSONPARSER_API int DsonDocument_LoadFromString(DsonDocumentHandle handle, const char* jsonString);
 
 // Get file version
@@ -185,6 +187,13 @@ DSONPARSER_API double      DsonDocument_GetMaterialChannelColorB(DsonDocumentHan
 DSONPARSER_API bool        DsonDocument_GetMaterialChannelHasColor(DsonDocumentHandle handle, int matIndex, int channelId);
 DSONPARSER_API const char* DsonDocument_GetMaterialChannelImageUrl(DsonDocumentHandle handle, int matIndex, int channelId);
 DSONPARSER_API const char* DsonDocument_GetMaterialChannelTexturePath(DsonDocumentHandle handle, int matIndex, int channelId);
+
+// Returns the top-level material type field (e.g. "studio/material/iray").
+DSONPARSER_API const char* DsonDocument_GetMaterialType(DsonDocumentHandle handle, int matIndex);
+// Returns the shader type from the material's extra[] (e.g. "studio/material/uber_iray", "studio/material/pbr_skin").
+// Points to parser-owned memory; copy immediately if retention past another API call is needed.
+// Returns "" when no matching extra entry exists or matIndex is out of range.
+DSONPARSER_API const char* DsonDocument_GetMaterialShaderType(DsonDocumentHandle handle, int matIndex);
 
 // ---- F. Morph Targets ----
 // morphIndex is an index into the filtered list of modifiers where type == "morph"
