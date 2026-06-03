@@ -6,6 +6,9 @@
 
 #include "Engine/SkeletalMesh.h"
 #include "Engine/SkinnedAssetCommon.h"
+#include "Materials/MaterialInstanceConstant.h"
+#include "Materials/Material.h"
+#include "Materials/MaterialInterface.h"
 #include "Animation/Skeleton.h"
 #include "Rendering/SkeletalMeshLODImporterData.h"
 #include "Rendering/SkeletalMeshModel.h"
@@ -28,7 +31,11 @@
 // Build
 // ---------------------------------------------------------------------------
 
-USkeletalMesh* FDsonMeshBuilder::Build(const FDsonImportSettings& Settings, USkeleton* Skeleton)
+USkeletalMesh* FDsonMeshBuilder::Build(
+    const FDsonImportSettings& Settings,
+    USkeleton* Skeleton,
+    const TMap<FString, UMaterialInstanceConstant*>& MaterialsByGroup,
+    UMaterial* DefaultMaterial)
 {
     if (!GDsonParser.IsValid())
     {
@@ -41,7 +48,7 @@ USkeletalMesh* FDsonMeshBuilder::Build(const FDsonImportSettings& Settings, USke
     if (!LoadDsfDocument(Settings.ResolvedFigureDsfPath, DsfHandle))
         return nullptr;
 
-    USkeletalMesh* Mesh = CreateMeshAsset(Settings, Skeleton, DsfHandle);
+    USkeletalMesh* Mesh = CreateMeshAsset(Settings, Skeleton, DsfHandle, MaterialsByGroup, DefaultMaterial);
 
     GDsonParser.Destroy(reinterpret_cast<DsonDocumentHandle>(DsfHandle));
     return Mesh;
@@ -92,7 +99,11 @@ bool FDsonMeshBuilder::LoadDsfDocument(const FString& Path, uint64_t& OutHandle)
 // ---------------------------------------------------------------------------
 
 USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
-    const FDsonImportSettings& Settings, USkeleton* Skeleton, uint64_t DsfHandle)
+    const FDsonImportSettings& Settings,
+    USkeleton* Skeleton,
+    uint64_t DsfHandle,
+    const TMap<FString, UMaterialInstanceConstant*>& MaterialsByGroup,
+    UMaterial* DefaultMaterial)
 {
     // Step 1 — Find the first geometry in the DSF
     const int32 RawGeomCount = GDsonParser.GetGeometryCount
@@ -296,17 +307,51 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
     // Step 7 — Build FMeshDescription for LOD 0 directly and commit it
 
     // 7a — Populate mesh material slots (must exist before polygon groups reference them)
-    for (const FString& GroupName : MaterialGroupNames)
+    const auto AssignSlot = [&](const FString& GroupName, int32 SlotIdx)
     {
         FSkeletalMaterial Mat;
         Mat.ImportedMaterialSlotName = FName(*GroupName);
+
+        UMaterialInterface* Assigned = nullptr;
+        bool bFallback = false;
+        if (UMaterialInstanceConstant* const* Found = MaterialsByGroup.Find(GroupName))
+        {
+            Assigned = *Found;
+        }
+        if (!Assigned)
+        {
+            Assigned = DefaultMaterial;
+            bFallback = true;
+        }
+        Mat.MaterialInterface = Assigned;
         Mesh->GetMaterials().Add(Mat);
-    }
-    if (Mesh->GetMaterials().IsEmpty())
+
+        if (bFallback)
+        {
+            UE_LOG(LogDsonImporter, Warning,
+                TEXT("[wire] no MIC for group \"%s\" — using M_DazDefault"), *GroupName);
+            UE_LOG(LogDsonImporter, Log,
+                TEXT("[wire] section %d -> %s -> M_DazDefault (no MIC for group \"%s\")"),
+                SlotIdx, *GroupName, *GroupName);
+        }
+        else
+        {
+            UE_LOG(LogDsonImporter, Log,
+                TEXT("[wire] section %d -> %s -> %s"),
+                SlotIdx, *GroupName, *Assigned->GetName());
+        }
+    };
+
+    if (MaterialGroupNames.Num() == 0)
     {
-        FSkeletalMaterial DefaultMat;
-        DefaultMat.ImportedMaterialSlotName = FName(TEXT("DefaultMaterial"));
-        Mesh->GetMaterials().Add(DefaultMat);
+        AssignSlot(TEXT("DefaultMaterial"), 0);
+    }
+    else
+    {
+        for (int32 m = 0; m < MaterialGroupNames.Num(); ++m)
+        {
+            AssignSlot(MaterialGroupNames[m], m);
+        }
     }
 
     // 8d — LODInfo (required before CreateMeshDescription)

@@ -6,6 +6,7 @@
 #include "Engine/Texture2D.h"
 #include "Materials/Material.h"
 #include "Materials/MaterialInstanceConstant.h"
+#include "Misc/FileHelper.h"
 #include "Misc/PackageName.h"
 #include "UObject/Package.h"
 #include "UObject/SavePackage.h"
@@ -332,4 +333,82 @@ UMaterialInstanceConstant* FDsonMaterialBuilder::BuildSceneMaterial(
     // Step 11
     ++BuiltCount;
     return MIC;
+}
+
+// ---------------------------------------------------------------------------
+// BuildAllSceneMaterials
+// ---------------------------------------------------------------------------
+
+void FDsonMaterialBuilder::BuildAllSceneMaterials(
+    const FString& DufPath,
+    const FString& OutputFolder,
+    TMap<FString, UMaterialInstanceConstant*>& OutByGroup)
+{
+    FString FileContent;
+    if (!FFileHelper::LoadFileToString(FileContent, *DufPath) || FileContent.IsEmpty())
+    {
+        UE_LOG(LogDsonImporter, Warning,
+            TEXT("DsonMaterialBuilder: failed to read or empty file '%s'"), *DufPath);
+        return;
+    }
+
+    FTCHARToUTF8 Utf8(*FileContent);
+
+    DsonDocumentHandle Handle = GDsonParser.Create();
+    if (!Handle)
+    {
+        UE_LOG(LogDsonImporter, Warning,
+            TEXT("DsonMaterialBuilder: GDsonParser.Create() returned null for '%s'"), *DufPath);
+        return;
+    }
+
+    const int32 LoadResult = GDsonParser.LoadFromString(Handle, Utf8.Get());
+    if (LoadResult != 0)
+    {
+        const char* ErrRaw = GDsonParser.GetLastError ? GDsonParser.GetLastError() : nullptr;
+        UE_LOG(LogDsonImporter, Warning,
+            TEXT("DsonMaterialBuilder: LoadFromString failed for '%s': %s"),
+            *DufPath, ErrRaw ? UTF8_TO_TCHAR(ErrRaw) : TEXT("unknown error"));
+        GDsonParser.Destroy(Handle);
+        return;
+    }
+
+    const uint64_t H = reinterpret_cast<uint64_t>(Handle);
+
+    const int32 SceneMatCount = GDsonParser.GetSceneMaterialCount
+        ? GDsonParser.GetSceneMaterialCount(H) : 0;
+
+    for (int32 i = 0; i < SceneMatCount; ++i)
+    {
+        UMaterialInstanceConstant* MIC = BuildSceneMaterial(Handle, i, OutputFolder);
+        if (!MIC)
+            continue;
+
+        const int32 GroupCount = GDsonParser.GetSceneMaterialGroupCount
+            ? GDsonParser.GetSceneMaterialGroupCount(H, i) : 0;
+
+        const char* NameRaw = (GroupCount > 0 && GDsonParser.GetSceneMaterialGroupName)
+            ? GDsonParser.GetSceneMaterialGroupName(H, i, 0) : nullptr;
+
+        if (GroupCount == 0 || !NameRaw)
+        {
+            FString SceneId = S(GDsonParser.GetSceneMaterialId
+                ? GDsonParser.GetSceneMaterialId(H, i) : nullptr);
+            UE_LOG(LogDsonImporter, Warning,
+                TEXT("[mat] scene material '%s' has no mappable group — MIC built but not wired"), *SceneId);
+            continue;
+        }
+
+        const FString GroupName = UTF8_TO_TCHAR(NameRaw);
+
+        if (OutByGroup.Contains(GroupName))
+        {
+            UE_LOG(LogDsonImporter, Warning,
+                TEXT("[mat] duplicate group \"%s\" — later MIC wins"), *GroupName);
+        }
+
+        OutByGroup.Add(GroupName, MIC);
+    }
+
+    GDsonParser.Destroy(Handle);
 }

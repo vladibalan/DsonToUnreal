@@ -20,6 +20,8 @@
 #include "DsonMaterialDiagnostic.h"
 #include "DsonTextureImporter.h"
 #include "DsonMaterialBuilder.h"
+#include "Materials/MaterialInstanceConstant.h"
+#include "Materials/Material.h"
 #include "ObjectTools.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
@@ -258,14 +260,47 @@ FReply SDsonImportWindow::OnImportClicked()
     }
     PendingSettings.bDumpMaterialDiagnostics = bDumpMaterialDiagnostics;
 
+    // --- Material pipeline (always-on) ---
+    FDsonTextureImporter Importer(ContentRoots);
+    FDsonMaterialBuilder Builder(ContentRoots, Importer);
+    const FString MaterialOutputFolder = TEXT("/Game/DazImports/Materials/") +
+        ObjectTools::SanitizeObjectName(
+            FPaths::GetBaseFilename(PendingSettings.DsonFilePath));
+
+    TMap<FString, UMaterialInstanceConstant*> MaterialsByGroup;
+    Builder.BuildAllSceneMaterials(PendingSettings.DsonFilePath, MaterialOutputFolder, MaterialsByGroup);
+
+    // Summary (always — moved out of Dump)
+    UE_LOG(LogDsonImporter, Log, TEXT("=== DsonTextureImporter summary ==="));
+    UE_LOG(LogDsonImporter, Log, TEXT("  Imported:   %d"), Importer.GetImportedCount());
+    UE_LOG(LogDsonImporter, Log, TEXT("  Cache hits: %d"), Importer.GetCacheHitCount());
+    UE_LOG(LogDsonImporter, Log, TEXT("  Failures:   %d"), Importer.GetFailureCount());
+    for (const FString& Url : Importer.GetFailedUrls())
+    {
+        UE_LOG(LogDsonImporter, Warning, TEXT("    failed: %s"), *Url);
+    }
+    UE_LOG(LogDsonImporter, Log, TEXT("=== DsonMaterialBuilder summary ==="));
+    UE_LOG(LogDsonImporter, Log, TEXT("  Built:     %d"), Builder.GetBuiltCount());
+    UE_LOG(LogDsonImporter, Log, TEXT("  Failures:  %d"), Builder.GetFailureCount());
+    UE_LOG(LogDsonImporter, Log, TEXT("  Iray Uber: %d"), Builder.GetIrayUberCount());
+    UE_LOG(LogDsonImporter, Log, TEXT("  PBRSkin:   %d"), Builder.GetPBRSkinCount());
+    UE_LOG(LogDsonImporter, Log, TEXT("  Default:   %d"), Builder.GetDefaultCount());
+    UE_LOG(LogDsonImporter, Log, TEXT("  Mapped:    %d groups"), MaterialsByGroup.Num());
+
+    // Verbose channel-level diagnostic (gated)
     if (PendingSettings.bDumpMaterialDiagnostics)
     {
-        FDsonTextureImporter Importer(ContentRoots);
-        FDsonMaterialBuilder Builder(ContentRoots, Importer);
-        const FString OutputFolder = TEXT("/Game/DazImports/Materials/") +
-            ObjectTools::SanitizeObjectName(
-                FPaths::GetBaseFilename(PendingSettings.DsonFilePath));
-        FDsonMaterialDiagnostic::Dump(PendingSettings, Importer, Builder, OutputFolder);
+        FDsonMaterialDiagnostic::Dump(PendingSettings, Importer, MaterialOutputFolder);
+    }
+
+    // Pre-load default master (fallback for unmatched mesh sections)
+    UMaterial* DefaultMaterial = LoadObject<UMaterial>(
+        nullptr, TEXT("/DsonToUnreal/Materials/M_DazDefault.M_DazDefault"));
+    if (!DefaultMaterial)
+    {
+        UE_LOG(LogDsonImporter, Error,
+            TEXT("Failed to load M_DazDefault master at /DsonToUnreal/Materials/M_DazDefault — aborting import"));
+        return FReply::Handled();
     }
 
     OnImportConfirmed.ExecuteIfBound(PendingSettings);
@@ -276,7 +311,8 @@ FReply SDsonImportWindow::OnImportClicked()
         UE_LOG(LogDsonImporter, Log,
             TEXT("Skeleton imported successfully: %s"), *Skeleton->GetPathName());
 
-        USkeletalMesh* Mesh = FDsonMeshBuilder::Build(PendingSettings, Skeleton);
+        USkeletalMesh* Mesh = FDsonMeshBuilder::Build(
+            PendingSettings, Skeleton, MaterialsByGroup, DefaultMaterial);
         if (Mesh)
         {
             UE_LOG(LogDsonImporter, Log,

@@ -31,6 +31,12 @@ public:
         int32 SceneMatIdx,
         const FString& OutputFolder);
 
+    // Open DufPath, build all scene materials, and populate OutByGroup keyed by group[0] name.
+    void BuildAllSceneMaterials(
+        const FString& DufPath,
+        const FString& OutputFolder,
+        TMap<FString, UMaterialInstanceConstant*>& OutByGroup);
+
     int32 GetBuiltCount()    const { return BuiltCount;    }
     int32 GetFailureCount()  const { return FailureCount;  }
     int32 GetIrayUberCount() const { return IrayUberCount; }
