@@ -3,6 +3,8 @@
 #include "DsonImporter.h"
 #include "DsonParserFunctions.h"
 #include "DsonTextureImporter.h"
+#include "DsonMaterialBuilder.h"
+#include "Materials/MaterialInstanceConstant.h"
 #include "Misc/FileHelper.h"
 
 // ---------------------------------------------------------------------------
@@ -45,7 +47,8 @@ static bool IsColorChannel(const FString& ChannelId)
 // DumpOneFile
 // ---------------------------------------------------------------------------
 
-static void DumpOneFile(const FString& FilePath, const FDsonImportSettings& Settings, FDsonTextureImporter& Importer)
+static void DumpOneFile(const FString& FilePath, const FDsonImportSettings& Settings,
+    FDsonTextureImporter& Importer, FDsonMaterialBuilder& Builder, const FString& OutputFolder)
 {
     if (FilePath.IsEmpty())
     {
@@ -196,6 +199,11 @@ static void DumpOneFile(const FString& FilePath, const FDsonImportSettings& Sett
                     Tex ? TEXT("OK") : TEXT("FAIL"));
             }
         }
+
+        UMaterialInstanceConstant* MIC = Builder.BuildSceneMaterial(Handle, i, OutputFolder);
+        UE_LOG(LogDsonImporter, Log, TEXT("    [build] %s -> %s"),
+            *SceneId,
+            MIC ? *MIC->GetPathName() : TEXT("<failed>"));
     }
 
     GDsonParser.Destroy(Handle);
@@ -205,7 +213,8 @@ static void DumpOneFile(const FString& FilePath, const FDsonImportSettings& Sett
 // FDsonMaterialDiagnostic::Dump
 // ---------------------------------------------------------------------------
 
-void FDsonMaterialDiagnostic::Dump(const FDsonImportSettings& Settings, FDsonTextureImporter& Importer)
+void FDsonMaterialDiagnostic::Dump(const FDsonImportSettings& Settings,
+    FDsonTextureImporter& Importer, FDsonMaterialBuilder& Builder, const FString& OutputFolder)
 {
     if (!GDsonParser.IsValid())
     {
@@ -213,10 +222,10 @@ void FDsonMaterialDiagnostic::Dump(const FDsonImportSettings& Settings, FDsonTex
         return;
     }
 
-    DumpOneFile(Settings.DsonFilePath, Settings, Importer);
+    DumpOneFile(Settings.DsonFilePath, Settings, Importer, Builder, OutputFolder);
 
     if (!Settings.ResolvedFigureDsfPath.IsEmpty())
-        DumpOneFile(Settings.ResolvedFigureDsfPath, Settings, Importer);
+        DumpOneFile(Settings.ResolvedFigureDsfPath, Settings, Importer, Builder, OutputFolder);
 
     UE_LOG(LogDsonImporter, Log, TEXT("=== DsonTextureImporter smoke-test summary ==="));
     UE_LOG(LogDsonImporter, Log, TEXT("  Imported:      %d"), Importer.GetImportedCount());
@@ -228,5 +237,12 @@ void FDsonMaterialDiagnostic::Dump(const FDsonImportSettings& Settings, FDsonTex
         for (const FString& Url : Importer.GetFailedUrls())
             UE_LOG(LogDsonImporter, Log, TEXT("    %s"), *Url);
     }
+    UE_LOG(LogDsonImporter, Log, TEXT("=============================================="));
+    UE_LOG(LogDsonImporter, Log, TEXT("=== DsonMaterialBuilder smoke-test summary ==="));
+    UE_LOG(LogDsonImporter, Log, TEXT("  Built:        %d"), Builder.GetBuiltCount());
+    UE_LOG(LogDsonImporter, Log, TEXT("  Failures:     %d"), Builder.GetFailureCount());
+    UE_LOG(LogDsonImporter, Log, TEXT("  Iray Uber:    %d"), Builder.GetIrayUberCount());
+    UE_LOG(LogDsonImporter, Log, TEXT("  PBRSkin:      %d"), Builder.GetPBRSkinCount());
+    UE_LOG(LogDsonImporter, Log, TEXT("  Default:      %d"), Builder.GetDefaultCount());
     UE_LOG(LogDsonImporter, Log, TEXT("=============================================="));
 }

@@ -19,6 +19,8 @@
 #include "DsonMeshBuilder.h"
 #include "DsonMaterialDiagnostic.h"
 #include "DsonTextureImporter.h"
+#include "DsonMaterialBuilder.h"
+#include "ObjectTools.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
 #include "ContentBrowserModule.h"
@@ -259,7 +261,11 @@ FReply SDsonImportWindow::OnImportClicked()
     if (PendingSettings.bDumpMaterialDiagnostics)
     {
         FDsonTextureImporter Importer(ContentRoots);
-        FDsonMaterialDiagnostic::Dump(PendingSettings, Importer);
+        FDsonMaterialBuilder Builder(ContentRoots, Importer);
+        const FString OutputFolder = TEXT("/Game/DazImports/Materials/") +
+            ObjectTools::SanitizeObjectName(
+                FPaths::GetBaseFilename(PendingSettings.DsonFilePath));
+        FDsonMaterialDiagnostic::Dump(PendingSettings, Importer, Builder, OutputFolder);
     }
 
     OnImportConfirmed.ExecuteIfBound(PendingSettings);
