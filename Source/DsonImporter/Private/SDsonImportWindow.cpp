@@ -18,6 +18,7 @@
 #include "DsonSkeletonBuilder.h"
 #include "DsonMeshBuilder.h"
 #include "DsonMaterialDiagnostic.h"
+#include "DsonTextureImporter.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
 #include "ContentBrowserModule.h"
@@ -257,7 +258,8 @@ FReply SDsonImportWindow::OnImportClicked()
 
     if (PendingSettings.bDumpMaterialDiagnostics)
     {
-        FDsonMaterialDiagnostic::Dump(PendingSettings);
+        FDsonTextureImporter Importer(ContentRoots);
+        FDsonMaterialDiagnostic::Dump(PendingSettings, Importer);
     }
 
     OnImportConfirmed.ExecuteIfBound(PendingSettings);

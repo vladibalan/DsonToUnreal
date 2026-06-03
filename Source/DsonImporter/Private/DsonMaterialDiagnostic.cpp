@@ -2,6 +2,7 @@
 #include "SDsonImportWindow.h"
 #include "DsonImporter.h"
 #include "DsonParserFunctions.h"
+#include "DsonTextureImporter.h"
 #include "Misc/FileHelper.h"
 
 // ---------------------------------------------------------------------------
@@ -27,11 +28,24 @@ static FString S(const char* Raw)
     return Raw ? FString(UTF8_TO_TCHAR(Raw)) : TEXT("");
 }
 
+static bool IsColorChannel(const FString& ChannelId)
+{
+    // Known sRGB color channels per Material Masters v1 spec.
+    // Everything else (including unknown ids) defaults to linear/data.
+    static const TSet<FString> ColorIds = {
+        TEXT("diffuse"),
+        TEXT("Translucency Color"),
+        TEXT("Top Coat Color"),
+        TEXT("Makeup Base Color"),
+    };
+    return ColorIds.Contains(ChannelId);
+}
+
 // ---------------------------------------------------------------------------
 // DumpOneFile
 // ---------------------------------------------------------------------------
 
-static void DumpOneFile(const FString& FilePath, const FDsonImportSettings& Settings)
+static void DumpOneFile(const FString& FilePath, const FDsonImportSettings& Settings, FDsonTextureImporter& Importer)
 {
     if (FilePath.IsEmpty())
     {
@@ -170,6 +184,17 @@ static void DumpOneFile(const FString& FilePath, const FDsonImportSettings& Sett
                 bHasColor ? TEXT("true") : TEXT("false"), CR, CG, CB);
             UE_LOG(LogDsonImporter, Log, TEXT("        imageUrl=\"%s\""), *ImgUrl);
             UE_LOG(LogDsonImporter, Log, TEXT("        texturePath=\"%s\""), *TexPath);
+            if (!ImgUrl.IsEmpty())
+            {
+                const bool bSRGB = IsColorChannel(ChId);
+                UTexture2D* Tex = Importer.ImportOrFind(ImgUrl, bSRGB);
+                UE_LOG(LogDsonImporter, Log,
+                    TEXT("    [import] %s -> %s (sRGB=%d) %s"),
+                    *ImgUrl,
+                    Tex ? *Tex->GetPathName() : TEXT("<failed>"),
+                    (int32)bSRGB,
+                    Tex ? TEXT("OK") : TEXT("FAIL"));
+            }
         }
     }
 
@@ -180,7 +205,7 @@ static void DumpOneFile(const FString& FilePath, const FDsonImportSettings& Sett
 // FDsonMaterialDiagnostic::Dump
 // ---------------------------------------------------------------------------
 
-void FDsonMaterialDiagnostic::Dump(const FDsonImportSettings& Settings)
+void FDsonMaterialDiagnostic::Dump(const FDsonImportSettings& Settings, FDsonTextureImporter& Importer)
 {
     if (!GDsonParser.IsValid())
     {
@@ -188,8 +213,20 @@ void FDsonMaterialDiagnostic::Dump(const FDsonImportSettings& Settings)
         return;
     }
 
-    DumpOneFile(Settings.DsonFilePath, Settings);
+    DumpOneFile(Settings.DsonFilePath, Settings, Importer);
 
     if (!Settings.ResolvedFigureDsfPath.IsEmpty())
-        DumpOneFile(Settings.ResolvedFigureDsfPath, Settings);
+        DumpOneFile(Settings.ResolvedFigureDsfPath, Settings, Importer);
+
+    UE_LOG(LogDsonImporter, Log, TEXT("=== DsonTextureImporter smoke-test summary ==="));
+    UE_LOG(LogDsonImporter, Log, TEXT("  Imported:      %d"), Importer.GetImportedCount());
+    UE_LOG(LogDsonImporter, Log, TEXT("  Cache hits:    %d"), Importer.GetCacheHitCount());
+    UE_LOG(LogDsonImporter, Log, TEXT("  Failures:      %d"), Importer.GetFailureCount());
+    if (Importer.GetFailedUrls().Num() > 0)
+    {
+        UE_LOG(LogDsonImporter, Log, TEXT("  Failed URLs:"));
+        for (const FString& Url : Importer.GetFailedUrls())
+            UE_LOG(LogDsonImporter, Log, TEXT("    %s"), *Url);
+    }
+    UE_LOG(LogDsonImporter, Log, TEXT("=============================================="));
 }
