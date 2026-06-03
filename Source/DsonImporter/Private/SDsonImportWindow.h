@@ -9,6 +9,7 @@ struct FDsonImportSettings
     FString DsonFilePath;
     FString ResolvedFigureDsfPath;  // absolute path to base figure DSF
     EGenesisGeneration Generation = EGenesisGeneration::Unknown;
+    bool bDumpMaterialDiagnostics = false;  // temporary — Phase 6 planning diagnostic
 };
 
 DECLARE_DELEGATE_OneParam(FOnDsonImportConfirmed, const FDsonImportSettings&)
@@ -47,5 +48,6 @@ private:
     FDsonValidationResult ValidationResult;
     FDsonImportSettings PendingSettings;
     FOnDsonImportConfirmed OnImportConfirmed;
+    bool bDumpMaterialDiagnostics = false;
 
 };

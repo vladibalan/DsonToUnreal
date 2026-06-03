@@ -71,6 +71,55 @@ typedef int32_t     (*DsonDocument_GetVertexInfluenceCountFn)(uint64_t handle, i
 typedef bool        (*DsonDocument_GetVertexBoneInfluenceFn)(uint64_t handle, int32_t modifierIndex, int32_t vertexIndex, int32_t influenceIndex, const char** boneNodeId, double* weight);
 typedef bool        (*DsonDocument_GetVertexBoneInfluenceCappedFn)(uint64_t handle, int32_t modifierIndex, int32_t vertexIndex, int32_t influenceIndex, int32_t maxInfluences, const char** boneNodeId, double* weight);
 
+// Library materials
+typedef int32_t     (*DsonDocument_GetMaterialCountFn)(uint64_t handle);
+typedef const char* (*DsonDocument_GetMaterialIdFn)(uint64_t handle, int32_t matIndex);
+typedef const char* (*DsonDocument_GetMaterialNameFn)(uint64_t handle, int32_t matIndex);
+typedef const char* (*DsonDocument_GetMaterialGeometryIdFn)(uint64_t handle, int32_t matIndex);
+typedef const char* (*DsonDocument_GetMaterialUVSetIdFn)(uint64_t handle, int32_t matIndex);
+typedef const char* (*DsonDocument_GetMaterialTypeFn)(uint64_t handle, int32_t matIndex);
+typedef const char* (*DsonDocument_GetMaterialShaderTypeFn)(uint64_t handle, int32_t matIndex);
+typedef int32_t     (*DsonDocument_GetMaterialGroupCountFn)(uint64_t handle, int32_t matIndex);
+typedef const char* (*DsonDocument_GetMaterialGroupNameFn)(uint64_t handle, int32_t matIndex, int32_t groupIndex);
+
+// Library material channel accessors (indexed)
+typedef int32_t     (*DsonDocument_GetMaterialChannelCountFn)(uint64_t handle, int32_t matIndex);
+typedef const char* (*DsonDocument_GetMaterialChannelIdFn)(uint64_t handle, int32_t matIndex, int32_t channelIdx);
+typedef const char* (*DsonDocument_GetMaterialChannelTypeFn)(uint64_t handle, int32_t matIndex, int32_t channelIdx);
+typedef double      (*DsonDocument_GetMaterialChannelValueFn)(uint64_t handle, int32_t matIndex, int32_t channelIdx);
+typedef double      (*DsonDocument_GetMaterialChannelColorRFn)(uint64_t handle, int32_t matIndex, int32_t channelIdx);
+typedef double      (*DsonDocument_GetMaterialChannelColorGFn)(uint64_t handle, int32_t matIndex, int32_t channelIdx);
+typedef double      (*DsonDocument_GetMaterialChannelColorBFn)(uint64_t handle, int32_t matIndex, int32_t channelIdx);
+typedef bool        (*DsonDocument_GetMaterialChannelHasColorFn)(uint64_t handle, int32_t matIndex, int32_t channelIdx);
+typedef const char* (*DsonDocument_GetMaterialChannelImageUrlFn)(uint64_t handle, int32_t matIndex, int32_t channelIdx);
+typedef const char* (*DsonDocument_GetMaterialChannelTexturePathFn)(uint64_t handle, int32_t matIndex, int32_t channelIdx);
+
+// Scene materials
+typedef int32_t     (*DsonDocument_GetSceneMaterialCountFn)(uint64_t handle);
+typedef const char* (*DsonDocument_GetSceneMaterialIdFn)(uint64_t handle, int32_t matIndex);
+typedef const char* (*DsonDocument_GetSceneMaterialUrlFn)(uint64_t handle, int32_t matIndex);
+typedef int32_t     (*DsonDocument_GetSceneMaterialGroupCountFn)(uint64_t handle, int32_t matIndex);
+typedef const char* (*DsonDocument_GetSceneMaterialGroupNameFn)(uint64_t handle, int32_t matIndex, int32_t groupIndex);
+
+// Scene material surface accessors
+typedef const char* (*DsonDocument_GetSceneMaterialNameFn)(uint64_t handle, int32_t sceneMatIndex);
+typedef const char* (*DsonDocument_GetSceneMaterialGeometryIdFn)(uint64_t handle, int32_t sceneMatIndex);
+typedef const char* (*DsonDocument_GetSceneMaterialUVSetIdFn)(uint64_t handle, int32_t sceneMatIndex);
+typedef const char* (*DsonDocument_GetSceneMaterialTypeFn)(uint64_t handle, int32_t sceneMatIndex);
+typedef const char* (*DsonDocument_GetSceneMaterialShaderTypeFn)(uint64_t handle, int32_t sceneMatIndex);
+
+// Scene material channel accessors (indexed)
+typedef int32_t     (*DsonDocument_GetSceneMaterialChannelCountFn)(uint64_t handle, int32_t sceneMatIndex);
+typedef const char* (*DsonDocument_GetSceneMaterialChannelIdFn)(uint64_t handle, int32_t sceneMatIndex, int32_t channelIdx);
+typedef const char* (*DsonDocument_GetSceneMaterialChannelTypeFn)(uint64_t handle, int32_t sceneMatIndex, int32_t channelIdx);
+typedef double      (*DsonDocument_GetSceneMaterialChannelValueFn)(uint64_t handle, int32_t sceneMatIndex, int32_t channelIdx);
+typedef double      (*DsonDocument_GetSceneMaterialChannelColorRFn)(uint64_t handle, int32_t sceneMatIndex, int32_t channelIdx);
+typedef double      (*DsonDocument_GetSceneMaterialChannelColorGFn)(uint64_t handle, int32_t sceneMatIndex, int32_t channelIdx);
+typedef double      (*DsonDocument_GetSceneMaterialChannelColorBFn)(uint64_t handle, int32_t sceneMatIndex, int32_t channelIdx);
+typedef bool        (*DsonDocument_GetSceneMaterialChannelHasColorFn)(uint64_t handle, int32_t sceneMatIndex, int32_t channelIdx);
+typedef const char* (*DsonDocument_GetSceneMaterialChannelImageUrlFn)(uint64_t handle, int32_t sceneMatIndex, int32_t channelIdx);
+typedef const char* (*DsonDocument_GetSceneMaterialChannelTexturePathFn)(uint64_t handle, int32_t sceneMatIndex, int32_t channelIdx);
+
 struct FDsonParserAPI
 {
     Fn_Create                    Create                    = nullptr;
@@ -130,6 +179,50 @@ struct FDsonParserAPI
     DsonDocument_GetVertexInfluenceCountFn        GetVertexInfluenceCount        = nullptr;
     DsonDocument_GetVertexBoneInfluenceFn         GetVertexBoneInfluence         = nullptr;
     DsonDocument_GetVertexBoneInfluenceCappedFn   GetVertexBoneInfluenceCapped   = nullptr;
+
+    DsonDocument_GetMaterialCountFn        GetMaterialCount        = nullptr;
+    DsonDocument_GetMaterialIdFn           GetMaterialId           = nullptr;
+    DsonDocument_GetMaterialNameFn         GetMaterialName         = nullptr;
+    DsonDocument_GetMaterialGeometryIdFn   GetMaterialGeometryId   = nullptr;
+    DsonDocument_GetMaterialUVSetIdFn      GetMaterialUVSetId      = nullptr;
+    DsonDocument_GetMaterialTypeFn         GetMaterialType         = nullptr;
+    DsonDocument_GetMaterialShaderTypeFn   GetMaterialShaderType   = nullptr;
+    DsonDocument_GetMaterialGroupCountFn   GetMaterialGroupCount   = nullptr;
+    DsonDocument_GetMaterialGroupNameFn    GetMaterialGroupName    = nullptr;
+
+    DsonDocument_GetMaterialChannelCountFn       GetMaterialChannelCount       = nullptr;
+    DsonDocument_GetMaterialChannelIdFn          GetMaterialChannelId          = nullptr;
+    DsonDocument_GetMaterialChannelTypeFn        GetMaterialChannelType        = nullptr;
+    DsonDocument_GetMaterialChannelValueFn       GetMaterialChannelValue       = nullptr;
+    DsonDocument_GetMaterialChannelColorRFn      GetMaterialChannelColorR      = nullptr;
+    DsonDocument_GetMaterialChannelColorGFn      GetMaterialChannelColorG      = nullptr;
+    DsonDocument_GetMaterialChannelColorBFn      GetMaterialChannelColorB      = nullptr;
+    DsonDocument_GetMaterialChannelHasColorFn    GetMaterialChannelHasColor    = nullptr;
+    DsonDocument_GetMaterialChannelImageUrlFn    GetMaterialChannelImageUrl    = nullptr;
+    DsonDocument_GetMaterialChannelTexturePathFn GetMaterialChannelTexturePath = nullptr;
+
+    DsonDocument_GetSceneMaterialCountFn      GetSceneMaterialCount      = nullptr;
+    DsonDocument_GetSceneMaterialIdFn         GetSceneMaterialId         = nullptr;
+    DsonDocument_GetSceneMaterialUrlFn        GetSceneMaterialUrl        = nullptr;
+    DsonDocument_GetSceneMaterialGroupCountFn GetSceneMaterialGroupCount = nullptr;
+    DsonDocument_GetSceneMaterialGroupNameFn  GetSceneMaterialGroupName  = nullptr;
+
+    DsonDocument_GetSceneMaterialNameFn          GetSceneMaterialName          = nullptr;
+    DsonDocument_GetSceneMaterialGeometryIdFn    GetSceneMaterialGeometryId    = nullptr;
+    DsonDocument_GetSceneMaterialUVSetIdFn       GetSceneMaterialUVSetId       = nullptr;
+    DsonDocument_GetSceneMaterialTypeFn          GetSceneMaterialType          = nullptr;
+    DsonDocument_GetSceneMaterialShaderTypeFn    GetSceneMaterialShaderType    = nullptr;
+
+    DsonDocument_GetSceneMaterialChannelCountFn       GetSceneMaterialChannelCount       = nullptr;
+    DsonDocument_GetSceneMaterialChannelIdFn          GetSceneMaterialChannelId          = nullptr;
+    DsonDocument_GetSceneMaterialChannelTypeFn        GetSceneMaterialChannelType        = nullptr;
+    DsonDocument_GetSceneMaterialChannelValueFn       GetSceneMaterialChannelValue       = nullptr;
+    DsonDocument_GetSceneMaterialChannelColorRFn      GetSceneMaterialChannelColorR      = nullptr;
+    DsonDocument_GetSceneMaterialChannelColorGFn      GetSceneMaterialChannelColorG      = nullptr;
+    DsonDocument_GetSceneMaterialChannelColorBFn      GetSceneMaterialChannelColorB      = nullptr;
+    DsonDocument_GetSceneMaterialChannelHasColorFn    GetSceneMaterialChannelHasColor    = nullptr;
+    DsonDocument_GetSceneMaterialChannelImageUrlFn    GetSceneMaterialChannelImageUrl    = nullptr;
+    DsonDocument_GetSceneMaterialChannelTexturePathFn GetSceneMaterialChannelTexturePath = nullptr;
 
     bool IsValid() const
     {
