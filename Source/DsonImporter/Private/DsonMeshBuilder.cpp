@@ -1,6 +1,8 @@
 #include "DsonMeshBuilder.h"
 #include "DsonImporter.h"
+#include "DsonAssetUtils.h"
 #include "DsonParserFunctions.h"
+#include "DsonLoadedDocument.h"
 #include "DsonSkinWeightsBuilder.h"
 #include "SDsonImportWindow.h"
 
@@ -13,11 +15,7 @@
 #include "Rendering/SkeletalMeshLODImporterData.h"
 #include "Rendering/SkeletalMeshModel.h"
 #include "Rendering/SkeletalMeshRenderData.h"
-#include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
-#include "UObject/Package.h"
-#include "UObject/SavePackage.h"
-#include "AssetRegistry/AssetRegistryModule.h"
 #include "PackageTools.h"
 #include "IMeshBuilderModule.h"
 #include "ImportUtils/SkeletalMeshImportUtils.h"
@@ -56,56 +54,12 @@ USkeletalMesh* FDsonMeshBuilder::Build(
         return nullptr;
     }
 
-    uint64_t DsfHandle = 0;
-    if (!LoadDsfDocument(Settings.ResolvedFigureDsfPath, DsfHandle))
+    FDsonLoadedDocument DsfDocument;
+    if (!DsfDocument.LoadFromFileAsError(Settings.ResolvedFigureDsfPath, TEXT("DsonMeshBuilder")))
         return nullptr;
 
-    USkeletalMesh* Mesh = CreateMeshAsset(Settings, Skeleton, DsfHandle, MaterialsByGroup, DefaultMaterial, UvSetDsfPath);
-
-    GDsonParser.Destroy(reinterpret_cast<DsonDocumentHandle>(DsfHandle));
-    return Mesh;
-}
-
-// ---------------------------------------------------------------------------
-// LoadDsfDocument
-// ---------------------------------------------------------------------------
-
-bool FDsonMeshBuilder::LoadDsfDocument(const FString& Path, uint64_t& OutHandle)
-{
-    // Loads file text through UE path APIs, then hands UTF-8 JSON/DSON text to the parser.
-    // OutHandle is only set on success.
-    FString FileContent;
-    if (!FFileHelper::LoadFileToString(FileContent, *Path))
-    {
-        UE_LOG(LogDsonImporter, Error,
-            TEXT("DsonMeshBuilder: failed to read file '%s'"), *Path);
-        return false;
-    }
-
-    FTCHARToUTF8 Utf8Converter(*FileContent);
-    const char* Utf8Str = Utf8Converter.Get();
-
-    DsonDocumentHandle RawHandle = GDsonParser.Create();
-    if (!RawHandle)
-    {
-        UE_LOG(LogDsonImporter, Error,
-            TEXT("DsonMeshBuilder: GDsonParser.Create() returned null"));
-        return false;
-    }
-
-    const int32 Result = GDsonParser.LoadFromString(RawHandle, Utf8Str);
-    if (Result != 0)
-    {
-        const char* ErrRaw = GDsonParser.GetLastError ? GDsonParser.GetLastError() : nullptr;
-        UE_LOG(LogDsonImporter, Error,
-            TEXT("DsonMeshBuilder: LoadFromString failed for '%s': %s"),
-            *Path, ErrRaw ? UTF8_TO_TCHAR(ErrRaw) : TEXT("unknown error"));
-        GDsonParser.Destroy(RawHandle);
-        return false;
-    }
-
-    OutHandle = reinterpret_cast<uint64_t>(RawHandle);
-    return true;
+    return CreateMeshAsset(Settings, Skeleton, DsfDocument.GetHandle64(),
+        MaterialsByGroup, DefaultMaterial, UvSetDsfPath);
 }
 
 // ---------------------------------------------------------------------------
@@ -171,40 +125,16 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
 
     // --- Open UV set DSF in second parser session ---
     // UVs live in a separate referenced DSF; figure DSF carries no UV data.
-    DsonDocumentHandle UvHandleRaw = nullptr;
+    FDsonLoadedDocument UvDocument;
     uint64_t UvH = DsfHandle;   // fallback to figure DSF (yields 0 UVs as before)
 
     if (!UvSetDsfPath.IsEmpty())
     {
-        FString UvFileContent;
-        if (FFileHelper::LoadFileToString(UvFileContent, *UvSetDsfPath))
+        if (UvDocument.LoadFromFileAsWarning(UvSetDsfPath, TEXT("[uv]")))
         {
-            FTCHARToUTF8 Utf8(*UvFileContent);
-            UvHandleRaw = GDsonParser.Create ? GDsonParser.Create() : nullptr;
-            if (UvHandleRaw)
-            {
-                const int32 R = GDsonParser.LoadFromString
-                    ? GDsonParser.LoadFromString(UvHandleRaw, Utf8.Get()) : -1;
-                if (R == 0)
-                {
-                    UvH = reinterpret_cast<uint64_t>(UvHandleRaw);
-                    UE_LOG(LogDsonImporter, Log,
-                        TEXT("[uv] opened UV set DSF in second session"));
-                }
-                else
-                {
-                    UE_LOG(LogDsonImporter, Warning,
-                        TEXT("[uv] LoadFromString failed (result=%d) on %s"),
-                        R, *UvSetDsfPath);
-                    if (GDsonParser.Destroy) GDsonParser.Destroy(UvHandleRaw);
-                    UvHandleRaw = nullptr;
-                }
-            }
-        }
-        else
-        {
-            UE_LOG(LogDsonImporter, Warning,
-                TEXT("[uv] failed to read UV set DSF: %s"), *UvSetDsfPath);
+            UvH = UvDocument.GetHandle64();
+            UE_LOG(LogDsonImporter, Log,
+                TEXT("[uv] opened UV set DSF in second session"));
         }
     }
 
@@ -410,12 +340,6 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
             UVPolyVertIndices[3], UVPolyVertIndices[4], UVPolyVertIndices[5]);
     }
 
-    if (UvHandleRaw && GDsonParser.Destroy)
-    {
-        GDsonParser.Destroy(UvHandleRaw);
-        UvHandleRaw = nullptr;
-    }
-
     int32 UVFlatOffset = 0;
     for (int32 f = 0; f < FaceCount; ++f)
     {
@@ -481,14 +405,9 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
     const FString MeshName    = FPaths::GetBaseFilename(Settings.ResolvedFigureDsfPath) + TEXT("_SkeletalMesh");
     const FString PackagePath = TEXT("/Game/DazImports/") + MeshName;
 
-    UPackage* Package = CreatePackage(*PackagePath);
+    UPackage* Package = FDsonAssetUtils::CreateLoadedPackage(PackagePath, TEXT("DsonMeshBuilder"));
     if (!Package)
-    {
-        UE_LOG(LogDsonImporter, Error,
-            TEXT("DsonMeshBuilder: failed to create package '%s'"), *PackagePath);
         return nullptr;
-    }
-    Package->FullyLoad();
 
     USkeletalMesh* Mesh = NewObject<USkeletalMesh>(Package, *MeshName, RF_Public | RF_Standalone);
     if (!Mesh)
@@ -734,17 +653,7 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
     }
 
     // Step 9 — Save
-    Package->MarkPackageDirty();
-
-    const FString FileName = FPackageName::LongPackageNameToFilename(
-        PackagePath, FPackageName::GetAssetPackageExtension());
-
-    FSavePackageArgs SaveArgs;
-    SaveArgs.TopLevelFlags       = RF_Public | RF_Standalone;
-    SaveArgs.Error               = GError;
-    SaveArgs.bWarnOfLongFilename = false;
-    UPackage::SavePackage(Package, Mesh, *FileName, SaveArgs);
-
-    FAssetRegistryModule::GetRegistry().AssetCreated(Mesh);
-    return Mesh;
+    return FDsonAssetUtils::SaveAssetPackage(Package, Mesh, PackagePath, TEXT("DsonMeshBuilder"))
+        ? Mesh
+        : nullptr;
 }

@@ -1,16 +1,13 @@
 #include "DsonMaterialBuilder.h"
 #include "DsonImporter.h"
+#include "DsonAssetUtils.h"
 #include "DsonParserFunctions.h"
+#include "DsonLoadedDocument.h"
 #include "DsonTextureImporter.h"
 
 #include "Engine/Texture2D.h"
 #include "Materials/Material.h"
 #include "Materials/MaterialInstanceConstant.h"
-#include "Misc/FileHelper.h"
-#include "Misc/PackageName.h"
-#include "UObject/Package.h"
-#include "UObject/SavePackage.h"
-#include "AssetRegistry/AssetRegistryModule.h"
 #include "ObjectTools.h"
 
 /*
@@ -241,15 +238,12 @@ UMaterialInstanceConstant* FDsonMaterialBuilder::BuildSceneMaterial(
     const FString PackagePath = OutputFolder / AssetName;
 
     // Step 4 — create and fully load package
-    UPackage* Package = CreatePackage(*PackagePath);
+    UPackage* Package = FDsonAssetUtils::CreateLoadedPackage(PackagePath, TEXT("DsonMaterialBuilder"));
     if (!Package)
     {
-        UE_LOG(LogDsonImporter, Error,
-            TEXT("DsonMaterialBuilder: failed to create package '%s'"), *PackagePath);
         ++FailureCount;
         return nullptr;
     }
-    Package->FullyLoad();
 
     // Step 5 — create MIC
     UMaterialInstanceConstant* MIC = NewObject<UMaterialInstanceConstant>(
@@ -339,21 +333,13 @@ UMaterialInstanceConstant* FDsonMaterialBuilder::BuildSceneMaterial(
     MIC->PostEditChange();
 
     // Step 9 — save (mirrors DsonTextureImporter exactly)
-    Package->MarkPackageDirty();
-
-    const FString FileName = FPackageName::LongPackageNameToFilename(
-        PackagePath, FPackageName::GetAssetPackageExtension());
-
-    FSavePackageArgs SaveArgs;
-    SaveArgs.TopLevelFlags       = RF_Public | RF_Standalone;
-    SaveArgs.Error               = GError;
-    SaveArgs.bWarnOfLongFilename = false;
-    UPackage::SavePackage(Package, MIC, *FileName, SaveArgs);
+    if (!FDsonAssetUtils::SaveAssetPackage(Package, MIC, PackagePath, TEXT("DsonMaterialBuilder")))
+    {
+        ++FailureCount;
+        return nullptr;
+    }
 
     // Step 10 — notify asset registry
-    FAssetRegistryModule::GetRegistry().AssetCreated(MIC);
-
-    // Step 11
     ++BuiltCount;
     return MIC;
 }
@@ -368,35 +354,11 @@ void FDsonMaterialBuilder::BuildAllSceneMaterials(
     TMap<FString, UMaterialInstanceConstant*>& OutByGroup,
     FString& OutUvSetUrl)
 {
-    FString FileContent;
-    if (!FFileHelper::LoadFileToString(FileContent, *DufPath) || FileContent.IsEmpty())
-    {
-        UE_LOG(LogDsonImporter, Warning,
-            TEXT("DsonMaterialBuilder: failed to read or empty file '%s'"), *DufPath);
+    FDsonLoadedDocument Document;
+    if (!Document.LoadFromFileAsWarning(DufPath, TEXT("DsonMaterialBuilder")))
         return;
-    }
 
-    FTCHARToUTF8 Utf8(*FileContent);
-
-    DsonDocumentHandle Handle = GDsonParser.Create();
-    if (!Handle)
-    {
-        UE_LOG(LogDsonImporter, Warning,
-            TEXT("DsonMaterialBuilder: GDsonParser.Create() returned null for '%s'"), *DufPath);
-        return;
-    }
-
-    const int32 LoadResult = GDsonParser.LoadFromString(Handle, Utf8.Get());
-    if (LoadResult != 0)
-    {
-        const char* ErrRaw = GDsonParser.GetLastError ? GDsonParser.GetLastError() : nullptr;
-        UE_LOG(LogDsonImporter, Warning,
-            TEXT("DsonMaterialBuilder: LoadFromString failed for '%s': %s"),
-            *DufPath, ErrRaw ? UTF8_TO_TCHAR(ErrRaw) : TEXT("unknown error"));
-        GDsonParser.Destroy(Handle);
-        return;
-    }
-
+    DsonDocumentHandle Handle = Document.GetHandle();
     const uint64_t H = reinterpret_cast<uint64_t>(Handle);
 
     const int32 SceneMatCount = GDsonParser.GetSceneMaterialCount
@@ -445,6 +407,4 @@ void FDsonMaterialBuilder::BuildAllSceneMaterials(
 
         OutByGroup.Add(GroupName, MIC);
     }
-
-    GDsonParser.Destroy(Handle);
 }

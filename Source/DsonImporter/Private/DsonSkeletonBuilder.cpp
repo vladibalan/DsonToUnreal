@@ -1,17 +1,15 @@
 #include "DsonSkeletonBuilder.h"
 #include "DsonImporter.h"
+#include "DsonAssetUtils.h"
 #include "DsonParserFunctions.h"
+#include "DsonLoadedDocument.h"
 #include "SDsonImportWindow.h"
 
 #include "Animation/Skeleton.h"
 #include "Engine/SkeletalMesh.h"
 #include "ReferenceSkeleton.h"
-#include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
-#include "UObject/Package.h"
-#include "UObject/SavePackage.h"
 #include "PackageTools.h"
-#include "AssetRegistry/AssetRegistryModule.h"
 
 /*
  * Intent:
@@ -38,9 +36,11 @@ USkeleton* FDsonSkeletonBuilder::Build(const FDsonImportSettings& Settings)
     }
 
     uint64_t DsfHandle = 0;
-    if (!LoadDsfDocument(Settings.ResolvedFigureDsfPath, DsfHandle))
+    FDsonLoadedDocument DsfDocument;
+    if (!DsfDocument.LoadFromFileAsError(Settings.ResolvedFigureDsfPath, TEXT("DsonSkeletonBuilder")))
         return nullptr;
 
+    DsfHandle = DsfDocument.GetHandle64();
     FReferenceSkeleton RefSkeleton;
     BuildReferenceSkeletonFromDsf(DsfHandle, RefSkeleton);
 
@@ -49,57 +49,11 @@ USkeleton* FDsonSkeletonBuilder::Build(const FDsonImportSettings& Settings)
         UE_LOG(LogDsonImporter, Error,
             TEXT("DsonSkeletonBuilder: no bones found in '%s'"),
             *Settings.ResolvedFigureDsfPath);
-        GDsonParser.Destroy(reinterpret_cast<DsonDocumentHandle>(DsfHandle));
         return nullptr;
     }
 
     const FString AssetName = FPaths::GetBaseFilename(Settings.ResolvedFigureDsfPath);
-    USkeleton* Skeleton = CreateSkeletonAsset(RefSkeleton, AssetName);
-
-    GDsonParser.Destroy(reinterpret_cast<DsonDocumentHandle>(DsfHandle));
-    return Skeleton;
-}
-
-// ---------------------------------------------------------------------------
-// LoadDsfDocument
-// ---------------------------------------------------------------------------
-
-bool FDsonSkeletonBuilder::LoadDsfDocument(const FString& Path, uint64_t& OutHandle)
-{
-    // Loads file text through UE path APIs, then hands UTF-8 JSON/DSON text to the parser.
-    // OutHandle is only set on success.
-    FString FileContent;
-    if (!FFileHelper::LoadFileToString(FileContent, *Path))
-    {
-        UE_LOG(LogDsonImporter, Error,
-            TEXT("DsonSkeletonBuilder: failed to read file '%s'"), *Path);
-        return false;
-    }
-
-    FTCHARToUTF8 Utf8Converter(*FileContent);
-    const char* Utf8Str = Utf8Converter.Get();
-
-    DsonDocumentHandle RawHandle = GDsonParser.Create();
-    if (!RawHandle)
-    {
-        UE_LOG(LogDsonImporter, Error,
-            TEXT("DsonSkeletonBuilder: GDsonParser.Create() returned null"));
-        return false;
-    }
-
-    const int32 Result = GDsonParser.LoadFromString(RawHandle, Utf8Str);
-    if (Result != 0)
-    {
-        const char* ErrRaw = GDsonParser.GetLastError ? GDsonParser.GetLastError() : nullptr;
-        UE_LOG(LogDsonImporter, Error,
-            TEXT("DsonSkeletonBuilder: LoadFromString failed for '%s': %s"),
-            *Path, ErrRaw ? UTF8_TO_TCHAR(ErrRaw) : TEXT("unknown error"));
-        GDsonParser.Destroy(RawHandle);
-        return false;
-    }
-
-    OutHandle = reinterpret_cast<uint64_t>(RawHandle);
-    return true;
+    return CreateSkeletonAsset(RefSkeleton, AssetName);
 }
 
 // ---------------------------------------------------------------------------
@@ -398,14 +352,9 @@ USkeleton* FDsonSkeletonBuilder::CreateSkeletonAsset(
     const FString SkeletonName = AssetName + TEXT("_Skeleton");
     const FString PackagePath  = TEXT("/Game/DazImports/") + SkeletonName;
 
-    UPackage* Package = CreatePackage(*PackagePath);
+    UPackage* Package = FDsonAssetUtils::CreateLoadedPackage(PackagePath, TEXT("DsonSkeletonBuilder"));
     if (!Package)
-    {
-        UE_LOG(LogDsonImporter, Error,
-            TEXT("DsonSkeletonBuilder: failed to create package '%s'"), *PackagePath);
         return nullptr;
-    }
-    Package->FullyLoad();
 
     USkeleton* Skeleton = NewObject<USkeleton>(Package, *SkeletonName, RF_Public | RF_Standalone);
     if (!Skeleton)
@@ -425,18 +374,7 @@ USkeleton* FDsonSkeletonBuilder::CreateSkeletonAsset(
         Skeleton->MergeAllBonesToBoneTree(TempMesh);
     }
 
-    Package->MarkPackageDirty();
-
-    const FString FileName = FPackageName::LongPackageNameToFilename(
-        PackagePath, FPackageName::GetAssetPackageExtension());
-
-    FSavePackageArgs SaveArgs;
-    SaveArgs.TopLevelFlags       = RF_Public | RF_Standalone;
-    SaveArgs.Error               = GError;
-    SaveArgs.bWarnOfLongFilename = false;
-    UPackage::SavePackage(Package, Skeleton, *FileName, SaveArgs);
-
-    FAssetRegistryModule::GetRegistry().AssetCreated(Skeleton);
-
-    return Skeleton;
+    return FDsonAssetUtils::SaveAssetPackage(Package, Skeleton, PackagePath, TEXT("DsonSkeletonBuilder"))
+        ? Skeleton
+        : nullptr;
 }

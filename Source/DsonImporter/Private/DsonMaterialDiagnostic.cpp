@@ -2,8 +2,8 @@
 #include "SDsonImportWindow.h"
 #include "DsonImporter.h"
 #include "DsonParserFunctions.h"
+#include "DsonLoadedDocument.h"
 #include "DsonTextureImporter.h"
-#include "Misc/FileHelper.h"
 
 /*
  * Intent:
@@ -65,35 +65,12 @@ static void DumpOneFile(const FString& FilePath, const FDsonImportSettings& Sett
         return;
     }
 
-    FString FileContent;
-    if (!FFileHelper::LoadFileToString(FileContent, *FilePath))
-    {
-        UE_LOG(LogDsonImporter, Warning, TEXT("[MatDiag] Failed to read: %s"), *FilePath);
+    FDsonLoadedDocument Document;
+    if (!Document.LoadFromFileAsWarning(FilePath, TEXT("[MatDiag]")))
         return;
-    }
-
-    FTCHARToUTF8 Utf8(*FileContent);
-
-    DsonDocumentHandle Handle = GDsonParser.Create();
-    if (!Handle)
-    {
-        UE_LOG(LogDsonImporter, Warning,
-            TEXT("[MatDiag] GDsonParser.Create() returned null for: %s"), *FilePath);
-        return;
-    }
-
-    const int32 LoadResult = GDsonParser.LoadFromString(Handle, Utf8.Get());
-    if (LoadResult != 0)
-    {
-        const char* ErrRaw = GDsonParser.GetLastError ? GDsonParser.GetLastError() : nullptr;
-        UE_LOG(LogDsonImporter, Warning,
-            TEXT("[MatDiag] LoadFromString failed for '%s': %s"),
-            *FilePath, ErrRaw ? UTF8_TO_TCHAR(ErrRaw) : TEXT("unknown error"));
-        GDsonParser.Destroy(Handle);
-        return;
-    }
 
     // H is used for all uint64_t-based API calls; Handle for DsonDocumentHandle-based calls
+    DsonDocumentHandle Handle = Document.GetHandle();
     const uint64_t H = reinterpret_cast<uint64_t>(Handle);
 
     // Header
@@ -210,8 +187,6 @@ static void DumpOneFile(const FString& FilePath, const FDsonImportSettings& Sett
         }
 
     }
-
-    GDsonParser.Destroy(Handle);
 }
 
 // ---------------------------------------------------------------------------

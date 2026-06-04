@@ -1,5 +1,6 @@
 #include "DsonTextureImporter.h"
 #include "DsonImporter.h"
+#include "DsonAssetUtils.h"
 #include "DsonContentRoots.h"
 
 #include "Engine/Texture2D.h"
@@ -7,9 +8,6 @@
 #include "Misc/FileHelper.h"
 #include "Misc/PackageName.h"
 #include "Misc/Paths.h"
-#include "UObject/Package.h"
-#include "UObject/SavePackage.h"
-#include "AssetRegistry/AssetRegistryModule.h"
 #include "ObjectTools.h"
 
 /*
@@ -158,16 +156,13 @@ UTexture2D* FDsonTextureImporter::ImportOrFind(const FString& ImageUrl, bool bSR
     }
 
     // 6. Create the package
-    UPackage* Package = CreatePackage(*PackagePath);
+    UPackage* Package = FDsonAssetUtils::CreateLoadedPackage(PackagePath, TEXT("DsonTextureImporter"));
     if (!Package)
     {
-        UE_LOG(LogDsonImporter, Error,
-            TEXT("DsonTextureImporter: failed to create package '%s'"), *PackagePath);
         ++FailureCount;
         FailedUrls.Add(ImageUrl);
         return nullptr;
     }
-    Package->FullyLoad();
 
     // 7. Import via UTextureFactory — gives us explicit control over the package and
     //    asset name; the factory applies its own heuristics (e.g. normal map detection
@@ -203,18 +198,12 @@ UTexture2D* FDsonTextureImporter::ImportOrFind(const FString& ImageUrl, bool bSR
     Texture->SRGB = bSRGB;
     Texture->UpdateResource();
 
-    Package->MarkPackageDirty();
-
-    const FString FileName = FPackageName::LongPackageNameToFilename(
-        PackagePath, FPackageName::GetAssetPackageExtension());
-
-    FSavePackageArgs SaveArgs;
-    SaveArgs.TopLevelFlags       = RF_Public | RF_Standalone;
-    SaveArgs.Error               = GError;
-    SaveArgs.bWarnOfLongFilename = false;
-    UPackage::SavePackage(Package, Texture, *FileName, SaveArgs);
-
-    FAssetRegistryModule::GetRegistry().AssetCreated(Texture);
+    if (!FDsonAssetUtils::SaveAssetPackage(Package, Texture, PackagePath, TEXT("DsonTextureImporter")))
+    {
+        ++FailureCount;
+        FailedUrls.Add(ImageUrl);
+        return nullptr;
+    }
 
     Cache.Add(ResolvedPath, Texture);
     ++ImportedCount;
