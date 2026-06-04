@@ -336,6 +336,42 @@ namespace
         return true;
     }
 
+    static void FinalizeMeshBuildInputs(
+        USkeletalMesh* Mesh,
+        FSkeletalMeshLODModel& LODModel,
+        const TArray<FVector3f>& Positions)
+    {
+        FBox3f BoundingBox(Positions.GetData(), Positions.Num());
+        Mesh->SetImportedBounds(FBoxSphereBounds(FBox(BoundingBox)));
+        Mesh->SetHasVertexColors(false);
+        Mesh->SetVertexColorGuid(FGuid());
+        LODModel.NumTexCoords = 1;
+
+        Mesh->GetLODInfo(0)->BuildSettings.bRecomputeNormals  = true;
+        Mesh->GetLODInfo(0)->BuildSettings.bRecomputeTangents = true;
+    }
+
+    static bool BuildSkeletalMeshRenderData(
+        USkeletalMesh* Mesh,
+        const FString& SourceDsfPath)
+    {
+        IMeshBuilderModule& MeshBuilderModule = IMeshBuilderModule::GetForRunningPlatform();
+        FSkeletalMeshBuildParameters BuildParams(
+            Mesh,
+            GetTargetPlatformManagerRef().GetRunningTargetPlatform(),
+            /*LODIndex=*/0,
+            /*bRegenDepLODs=*/false);
+        if (!MeshBuilderModule.BuildSkeletalMesh(BuildParams))
+        {
+            UE_LOG(LogDsonImporter, Error,
+                TEXT("DsonMeshBuilder: BuildSkeletalMesh failed for '%s'"),
+                *SourceDsfPath);
+            return false;
+        }
+
+        return true;
+    }
+
     static TArray<FDsonTriangle> ReadTriangles(
         uint64_t DsfHandle,
         int32 FaceCount,
@@ -712,30 +748,12 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
     if (!PopulateMeshRefSkeleton(Mesh, Skeleton))
         return nullptr;
 
-    // 8c — Bounds, vertex-color state, and tex-coord count
-    FBox3f BoundingBox(Positions.GetData(), Positions.Num());
-    Mesh->SetImportedBounds(FBoxSphereBounds(FBox(BoundingBox)));
-    Mesh->SetHasVertexColors(false);
-    Mesh->SetVertexColorGuid(FGuid());
-    LODModel.NumTexCoords = 1;
+    // 8c — Bounds, vertex-color state, tex-coord count, and build settings
+    FinalizeMeshBuildInputs(Mesh, LODModel, Positions);
 
-    // 8d — Build settings, then invoke IMeshBuilderModule (requires LODInfo + MeshDescription)
-    Mesh->GetLODInfo(0)->BuildSettings.bRecomputeNormals  = true;
-    Mesh->GetLODInfo(0)->BuildSettings.bRecomputeTangents = true;
-
-    IMeshBuilderModule& MeshBuilderModule = IMeshBuilderModule::GetForRunningPlatform();
-    FSkeletalMeshBuildParameters BuildParams(
-        Mesh,
-        GetTargetPlatformManagerRef().GetRunningTargetPlatform(),
-        /*LODIndex=*/0,
-        /*bRegenDepLODs=*/false);
-    if (!MeshBuilderModule.BuildSkeletalMesh(BuildParams))
-    {
-        UE_LOG(LogDsonImporter, Error,
-            TEXT("DsonMeshBuilder: BuildSkeletalMesh failed for '%s'"),
-            *Settings.ResolvedFigureDsfPath);
+    // 8d — Invoke IMeshBuilderModule (requires LODInfo + MeshDescription)
+    if (!BuildSkeletalMeshRenderData(Mesh, Settings.ResolvedFigureDsfPath))
         return nullptr;
-    }
 
     // 8e — Post-build: inv-ref matrices, skeleton merge, then skeleton assignment
     Mesh->CalculateInvRefMatrices();
