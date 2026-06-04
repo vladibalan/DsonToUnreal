@@ -117,6 +117,37 @@ namespace
         return MaterialGroupNames;
     }
 
+    static bool HasBaseGeometry(uint64_t DsfHandle, const FString& SourceDsfPath)
+    {
+        const int32 RawGeomCount = GDsonParser.GetGeometryCount
+            ? GDsonParser.GetGeometryCount(DsfHandle) : 0;
+        if (RawGeomCount < 0)
+            UE_LOG(LogDsonImporter, Warning,
+                TEXT("DsonMeshBuilder: GetGeometryCount returned %d, clamping to 0"), RawGeomCount);
+
+        const int32 GeomCount = FMath::Max(0, RawGeomCount);
+        if (GeomCount == 0)
+        {
+            UE_LOG(LogDsonImporter, Error,
+                TEXT("DsonMeshBuilder: no geometry found in '%s'"),
+                *SourceDsfPath);
+            return false;
+        }
+
+        return true;
+    }
+
+    static int32 ReadFaceCount(uint64_t DsfHandle)
+    {
+        const int32 RawFaceCount = GDsonParser.GetPolylistCount
+            ? GDsonParser.GetPolylistCount(DsfHandle, 0) : 0;
+        if (RawFaceCount < 0)
+            UE_LOG(LogDsonImporter, Warning,
+                TEXT("DsonMeshBuilder: GetPolylistCount returned %d for geom 0"), RawFaceCount);
+
+        return FMath::Max(0, RawFaceCount);
+    }
+
     static TArray<FVector3f> ReadVertexPositions(uint64_t DsfHandle)
     {
         const double UnitScale = GDsonParser.GetUnitScale
@@ -693,30 +724,14 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
     // Step 1 — Find the first geometry in the DSF
     // Main geometry conversion path. It assumes geometry index 0 is the base mesh and
     // that material group names will match keys produced by FDsonMaterialBuilder.
-    const int32 RawGeomCount = GDsonParser.GetGeometryCount
-        ? GDsonParser.GetGeometryCount(DsfHandle) : 0;
-    if (RawGeomCount < 0)
-        UE_LOG(LogDsonImporter, Warning,
-            TEXT("DsonMeshBuilder: GetGeometryCount returned %d, clamping to 0"), RawGeomCount);
-    const int32 GeomCount = FMath::Max(0, RawGeomCount);
-    if (GeomCount == 0)
-    {
-        UE_LOG(LogDsonImporter, Error,
-            TEXT("DsonMeshBuilder: no geometry found in '%s'"),
-            *Settings.ResolvedFigureDsfPath);
+    if (!HasBaseGeometry(DsfHandle, Settings.ResolvedFigureDsfPath))
         return nullptr;
-    }
     // geomIndex = 0: base mesh only
 
     // Step 2 — Read vertices
     const TArray<FVector3f> Positions = ReadVertexPositions(DsfHandle);
 
-    const int32 RawFaceCount = GDsonParser.GetPolylistCount
-        ? GDsonParser.GetPolylistCount(DsfHandle, 0) : 0;
-    if (RawFaceCount < 0)
-        UE_LOG(LogDsonImporter, Warning,
-            TEXT("DsonMeshBuilder: GetPolylistCount returned %d for geom 0"), RawFaceCount);
-    const int32 FaceCount = FMath::Max(0, RawFaceCount);
+    const int32 FaceCount = ReadFaceCount(DsfHandle);
 
     // Step 3 — Read UV values and expand sparse DAZ overrides into face-corner indices
     FDsonUvData UvData = ReadUvData(DsfHandle, UvSetDsfPath, FaceCount);
