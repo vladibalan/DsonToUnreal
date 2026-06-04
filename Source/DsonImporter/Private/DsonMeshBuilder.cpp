@@ -108,6 +108,42 @@ namespace
         return MaterialGroupNames;
     }
 
+    static TArray<FVector3f> ReadVertexPositions(uint64_t DsfHandle)
+    {
+        const double UnitScale = GDsonParser.GetUnitScale
+            ? GDsonParser.GetUnitScale(DsfHandle) : 1.0 / 100.0;
+        const double ToCm = UnitScale;
+
+        const int32 RawVertCount = GDsonParser.GetVertexCount
+            ? GDsonParser.GetVertexCount(DsfHandle, 0) : 0;
+        if (RawVertCount < 0)
+            UE_LOG(LogDsonImporter, Warning,
+                TEXT("DsonMeshBuilder: GetVertexCount returned %d for geom 0"), RawVertCount);
+
+        const int32 VertCount = FMath::Max(0, RawVertCount);
+        TArray<FVector3f> Positions;
+        Positions.Reserve(VertCount);
+        for (int32 i = 0; i < VertCount; ++i)
+        {
+            const double VX = GDsonParser.GetVertexX ? GDsonParser.GetVertexX(DsfHandle, 0, i) : 0.0;
+            const double VY = GDsonParser.GetVertexY ? GDsonParser.GetVertexY(DsfHandle, 0, i) : 0.0;
+            const double VZ = GDsonParser.GetVertexZ ? GDsonParser.GetVertexZ(DsfHandle, 0, i) : 0.0;
+            // DAZ (Y-up, RH) -> UE5 (Z-up, LH) with handedness flip:
+            // UE_X=DAZ_Z, UE_Y=-DAZ_X, UE_Z=DAZ_Y. The -DAZ_X reflection converts
+            // right-handed DAZ to left-handed UE and MUST match DsonSkeletonBuilder's
+            // bone conversion, or mesh and skeleton are mirrored relative to each other
+            // and skin weights tear. Reflection also flips polygon winding, which
+            // ReadTriangles accounts for by preserving source corner order.
+            Positions.Add(FVector3f(
+                static_cast<float>(VZ * ToCm),
+                static_cast<float>(-VX * ToCm),
+                static_cast<float>(VY * ToCm)
+            ));
+        }
+
+        return Positions;
+    }
+
     static TArray<FDsonTriangle> ReadTriangles(
         uint64_t DsfHandle,
         int32 FaceCount,
@@ -397,35 +433,7 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
     // geomIndex = 0: base mesh only
 
     // Step 2 — Read vertices
-    double UnitScale = GDsonParser.GetUnitScale
-        ? GDsonParser.GetUnitScale(DsfHandle) : 1.0 / 100.0;
-    const double ToCm = UnitScale;
-
-    const int32 RawVertCount = GDsonParser.GetVertexCount
-        ? GDsonParser.GetVertexCount(DsfHandle, 0) : 0;
-    if (RawVertCount < 0)
-        UE_LOG(LogDsonImporter, Warning,
-            TEXT("DsonMeshBuilder: GetVertexCount returned %d for geom 0"), RawVertCount);
-    const int32 VertCount = FMath::Max(0, RawVertCount);
-    TArray<FVector3f> Positions;
-    Positions.Reserve(VertCount);
-    for (int32 i = 0; i < VertCount; ++i)
-    {
-        const double VX = GDsonParser.GetVertexX ? GDsonParser.GetVertexX(DsfHandle, 0, i) : 0.0;
-        const double VY = GDsonParser.GetVertexY ? GDsonParser.GetVertexY(DsfHandle, 0, i) : 0.0;
-        const double VZ = GDsonParser.GetVertexZ ? GDsonParser.GetVertexZ(DsfHandle, 0, i) : 0.0;
-        // DAZ (Y-up, RH) → UE5 (Z-up, LH) with handedness flip:
-        // UE_X=DAZ_Z, UE_Y=-DAZ_X, UE_Z=DAZ_Y. The -DAZ_X reflection converts
-        // right-handed DAZ to left-handed UE and MUST match DsonSkeletonBuilder's
-        // bone conversion, or mesh and skeleton are mirrored relative to each other
-        // and skin weights tear. (Reflection also flips polygon winding — handled
-        // in the triangulation step below.)
-        Positions.Add(FVector3f(
-            (float)(VZ * ToCm),
-            (float)(-VX * ToCm),
-            (float)(VY * ToCm)
-        ));
-    }
+    const TArray<FVector3f> Positions = ReadVertexPositions(DsfHandle);
 
     const int32 RawFaceCount = GDsonParser.GetPolylistCount
         ? GDsonParser.GetPolylistCount(DsfHandle, 0) : 0;
