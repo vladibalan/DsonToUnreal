@@ -1,7 +1,7 @@
 #pragma once
 #include "CoreMinimal.h"
+#include "DsonImportTypes.h"
 
-struct FDsonImportSettings;
 class FDsonTextureImporter;
 
 // Verbose channel-level material diagnostic dump

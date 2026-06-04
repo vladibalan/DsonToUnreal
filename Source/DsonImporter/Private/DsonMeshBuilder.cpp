@@ -4,7 +4,6 @@
 #include "DsonParserFunctions.h"
 #include "DsonLoadedDocument.h"
 #include "DsonSkinWeightsBuilder.h"
-#include "SDsonImportWindow.h"
 
 #include "Engine/SkeletalMesh.h"
 #include "Engine/SkinnedAssetCommon.h"

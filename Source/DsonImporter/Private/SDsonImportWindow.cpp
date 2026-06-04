@@ -1,5 +1,6 @@
 #include "SDsonImportWindow.h"
 #include "DsonContentRoots.h"
+#include "DsonImportPipeline.h"
 #include "DsonImporter.h"
 
 #include "Widgets/SBoxPanel.h"
@@ -15,14 +16,9 @@
 #include "Styling/AppStyle.h"
 #include "DesktopPlatformModule.h"
 #include "IDesktopPlatform.h"
-#include "DsonSkeletonBuilder.h"
-#include "DsonMeshBuilder.h"
-#include "DsonMaterialDiagnostic.h"
-#include "DsonTextureImporter.h"
-#include "DsonMaterialBuilder.h"
-#include "Materials/MaterialInstanceConstant.h"
-#include "Materials/Material.h"
-#include "ObjectTools.h"
+#include "Animation/Skeleton.h"
+#include "Engine/SkeletalMesh.h"
+#include "AssetRegistry/AssetData.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
 #include "ContentBrowserModule.h"
@@ -32,7 +28,7 @@
  * Intent:
  * - Provide the modal Slate UI for choosing and validating a DAZ DSON file.
  * - Detect content roots, display validation/dependency status, and emit import settings.
- * - Orchestrate the high-level import once the user confirms.
+ * - Launch the import pipeline once the user confirms, then show UI feedback.
  *
  * Read this file for UI state, button behavior, and the top-level import sequence.
  */
@@ -257,12 +253,10 @@ FReply SDsonImportWindow::OnBrowseClicked()
 
 FReply SDsonImportWindow::OnImportClicked()
 {
-    // High-level import sequence. Material/texture work runs before mesh creation so
-    // FDsonMeshBuilder can assign material slots by DAZ material group name.
     PendingSettings.DsonFilePath = SelectedFilePath;
     PendingSettings.Generation = ValidationResult.Generation;
+    PendingSettings.ResolvedFigureDsfPath.Empty();
 
-    // Find first resolved dependency as the base figure DSF
     for (const FDsonDependency& Dep : ValidationResult.Dependencies)
     {
         if (Dep.bResolved)
@@ -273,79 +267,20 @@ FReply SDsonImportWindow::OnImportClicked()
     }
     PendingSettings.bDumpMaterialDiagnostics = bDumpMaterialDiagnostics;
 
-    // --- Material pipeline (always-on) ---
-    FDsonTextureImporter Importer(ContentRoots);
-    FDsonMaterialBuilder Builder(ContentRoots, Importer);
-    const FString MaterialOutputFolder = TEXT("/Game/DazImports/Materials/") +
-        ObjectTools::SanitizeObjectName(
-            FPaths::GetBaseFilename(PendingSettings.DsonFilePath));
-
-    TMap<FString, UMaterialInstanceConstant*> MaterialsByGroup;
-    FString UvSetUrl;
-    Builder.BuildAllSceneMaterials(PendingSettings.DsonFilePath, MaterialOutputFolder,
-        MaterialsByGroup, UvSetUrl);
-
-    FString UvSetAbsPath;
-    if (!UvSetUrl.IsEmpty())
-    {
-        UvSetAbsPath = FDsonContentRoots::ResolveUrl(UvSetUrl, ContentRoots);
-        if (UvSetAbsPath.IsEmpty())
-        {
-            UE_LOG(LogDsonImporter, Warning, TEXT("[uv] failed to resolve UV set URL: %s"), *UvSetUrl);
-        }
-        else
-        {
-            UE_LOG(LogDsonImporter, Log, TEXT("[uv] resolved UV set DSF: %s"), *UvSetAbsPath);
-        }
-    }
-    else
-    {
-        UE_LOG(LogDsonImporter, Warning, TEXT("[uv] no UV set URL found in scene materials"));
-    }
-
-    // Summary (always — moved out of Dump)
-    UE_LOG(LogDsonImporter, Log, TEXT("=== DsonTextureImporter summary ==="));
-    UE_LOG(LogDsonImporter, Log, TEXT("  Imported:   %d"), Importer.GetImportedCount());
-    UE_LOG(LogDsonImporter, Log, TEXT("  Cache hits: %d"), Importer.GetCacheHitCount());
-    UE_LOG(LogDsonImporter, Log, TEXT("  Failures:   %d"), Importer.GetFailureCount());
-    for (const FString& Url : Importer.GetFailedUrls())
-    {
-        UE_LOG(LogDsonImporter, Warning, TEXT("    failed: %s"), *Url);
-    }
-    UE_LOG(LogDsonImporter, Log, TEXT("=== DsonMaterialBuilder summary ==="));
-    UE_LOG(LogDsonImporter, Log, TEXT("  Built:     %d"), Builder.GetBuiltCount());
-    UE_LOG(LogDsonImporter, Log, TEXT("  Failures:  %d"), Builder.GetFailureCount());
-    UE_LOG(LogDsonImporter, Log, TEXT("  Iray Uber: %d"), Builder.GetIrayUberCount());
-    UE_LOG(LogDsonImporter, Log, TEXT("  PBRSkin:   %d"), Builder.GetPBRSkinCount());
-    UE_LOG(LogDsonImporter, Log, TEXT("  Default:   %d"), Builder.GetDefaultCount());
-    UE_LOG(LogDsonImporter, Log, TEXT("  Mapped:    %d groups"), MaterialsByGroup.Num());
-
-    // Verbose channel-level diagnostic (gated)
-    if (PendingSettings.bDumpMaterialDiagnostics)
-    {
-        FDsonMaterialDiagnostic::Dump(PendingSettings, Importer, MaterialOutputFolder);
-    }
-
-    // Pre-load default master (fallback for unmatched mesh sections)
-    UMaterial* DefaultMaterial = LoadObject<UMaterial>(
-        nullptr, TEXT("/DsonToUnreal/Materials/M_DazDefault.M_DazDefault"));
-    if (!DefaultMaterial)
-    {
-        UE_LOG(LogDsonImporter, Error,
-            TEXT("Failed to load M_DazDefault master at /DsonToUnreal/Materials/M_DazDefault — aborting import"));
+    const FDsonImportResult ImportResult = FDsonImportPipeline::Run(PendingSettings, ContentRoots);
+    if (ImportResult.bAbortedBeforeAssetBuild)
         return FReply::Handled();
-    }
 
     OnImportConfirmed.ExecuteIfBound(PendingSettings);
 
-    USkeleton* Skeleton = FDsonSkeletonBuilder::Build(PendingSettings);
+    USkeleton* Skeleton = ImportResult.Skeleton;
+    USkeletalMesh* Mesh = ImportResult.Mesh;
+
     if (Skeleton)
     {
         UE_LOG(LogDsonImporter, Log,
             TEXT("Skeleton imported successfully: %s"), *Skeleton->GetPathName());
 
-        USkeletalMesh* Mesh = FDsonMeshBuilder::Build(
-            PendingSettings, Skeleton, MaterialsByGroup, DefaultMaterial, UvSetAbsPath);
         if (Mesh)
         {
             UE_LOG(LogDsonImporter, Log,
@@ -377,7 +312,7 @@ FReply SDsonImportWindow::OnImportClicked()
         UE_LOG(LogDsonImporter, Error,
             TEXT("Skeleton import failed. Check the Output Log for details."));
 
-        FNotificationInfo Info(FText::FromString(TEXT("Skeleton import failed — see Output Log")));
+        FNotificationInfo Info(FText::FromString(TEXT("Skeleton import failed - see Output Log")));
         Info.ExpireDuration = 6.0f;
         Info.bUseLargeFont  = false;
         TSharedPtr<SNotificationItem> Notification =

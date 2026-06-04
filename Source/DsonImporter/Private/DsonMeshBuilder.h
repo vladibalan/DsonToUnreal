@@ -1,7 +1,7 @@
 #pragma once
 #include "CoreMinimal.h"
+#include "DsonImportTypes.h"
 
-struct FDsonImportSettings;
 class USkeleton;
 class USkeletalMesh;
 class UMaterialInstanceConstant;

@@ -1,5 +1,4 @@
 #include "DsonMaterialDiagnostic.h"
-#include "SDsonImportWindow.h"
 #include "DsonImporter.h"
 #include "DsonParserFunctions.h"
 #include "DsonLoadedDocument.h"

@@ -3,7 +3,6 @@
 #include "DsonAssetUtils.h"
 #include "DsonParserFunctions.h"
 #include "DsonLoadedDocument.h"
-#include "SDsonImportWindow.h"
 
 #include "Animation/Skeleton.h"
 #include "Engine/SkeletalMesh.h"

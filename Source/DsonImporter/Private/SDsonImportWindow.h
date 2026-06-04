@@ -1,16 +1,8 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "Widgets/SCompoundWidget.h"
+#include "DsonImportTypes.h"
 #include "DsonValidator.h"
-
-// FDsonImportSettings must be declared before the delegate that references it
-struct FDsonImportSettings
-{
-    FString DsonFilePath;
-    FString ResolvedFigureDsfPath;  // absolute path to base figure DSF
-    EGenesisGeneration Generation = EGenesisGeneration::Unknown;
-    bool bDumpMaterialDiagnostics = false;  // temporary — Phase 6 planning diagnostic
-};
 
 DECLARE_DELEGATE_OneParam(FOnDsonImportConfirmed, const FDsonImportSettings&)
 
@@ -30,8 +22,7 @@ private:
     // Opens a native file picker, stores the chosen file, and immediately validates it.
     FReply OnBrowseClicked();
 
-    // Runs the import sequence using PendingSettings: diagnostics, skeleton, materials,
-    // textures, mesh, and skin weights. This is the high-level orchestration point.
+    // Prepares PendingSettings, runs the import pipeline, then reports the result in the UI.
     FReply OnImportClicked();
 
     // Closes the modal window without touching import state or assets.
@@ -58,5 +49,4 @@ private:
     FDsonImportSettings PendingSettings;
     FOnDsonImportConfirmed OnImportConfirmed;
     bool bDumpMaterialDiagnostics = false;
-
 };
