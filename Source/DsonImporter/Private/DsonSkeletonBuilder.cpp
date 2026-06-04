@@ -28,6 +28,8 @@
 
 USkeleton* FDsonSkeletonBuilder::Build(const FDsonImportSettings& Settings)
 {
+    // Public orchestration wrapper: load the base figure DSF, build the reference
+    // skeleton, save the asset, and release the parser handle.
     if (!GDsonParser.IsValid())
     {
         UE_LOG(LogDsonImporter, Error,
@@ -64,6 +66,8 @@ USkeleton* FDsonSkeletonBuilder::Build(const FDsonImportSettings& Settings)
 
 bool FDsonSkeletonBuilder::LoadDsfDocument(const FString& Path, uint64_t& OutHandle)
 {
+    // Loads file text through UE path APIs, then hands UTF-8 JSON/DSON text to the parser.
+    // OutHandle is only set on success.
     FString FileContent;
     if (!FFileHelper::LoadFileToString(FileContent, *Path))
     {
@@ -104,6 +108,8 @@ bool FDsonSkeletonBuilder::LoadDsfDocument(const FString& Path, uint64_t& OutHan
 
 void FDsonSkeletonBuilder::BuildReferenceSkeletonFromDsf(uint64_t DsfHandle, FReferenceSkeleton& OutRefSkeleton)
 {
+    // Collect bone nodes, sort parents before children, then add parent-relative transforms.
+    // This method bridges parser node order and UE's strict reference skeleton ordering.
     double UnitScale = GDsonParser.GetUnitScale ? GDsonParser.GetUnitScale(DsfHandle) : 1.0 / 100.0;
     if (UnitScale == 0.0)
         UnitScale = 1.0 / 100.0; // DAZ default: 1 DAZ unit = 1 cm
@@ -333,6 +339,8 @@ namespace
 
 FTransform FDsonSkeletonBuilder::MakeBoneTransform(uint64_t DsfHandle, int32 NodeIndex, double UnitScale)
 {
+    // Returns a world-space UE bone transform for a DAZ node. The caller converts this
+    // to parent-relative local space after the full hierarchy is known.
     const double CX = GDsonParser.GetNodeCenterPointX ? GDsonParser.GetNodeCenterPointX(DsfHandle, NodeIndex) : 0.0;
     const double CY = GDsonParser.GetNodeCenterPointY ? GDsonParser.GetNodeCenterPointY(DsfHandle, NodeIndex) : 0.0;
     const double CZ = GDsonParser.GetNodeCenterPointZ ? GDsonParser.GetNodeCenterPointZ(DsfHandle, NodeIndex) : 0.0;
@@ -385,6 +393,8 @@ FTransform FDsonSkeletonBuilder::MakeBoneTransform(uint64_t DsfHandle, int32 Nod
 USkeleton* FDsonSkeletonBuilder::CreateSkeletonAsset(
     const FReferenceSkeleton& RefSkeleton, const FString& AssetName)
 {
+    // Saves the reference skeleton as /Game/DazImports/<AssetName>_Skeleton.
+    // UE 5.4 requires the transient mesh merge path to populate USkeleton bones.
     const FString SkeletonName = AssetName + TEXT("_Skeleton");
     const FString PackagePath  = TEXT("/Game/DazImports/") + SkeletonName;
 

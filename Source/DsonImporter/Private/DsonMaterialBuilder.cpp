@@ -50,6 +50,8 @@ struct FDazParamBinding
 
 static const TMap<FString, FDazParamBinding>& GetIrayUberMapping()
 {
+    // DAZ channel id -> Unreal master parameter binding for legacy Iray Uber materials.
+    // Keep these ids and parameter names synchronized with MaterialMastersV1.md.
     static const TMap<FString, FDazParamBinding> Map = []()
     {
         TMap<FString, FDazParamBinding> M;
@@ -76,6 +78,8 @@ static const TMap<FString, FDazParamBinding>& GetIrayUberMapping()
 
 static const TMap<FString, FDazParamBinding>& GetPBRSkinMapping()
 {
+    // DAZ channel id -> Unreal master parameter binding for PBRSkin materials.
+    // Data maps are marked bSRGB=false so texture import treats them as linear data.
     static const TMap<FString, FDazParamBinding> Map = []()
     {
         TMap<FString, FDazParamBinding> M;
@@ -112,6 +116,7 @@ static const TMap<FString, FDazParamBinding>& GetPBRSkinMapping()
 
 static FString S(const char* Raw)
 {
+    // Parser string pointers are transient; convert immediately before another parser call.
     return Raw ? FString(UTF8_TO_TCHAR(Raw)) : TEXT("");
 }
 
@@ -134,6 +139,8 @@ EDazShaderKind FDsonMaterialBuilder::DetectShader(
     const FString& Url, const FString& ShaderType) const
 {
     // URL wins — PBRSkin's external .dsf reference is unambiguous
+    // Shader selection controls both master material and channel mapping table.
+    // Audits for wrong-looking skin usually start here, then inspect the mapping table.
     if (Url.Contains(TEXT("PBRSkin")))   return EDazShaderKind::PBRSkin;
     if (Url.Contains(TEXT("uber_iray"))) return EDazShaderKind::IrayUber;
 
@@ -160,6 +167,8 @@ EDazShaderKind FDsonMaterialBuilder::DetectShader(
 
 UMaterial* FDsonMaterialBuilder::LoadMasterForShader(EDazShaderKind Kind)
 {
+    // Master materials are plugin content assets. Cache only weak references so UE can
+    // still unload/reload assets during editor workflows.
     TWeakObjectPtr<UMaterial>* Cached = nullptr;
     const TCHAR* Path = nullptr;
 
@@ -194,6 +203,8 @@ UMaterialInstanceConstant* FDsonMaterialBuilder::BuildSceneMaterial(
     int32 SceneMatIdx,
     const FString& OutputFolder)
 {
+    // Builds exactly one MIC for one scene_material entry. All parser strings are copied
+    // into FString immediately, because later parser calls may invalidate returned char*.
     const uint64_t H = reinterpret_cast<uint64_t>(Doc);
 
     // Step 1 — read id / url / shader_type; detect shader; increment per-shader counter

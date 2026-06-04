@@ -38,6 +38,7 @@ static FString S(const char* Raw)
 
 static bool IsColorChannel(const FString& ChannelId)
 {
+    // Mirrors the sRGB policy in the material builder/texture importer path.
     // Known sRGB color channels per Material Masters v1 spec.
     // Everything else (including unknown ids) defaults to linear/data.
     static const TSet<FString> ColorIds = {
@@ -56,6 +57,8 @@ static bool IsColorChannel(const FString& ChannelId)
 static void DumpOneFile(const FString& FilePath, const FDsonImportSettings& Settings,
     FDsonTextureImporter& Importer, const FString& OutputFolder)
 {
+    // Dumps one DSON file without mutating main import state. This is intentionally
+    // verbose evidence collection for material audits.
     if (FilePath.IsEmpty())
     {
         UE_LOG(LogDsonImporter, Warning, TEXT("[MatDiag] Skipping empty file path"));

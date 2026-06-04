@@ -41,6 +41,8 @@
 
 void SDsonImportWindow::Construct(const FArguments& InArgs)
 {
+    // Build the modal UI and cache DAZ content roots once for this dialog session.
+    // User edits and Browse both flow through RunValidation.
     OnImportConfirmed = InArgs._OnImportConfirmed;
 
     ContentRoots = FDsonContentRoots::Detect();
@@ -255,6 +257,8 @@ FReply SDsonImportWindow::OnBrowseClicked()
 
 FReply SDsonImportWindow::OnImportClicked()
 {
+    // High-level import sequence. Material/texture work runs before mesh creation so
+    // FDsonMeshBuilder can assign material slots by DAZ material group name.
     PendingSettings.DsonFilePath = SelectedFilePath;
     PendingSettings.Generation = ValidationResult.Generation;
 
@@ -400,6 +404,8 @@ FReply SDsonImportWindow::OnCancelClicked()
 
 void SDsonImportWindow::RunValidation(const FString& FilePath)
 {
+    // Validation is the only place PendingSettings is refreshed from a selected path.
+    // The first resolved dependency is treated as the base figure DSF for character DUFs.
     ValidationResult = FDsonValidator::Validate(FilePath, ContentRoots);
 
     if (ValidationResult.bIsValid)

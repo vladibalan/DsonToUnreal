@@ -47,6 +47,8 @@ USkeletalMesh* FDsonMeshBuilder::Build(
     UMaterial* DefaultMaterial,
     const FString& UvSetDsfPath)
 {
+    // Public orchestration wrapper: open the figure DSF, build the mesh asset, then
+    // always release the parser handle before returning.
     if (!GDsonParser.IsValid())
     {
         UE_LOG(LogDsonImporter, Error,
@@ -70,6 +72,8 @@ USkeletalMesh* FDsonMeshBuilder::Build(
 
 bool FDsonMeshBuilder::LoadDsfDocument(const FString& Path, uint64_t& OutHandle)
 {
+    // Loads file text through UE path APIs, then hands UTF-8 JSON/DSON text to the parser.
+    // OutHandle is only set on success.
     FString FileContent;
     if (!FFileHelper::LoadFileToString(FileContent, *Path))
     {
@@ -117,6 +121,8 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
     const FString& UvSetDsfPath)
 {
     // Step 1 — Find the first geometry in the DSF
+    // Main geometry conversion path. It assumes geometry index 0 is the base mesh and
+    // that material group names will match keys produced by FDsonMaterialBuilder.
     const int32 RawGeomCount = GDsonParser.GetGeometryCount
         ? GDsonParser.GetGeometryCount(DsfHandle) : 0;
     if (RawGeomCount < 0)

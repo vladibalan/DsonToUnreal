@@ -6,6 +6,7 @@ class UTexture2D;
 class FDsonTextureImporter
 {
 public:
+    // Stores content roots used for resolving DAZ image URLs; no registry probing happens here.
     explicit FDsonTextureImporter(const TArray<FString>& InContentRoots);
 
     // Returns existing UTexture2D if already imported (cache hit or asset already

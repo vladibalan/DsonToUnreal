@@ -39,6 +39,8 @@ FDsonValidationResult FDsonValidator::Validate(
     const FString& FilePath,
     const TArray<FString>& ContentRoots)
 {
+    // Parser-level gate before the UI enables import. This reads metadata and dependency
+    // references only; actual asset creation happens later in the builders.
     FDsonValidationResult Result;
 
     if (!GDsonParser.IsValid())
@@ -193,6 +195,8 @@ void FDsonValidator::ResolveDependencies(
     TArray<FDsonDependency>& OutDependencies)
 {
     // Figure files are self-contained — geometry lives in the file itself
+    // Character DUFs point at external figure/geometry DSFs. Dependencies are de-duped by
+    // disk file URL before fragment because multiple references can target one DSF file.
     if (AssetType == EDsonAssetType::Figure)
         return;
 

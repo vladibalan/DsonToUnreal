@@ -35,7 +35,11 @@ struct FDsonValidationResult
     TArray<FDsonDependency> Dependencies;
     FString ErrorMessage;
 
+    // True only when every dependency discovered by validation resolved to disk.
+    // Import UI uses this to decide whether the selected file is actionable.
     bool AllDependenciesResolved() const;
+
+    // Human-readable generation label for UI/status text.
     FString GetGenerationString() const;
 };
 
@@ -53,8 +57,14 @@ public:
         const TArray<FString>& ContentRoots);
 
 private:
+    // Maps parser asset_info.type strings onto the plugin's import categories.
     static EDsonAssetType ParseAssetType(const char* TypeStr);
+
+    // Infers Genesis generation from DAZ asset IDs; used for user feedback and future routing.
     static EGenesisGeneration DetectGeneration(const char* AssetId);
+
+    // Reads parser-reported references for the chosen asset type and resolves each URL
+    // through the DAZ content roots. OutDependencies preserves raw URL plus disk result.
     static void ResolveDependencies(
         void* DocHandle,
         EDsonAssetType AssetType,

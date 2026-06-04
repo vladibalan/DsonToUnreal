@@ -47,7 +47,12 @@ public:
     int32 GetDefaultCount()  const { return DefaultCount;  }
 
 private:
+    // Chooses the UE master material family from DAZ scene material metadata.
+    // URL fragments are preferred because DAZ shader_type can be generic or absent.
     EDazShaderKind DetectShader(const FString& Url, const FString& ShaderType) const;
+
+    // Loads and caches the content master material for the selected shader kind.
+    // Parameter names on these assets must match MaterialMastersV1.md and mapping tables.
     UMaterial*     LoadMasterForShader(EDazShaderKind Kind);
 
     TArray<FString>           ContentRoots;

@@ -12,8 +12,18 @@ public:
     static USkeleton* Build(const FDsonImportSettings& Settings);
 
 private:
+    // Loads a DSF file into the parser and returns an owned parser handle.
+    // Callers must destroy the handle through GDsonParser.Destroy after use.
     static bool LoadDsfDocument(const FString& Path, uint64_t& OutHandle);
+
+    // Converts parser node records into UE reference-skeleton bones.
+    // Parent bones must be added before children for UE reference skeleton validity.
     static void BuildReferenceSkeletonFromDsf(uint64_t DsfHandle, FReferenceSkeleton& OutRefSkeleton);
+
+    // Converts one DAZ node's center/orientation/scale into a UE bone transform.
+    // This is the key place to audit coordinate-system and unit-scale issues.
     static FTransform MakeBoneTransform(uint64_t DsfHandle, int32 NodeIndex, double UnitScale);
+
+    // Creates or replaces the skeleton package asset after the reference skeleton is built.
     static USkeleton* CreateSkeletonAsset(const FReferenceSkeleton& RefSkeleton, const FString& AssetName);
 };

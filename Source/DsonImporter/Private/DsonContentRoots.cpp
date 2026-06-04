@@ -16,6 +16,8 @@
 
 TArray<FString> FDsonContentRoots::Detect()
 {
+    // Probe every DAZ Studio registry key variant this plugin knows about.
+    // The returned list is intentionally de-duplicated in ReadRegistryKey.
     TArray<FString> Result;
     ReadRegistryKey(TEXT("Software\\DAZ\\Studio4"), Result);
     ReadRegistryKey(TEXT("Software\\DAZ\\Studio4_64"), Result);
@@ -37,6 +39,8 @@ TArray<FString> FDsonContentRoots::Detect()
 
 void FDsonContentRoots::ReadRegistryKey(const FString& KeyPath, TArray<FString>& OutPaths)
 {
+    // Reads ContentDir0..ContentDir255 until the first missing value.
+    // Registry values that point to missing directories are logged and skipped.
     UE_LOG(LogDsonImporter, Verbose,
         TEXT("DsonContentRoots: scanning registry key %s"), *KeyPath);
 
@@ -91,6 +95,8 @@ void FDsonContentRoots::ReadRegistryKey(const FString& KeyPath, TArray<FString>&
 
 FString FDsonContentRoots::ResolveUrl(const FString& DsonUrl, const TArray<FString>& ContentRoots)
 {
+    // Normalizes a DAZ reference to "content-root-relative path", then tries each root.
+    // Fragments identify sub-assets inside a file and are not part of the disk path.
     FString Url = DsonUrl;
 
     // Strip fragment (everything after #)
@@ -116,6 +122,8 @@ FString FDsonContentRoots::ResolveUrl(const FString& DsonUrl, const TArray<FStri
 
 FString FDsonContentRoots::UrlDecode(const FString& Encoded)
 {
+    // Minimal percent-decoder for DAZ paths. This intentionally handles the common
+    // "%NN" byte escapes used in DSON URLs without pulling in a broader URL parser.
     FString Result;
     Result.Reserve(Encoded.Len());
 

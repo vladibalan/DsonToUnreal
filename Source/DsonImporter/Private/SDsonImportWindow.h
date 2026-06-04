@@ -21,15 +21,24 @@ public:
         SLATE_EVENT(FOnDsonImportConfirmed, OnImportConfirmed)
     SLATE_END_ARGS()
 
+    // Builds the modal import UI and initializes detected content roots.
+    // Validation and import work are triggered by callbacks below, not during construction.
     void Construct(const FArguments& InArgs);
 
 private:
     // UI callbacks
+    // Opens a native file picker, stores the chosen file, and immediately validates it.
     FReply OnBrowseClicked();
+
+    // Runs the import sequence using PendingSettings: diagnostics, skeleton, materials,
+    // textures, mesh, and skin weights. This is the high-level orchestration point.
     FReply OnImportClicked();
+
+    // Closes the modal window without touching import state or assets.
     FReply OnCancelClicked();
 
     // Validation
+    // Calls FDsonValidator and updates PendingSettings only when the selected file is valid.
     void RunValidation(const FString& FilePath);
 
     // Slate attribute helpers
