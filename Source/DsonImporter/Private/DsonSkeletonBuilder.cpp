@@ -288,6 +288,16 @@ namespace
         }
         return Composite;
     }
+
+    void MergeReferenceSkeletonIntoSkeleton(USkeleton* Skeleton, const FReferenceSkeleton& RefSkeleton)
+    {
+        // USkeleton has no public API to set its FReferenceSkeleton directly in UE5 5.4.
+        // The standard path is to create a throwaway mesh, set its ref skeleton, then merge.
+        USkeletalMesh* TempMesh = NewObject<USkeletalMesh>(
+            GetTransientPackage(), NAME_None, RF_Transient);
+        TempMesh->SetRefSkeleton(RefSkeleton);
+        Skeleton->MergeAllBonesToBoneTree(TempMesh);
+    }
 }
 
 FTransform FDsonSkeletonBuilder::MakeBoneTransform(uint64_t DsfHandle, int32 NodeIndex, double UnitScale)
@@ -363,15 +373,7 @@ USkeleton* FDsonSkeletonBuilder::CreateSkeletonAsset(
         return nullptr;
     }
 
-    // ── Approach 1 (active): drive MergeAllBonesToBoneTree via a transient USkeletalMesh ──
-    // USkeleton has no public API to set its FReferenceSkeleton directly in UE5 5.4;
-    // the standard path is to create a throwaway mesh, set its ref skeleton, then merge.
-    {
-        USkeletalMesh* TempMesh = NewObject<USkeletalMesh>(
-            GetTransientPackage(), NAME_None, RF_Transient);
-        TempMesh->SetRefSkeleton(RefSkeleton);
-        Skeleton->MergeAllBonesToBoneTree(TempMesh);
-    }
+    MergeReferenceSkeletonIntoSkeleton(Skeleton, RefSkeleton);
 
     return FDsonAssetUtils::SaveAssetPackage(Package, Skeleton, PackagePath, TEXT("DsonSkeletonBuilder"))
         ? Skeleton
