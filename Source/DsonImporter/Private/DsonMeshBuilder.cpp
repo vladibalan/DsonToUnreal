@@ -78,6 +78,103 @@ namespace
         TArray<int32> UVPolyVertIndices;
     };
 
+    struct FDsonTriangle
+    {
+        int32 VertIndex[3];
+        int32 UVIndex[3];
+        int32 MaterialIndex;
+    };
+
+    static TArray<FString> ReadMaterialGroupNames(uint64_t DsfHandle)
+    {
+        const int32 RawMatGroupCount = GDsonParser.GetPolygonMaterialGroupCount
+            ? GDsonParser.GetPolygonMaterialGroupCount(DsfHandle, 0) : 0;
+        if (RawMatGroupCount < 0)
+            UE_LOG(LogDsonImporter, Warning,
+                TEXT("DsonMeshBuilder: GetPolygonMaterialGroupCount returned %d for geom 0"), RawMatGroupCount);
+
+        const int32 MatGroupCount = FMath::Max(0, RawMatGroupCount);
+        TArray<FString> MaterialGroupNames;
+        MaterialGroupNames.Reserve(MatGroupCount);
+        for (int32 m = 0; m < MatGroupCount; ++m)
+        {
+            const char* NameRaw = GDsonParser.GetPolygonMaterialGroupName
+                ? GDsonParser.GetPolygonMaterialGroupName(DsfHandle, 0, m) : nullptr;
+            MaterialGroupNames.Add(NameRaw
+                ? UTF8_TO_TCHAR(NameRaw)
+                : FString::Printf(TEXT("MatGroup_%d"), m));
+        }
+
+        return MaterialGroupNames;
+    }
+
+    static TArray<FDsonTriangle> ReadTriangles(
+        uint64_t DsfHandle,
+        int32 FaceCount,
+        const TArray<int32>& UVPolyVertIndices)
+    {
+        TArray<FDsonTriangle> Triangles;
+        Triangles.Reserve(FaceCount * 2);
+
+        int32 UVFlatOffset = 0;
+        for (int32 f = 0; f < FaceCount; ++f)
+        {
+            const int32 RawCornerCount = GDsonParser.GetPolylistFaceVertexCount
+                ? GDsonParser.GetPolylistFaceVertexCount(DsfHandle, 0, f) : 0;
+            if (RawCornerCount < 0)
+                UE_LOG(LogDsonImporter, Warning,
+                    TEXT("DsonMeshBuilder: GetPolylistFaceVertexCount returned %d for geom 0 face %d"), RawCornerCount, f);
+            const int32 CornerCount = FMath::Max(0, RawCornerCount);
+            const int32 MatIdx = GDsonParser.GetPolylistFaceMaterialIndex
+                ? GDsonParser.GetPolylistFaceMaterialIndex(DsfHandle, 0, f) : 0;
+
+            if (CornerCount < 3)
+            {
+                UVFlatOffset += CornerCount;
+                continue;
+            }
+            if (CornerCount > 4)
+            {
+                UE_LOG(LogDsonImporter, Warning,
+                    TEXT("DsonMeshBuilder: face %d has %d corners (>4), skipping"), f, CornerCount);
+                UVFlatOffset += CornerCount;
+                continue;
+            }
+
+            int32 VIdx[4]  = {};
+            int32 UVIdx[4] = {};
+            for (int32 c = 0; c < CornerCount; ++c)
+            {
+                VIdx[c] = GDsonParser.GetPolylistFaceVertex
+                    ? GDsonParser.GetPolylistFaceVertex(DsfHandle, 0, f, c) : 0;
+
+                UVIdx[c] = UVPolyVertIndices.IsValidIndex(UVFlatOffset + c)
+                    ? UVPolyVertIndices[UVFlatOffset + c] : 0;
+            }
+
+            // Winding: the vertex conversion negates one axis (a reflection), which flips
+            // winding sense once relative to the source. The source mesh, brought into UE's
+            // left-handed space, needs exactly one net flip to face normals outward. The
+            // axis negation supplies it, so keep the natural source corner order here.
+            FDsonTriangle& T0 = Triangles.AddDefaulted_GetRef();
+            T0.VertIndex[0] = VIdx[0];  T0.VertIndex[1] = VIdx[1];  T0.VertIndex[2] = VIdx[2];
+            T0.UVIndex[0]   = UVIdx[0]; T0.UVIndex[1]   = UVIdx[1]; T0.UVIndex[2]   = UVIdx[2];
+            T0.MaterialIndex = MatIdx;
+
+            if (CornerCount == 4)
+            {
+                FDsonTriangle& T1 = Triangles.AddDefaulted_GetRef();
+                T1.VertIndex[0] = VIdx[0];  T1.VertIndex[1] = VIdx[2];  T1.VertIndex[2] = VIdx[3];
+                T1.UVIndex[0]   = UVIdx[0]; T1.UVIndex[1]   = UVIdx[2]; T1.UVIndex[2]   = UVIdx[3];
+                T1.MaterialIndex = MatIdx;
+            }
+
+            UVFlatOffset += CornerCount;
+        }
+
+        return Triangles;
+    }
+
     static void ReadUvSetValues(uint64_t UvHandle, FDsonUvData& OutData)
     {
         UE_LOG(LogDsonImporter, Log,
@@ -343,94 +440,10 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
     const TArray<int32>& UVPolyVertIndices = UvData.UVPolyVertIndices;
 
     // Step 4 — Read material group names
-    const int32 RawMatGroupCount = GDsonParser.GetPolygonMaterialGroupCount
-        ? GDsonParser.GetPolygonMaterialGroupCount(DsfHandle, 0) : 0;
-    if (RawMatGroupCount < 0)
-        UE_LOG(LogDsonImporter, Warning,
-            TEXT("DsonMeshBuilder: GetPolygonMaterialGroupCount returned %d for geom 0"), RawMatGroupCount);
-    const int32 MatGroupCount = FMath::Max(0, RawMatGroupCount);
-    TArray<FString> MaterialGroupNames;
-    MaterialGroupNames.Reserve(MatGroupCount);
-    for (int32 m = 0; m < MatGroupCount; ++m)
-    {
-        const char* NameRaw = GDsonParser.GetPolygonMaterialGroupName
-            ? GDsonParser.GetPolygonMaterialGroupName(DsfHandle, 0, m) : nullptr;
-        MaterialGroupNames.Add(NameRaw
-            ? UTF8_TO_TCHAR(NameRaw)
-            : FString::Printf(TEXT("MatGroup_%d"), m));
-    }
+    const TArray<FString> MaterialGroupNames = ReadMaterialGroupNames(DsfHandle);
 
     // Step 5 — Read faces and triangulate
-    struct FDsonTriangle
-    {
-        int32 VertIndex[3];
-        int32 UVIndex[3];
-        int32 MaterialIndex;
-    };
-
-    TArray<FDsonTriangle> Triangles;
-    Triangles.Reserve(FaceCount * 2);
-
-    int32 UVFlatOffset = 0;
-    for (int32 f = 0; f < FaceCount; ++f)
-    {
-        const int32 RawCornerCount = GDsonParser.GetPolylistFaceVertexCount
-            ? GDsonParser.GetPolylistFaceVertexCount(DsfHandle, 0, f) : 0;
-        if (RawCornerCount < 0)
-            UE_LOG(LogDsonImporter, Warning,
-                TEXT("DsonMeshBuilder: GetPolylistFaceVertexCount returned %d for geom 0 face %d"), RawCornerCount, f);
-        const int32 CornerCount = FMath::Max(0, RawCornerCount);
-        const int32 MatIdx = GDsonParser.GetPolylistFaceMaterialIndex
-            ? GDsonParser.GetPolylistFaceMaterialIndex(DsfHandle, 0, f) : 0;
-
-        if (CornerCount < 3)
-        {
-            UVFlatOffset += CornerCount;
-            continue;
-        }
-        if (CornerCount > 4)
-        {
-            UE_LOG(LogDsonImporter, Warning,
-                TEXT("DsonMeshBuilder: face %d has %d corners (>4), skipping"), f, CornerCount);
-            UVFlatOffset += CornerCount;
-            continue;
-        }
-
-        int32 VIdx[4]  = {};
-        int32 UVIdx[4] = {};
-        for (int32 c = 0; c < CornerCount; ++c)
-        {
-            VIdx[c] = GDsonParser.GetPolylistFaceVertex
-                ? GDsonParser.GetPolylistFaceVertex(DsfHandle, 0, f, c) : 0;
-
-            UVIdx[c] = UVPolyVertIndices.IsValidIndex(UVFlatOffset + c)
-                ? UVPolyVertIndices[UVFlatOffset + c] : 0;
-        }
-
-        // Winding: the vertex conversion negates one axis (a reflection), which flips
-        // winding sense once relative to the source. The source mesh, brought into UE's
-        // left-handed space, needs exactly one net flip to face normals outward — the
-        // axis negation supplies it, so we keep the NATURAL corner order here.
-        // (Empirically verified: natural order + Y-negation gives outward normals;
-        // reversing here as well would double-flip and leave normals inward.)
-
-        // Triangle 1: corners (0, 1, 2)
-        FDsonTriangle& T0 = Triangles.AddDefaulted_GetRef();
-        T0.VertIndex[0] = VIdx[0];  T0.VertIndex[1] = VIdx[1];  T0.VertIndex[2] = VIdx[2];
-        T0.UVIndex[0]   = UVIdx[0]; T0.UVIndex[1]   = UVIdx[1]; T0.UVIndex[2]   = UVIdx[2];
-        T0.MaterialIndex = MatIdx;
-
-        if (CornerCount == 4)
-        {
-            // Triangle 2: corners (0, 2, 3)
-            FDsonTriangle& T1 = Triangles.AddDefaulted_GetRef();
-            T1.VertIndex[0] = VIdx[0];  T1.VertIndex[1] = VIdx[2];  T1.VertIndex[2] = VIdx[3];
-            T1.UVIndex[0]   = UVIdx[0]; T1.UVIndex[1]   = UVIdx[2]; T1.UVIndex[2]   = UVIdx[3];
-            T1.MaterialIndex = MatIdx;
-        }
-
-        UVFlatOffset += CornerCount;
-    }
+    const TArray<FDsonTriangle> Triangles = ReadTriangles(DsfHandle, FaceCount, UVPolyVertIndices);
 
     // Step 6 — Create USkeletalMesh asset
     const FString MeshName    = FPaths::GetBaseFilename(Settings.ResolvedFigureDsfPath) + TEXT("_SkeletalMesh");
