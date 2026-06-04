@@ -12,6 +12,15 @@
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "ObjectTools.h"
 
+/*
+ * Intent:
+ * - Resolve DAZ image URLs and import/reuse matching UTexture2D assets.
+ * - Preserve DAZ relative folder structure under /Game/DazImports/Textures.
+ * - Cache successful imports by absolute source path and record failed URLs.
+ *
+ * Read this file for texture path resolution, package naming, sRGB flags, and image import failures.
+ */
+
 // ---------------------------------------------------------------------------
 // Construction
 // ---------------------------------------------------------------------------

@@ -5,6 +5,14 @@
 #include "DsonTextureImporter.h"
 #include "Misc/FileHelper.h"
 
+/*
+ * Intent:
+ * - Dump verbose material/channel information from DSON documents for debugging.
+ * - Exercise texture resolution/import code without changing the main material builder.
+ *
+ * Read this file for diagnostic output shape or temporary investigation helpers.
+ */
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------

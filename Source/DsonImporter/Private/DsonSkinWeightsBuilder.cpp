@@ -9,6 +9,15 @@
 #include "SkeletalMeshAttributes.h"
 #include "BoneWeights.h"
 
+/*
+ * Intent:
+ * - Apply DAZ skin binding data to the UE skeletal mesh.
+ * - Map DSF joint/node IDs to UE skeleton bone indices.
+ * - Write capped, normalized vertex influences into mesh description skin-weight attributes.
+ *
+ * Read this file for missing influences, wrong bone mapping, or skin deformation problems.
+ */
+
 // ---------------------------------------------------------------------------
 // FindSkinModifierIndex
 // ---------------------------------------------------------------------------

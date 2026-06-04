@@ -5,6 +5,15 @@
 #include "Windows/WindowsHWrapper.h"
 #include "Windows/AllowWindowsPlatformTypes.h"
 
+/*
+ * Intent:
+ * - Discover DAZ Studio content library roots from the Windows Registry.
+ * - Resolve DSON URL-style references into absolute files under those roots.
+ * - Decode URL escapes used by DAZ paths.
+ *
+ * Read this file for path resolution failures, registry probing, and URL decoding.
+ */
+
 TArray<FString> FDsonContentRoots::Detect()
 {
     TArray<FString> Result;

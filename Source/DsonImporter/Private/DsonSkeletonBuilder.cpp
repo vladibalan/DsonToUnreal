@@ -13,6 +13,15 @@
 #include "PackageTools.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 
+/*
+ * Intent:
+ * - Build a UE USkeleton from the resolved base figure DSF.
+ * - Convert DAZ node hierarchy and transforms into a UE reference skeleton.
+ * - Save the resulting skeleton asset for the mesh builder to use.
+ *
+ * Read this file for bone hierarchy, transform conversion, and skeleton asset creation.
+ */
+
 // ---------------------------------------------------------------------------
 // Build
 // ---------------------------------------------------------------------------

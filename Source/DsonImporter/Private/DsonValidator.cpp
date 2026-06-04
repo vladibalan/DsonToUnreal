@@ -5,6 +5,15 @@
 #include "Misc/Paths.h"
 #include "DsonImporter.h"
 
+/*
+ * Intent:
+ * - Validate the selected .duf/.dsf before import.
+ * - Determine whether the file is a figure, character, modifier, or unsupported asset.
+ * - Resolve dependencies such as base figure and geometry references through content roots.
+ *
+ * Read this file for import eligibility, Genesis generation detection, and dependency resolution.
+ */
+
 bool FDsonValidationResult::AllDependenciesResolved() const
 {
     for (const FDsonDependency& Dep : Dependencies)

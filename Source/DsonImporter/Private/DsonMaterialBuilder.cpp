@@ -13,6 +13,16 @@
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "ObjectTools.h"
 
+/*
+ * Intent:
+ * - Convert DAZ scene material channels into Unreal material instances.
+ * - Detect shader kind, choose the matching master material, and set scalar/vector/texture parameters.
+ * - Build a material map keyed by polygon material group for FDsonMeshBuilder.
+ *
+ * Read this file for shader detection, DAZ-channel-to-UE-parameter mapping, and MIC save issues.
+ * Cross-reference MaterialMastersV1.md before changing parameter names.
+ */
+
 // ---------------------------------------------------------------------------
 // Master material asset paths
 // ---------------------------------------------------------------------------

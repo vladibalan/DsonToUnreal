@@ -11,6 +11,16 @@
 #include "DsonParserFunctions.h"
 #include "SDsonImportWindow.h"
 
+/*
+ * Intent:
+ * - Bootstrap the editor module.
+ * - Load the bundled DsonParser DLL and bind its C exports into GDsonParser.
+ * - Register the File menu command that opens the DAZ import dialog.
+ *
+ * Read this file for parser DLL loading, module lifecycle, and menu wiring.
+ * Import behavior after the dialog lives in the builder/validator classes.
+ */
+
 DEFINE_LOG_CATEGORY(LogDsonImporter);
 
 #define LOCTEXT_NAMESPACE "FDsonImporterModule"

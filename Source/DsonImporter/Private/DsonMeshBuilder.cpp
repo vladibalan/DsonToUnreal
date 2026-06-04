@@ -27,6 +27,15 @@
 #include "SkeletalMeshAttributes.h"
 #include "BoneWeights.h"
 
+/*
+ * Intent:
+ * - Build a UE USkeletalMesh from geometry DSF data and optional UV-set DSF data.
+ * - Create vertices, triangles, UVs, polygon/material groups, and material slots.
+ * - Call FDsonSkinWeightsBuilder before committing mesh description data.
+ *
+ * Read this file for geometry conversion, UV assignment, material slot mapping, and mesh save issues.
+ */
+
 // ---------------------------------------------------------------------------
 // Build
 // ---------------------------------------------------------------------------

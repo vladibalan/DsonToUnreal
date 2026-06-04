@@ -28,6 +28,15 @@
 #include "ContentBrowserModule.h"
 #include "IContentBrowserSingleton.h"
 
+/*
+ * Intent:
+ * - Provide the modal Slate UI for choosing and validating a DAZ DSON file.
+ * - Detect content roots, display validation/dependency status, and emit import settings.
+ * - Orchestrate the high-level import once the user confirms.
+ *
+ * Read this file for UI state, button behavior, and the top-level import sequence.
+ */
+
 #define LOCTEXT_NAMESPACE "SDsonImportWindow"
 
 void SDsonImportWindow::Construct(const FArguments& InArgs)
