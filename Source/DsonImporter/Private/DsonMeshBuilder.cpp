@@ -85,6 +85,15 @@ namespace
         int32 MaterialIndex;
     };
 
+    struct FDsonMeshAssetContext
+    {
+        UPackage* Package = nullptr;
+        USkeletalMesh* Mesh = nullptr;
+        FString PackagePath;
+
+        bool IsValid() const { return Package && Mesh; }
+    };
+
     static TArray<FString> ReadMaterialGroupNames(uint64_t DsfHandle)
     {
         const int32 RawMatGroupCount = GDsonParser.GetPolygonMaterialGroupCount
@@ -200,6 +209,29 @@ namespace
         {
             AddMeshMaterialSlot(Mesh, MaterialsByGroup, DefaultMaterial, MaterialGroupNames[m], m);
         }
+    }
+
+    static FDsonMeshAssetContext CreateSkeletalMeshAsset(const FDsonImportSettings& Settings)
+    {
+        FDsonMeshAssetContext AssetContext;
+        const FString MeshName = FPaths::GetBaseFilename(Settings.ResolvedFigureDsfPath) + TEXT("_SkeletalMesh");
+        AssetContext.PackagePath = TEXT("/Game/DazImports/") + MeshName;
+
+        AssetContext.Package = FDsonAssetUtils::CreateLoadedPackage(
+            AssetContext.PackagePath, TEXT("DsonMeshBuilder"));
+        if (!AssetContext.Package)
+            return AssetContext;
+
+        AssetContext.Mesh = NewObject<USkeletalMesh>(
+            AssetContext.Package, *MeshName, RF_Public | RF_Standalone);
+        if (!AssetContext.Mesh)
+        {
+            UE_LOG(LogDsonImporter, Error,
+                TEXT("DsonMeshBuilder: failed to create USkeletalMesh in '%s'"),
+                *AssetContext.PackagePath);
+        }
+
+        return AssetContext;
     }
 
     static FSkeletalMeshLODModel& PrepareSkeletalMeshLod0(USkeletalMesh* Mesh)
@@ -698,20 +730,10 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
     const TArray<FDsonTriangle> Triangles = ReadTriangles(DsfHandle, FaceCount, UVPolyVertIndices);
 
     // Step 6 — Create USkeletalMesh asset
-    const FString MeshName    = FPaths::GetBaseFilename(Settings.ResolvedFigureDsfPath) + TEXT("_SkeletalMesh");
-    const FString PackagePath = TEXT("/Game/DazImports/") + MeshName;
-
-    UPackage* Package = FDsonAssetUtils::CreateLoadedPackage(PackagePath, TEXT("DsonMeshBuilder"));
-    if (!Package)
+    const FDsonMeshAssetContext AssetContext = CreateSkeletalMeshAsset(Settings);
+    if (!AssetContext.IsValid())
         return nullptr;
-
-    USkeletalMesh* Mesh = NewObject<USkeletalMesh>(Package, *MeshName, RF_Public | RF_Standalone);
-    if (!Mesh)
-    {
-        UE_LOG(LogDsonImporter, Error,
-            TEXT("DsonMeshBuilder: failed to create USkeletalMesh in '%s'"), *PackagePath);
-        return nullptr;
-    }
+    USkeletalMesh* Mesh = AssetContext.Mesh;
 
     // Step 7 — Build FMeshDescription for LOD 0 directly and commit it
 
@@ -775,7 +797,8 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
     FinalizeBuiltMeshSkeleton(Mesh, Skeleton);
 
     // Step 9 — Save
-    return FDsonAssetUtils::SaveAssetPackage(Package, Mesh, PackagePath, TEXT("DsonMeshBuilder"))
+    return FDsonAssetUtils::SaveAssetPackage(
+            AssetContext.Package, Mesh, AssetContext.PackagePath, TEXT("DsonMeshBuilder"))
         ? Mesh
         : nullptr;
 }
