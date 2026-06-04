@@ -144,6 +144,81 @@ namespace
         return Positions;
     }
 
+    static void AddMeshMaterialSlot(
+        USkeletalMesh* Mesh,
+        const TMap<FString, UMaterialInstanceConstant*>& MaterialsByGroup,
+        UMaterial* DefaultMaterial,
+        const FString& GroupName,
+        int32 SlotIdx)
+    {
+        FSkeletalMaterial Mat;
+        Mat.ImportedMaterialSlotName = FName(*GroupName);
+
+        UMaterialInterface* Assigned = nullptr;
+        bool bFallback = false;
+        if (UMaterialInstanceConstant* const* Found = MaterialsByGroup.Find(GroupName))
+        {
+            Assigned = *Found;
+        }
+        if (!Assigned)
+        {
+            Assigned = DefaultMaterial;
+            bFallback = true;
+        }
+        Mat.MaterialInterface = Assigned;
+        Mesh->GetMaterials().Add(Mat);
+
+        if (bFallback)
+        {
+            UE_LOG(LogDsonImporter, Warning,
+                TEXT("[wire] no MIC for group \"%s\" — using M_DazDefault"), *GroupName);
+            UE_LOG(LogDsonImporter, Log,
+                TEXT("[wire] section %d -> %s -> M_DazDefault (no MIC for group \"%s\")"),
+                SlotIdx, *GroupName, *GroupName);
+        }
+        else
+        {
+            UE_LOG(LogDsonImporter, Log,
+                TEXT("[wire] section %d -> %s -> %s"),
+                SlotIdx, *GroupName, *Assigned->GetName());
+        }
+    }
+
+    static void PopulateMeshMaterialSlots(
+        USkeletalMesh* Mesh,
+        const TArray<FString>& MaterialGroupNames,
+        const TMap<FString, UMaterialInstanceConstant*>& MaterialsByGroup,
+        UMaterial* DefaultMaterial)
+    {
+        if (MaterialGroupNames.Num() == 0)
+        {
+            AddMeshMaterialSlot(Mesh, MaterialsByGroup, DefaultMaterial, FString(TEXT("DefaultMaterial")), 0);
+            return;
+        }
+
+        for (int32 m = 0; m < MaterialGroupNames.Num(); ++m)
+        {
+            AddMeshMaterialSlot(Mesh, MaterialsByGroup, DefaultMaterial, MaterialGroupNames[m], m);
+        }
+    }
+
+    static FSkeletalMeshLODModel& PrepareSkeletalMeshLod0(USkeletalMesh* Mesh)
+    {
+        Mesh->ResetLODInfo();
+        FSkeletalMeshLODInfo& NewLODInfo = Mesh->AddLODInfo();
+        NewLODInfo.ReductionSettings.NumOfTrianglesPercentage = 1.0f;
+        NewLODInfo.ReductionSettings.NumOfVertPercentage      = 1.0f;
+        NewLODInfo.ReductionSettings.MaxDeviationPercentage   = 0.0f;
+        NewLODInfo.LODHysteresis                              = 0.02f;
+
+        // CommitMeshDescription stamps bulk-data fields onto LODModels[0], so the
+        // imported model slot must exist before commit.
+        FSkeletalMeshModel* ImportedResource = Mesh->GetImportedModel();
+        ImportedResource->LODModels.Empty();
+        ImportedResource->LODModels.Add(new FSkeletalMeshLODModel());
+        return ImportedResource->LODModels[0];
+    }
+
     static TArray<FDsonTriangle> ReadTriangles(
         uint64_t DsfHandle,
         int32 FaceCount,
@@ -472,75 +547,18 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
     // Step 7 — Build FMeshDescription for LOD 0 directly and commit it
 
     // 7a — Populate mesh material slots (must exist before polygon groups reference them)
-    const auto AssignSlot = [&](const FString& GroupName, int32 SlotIdx)
-    {
-        FSkeletalMaterial Mat;
-        Mat.ImportedMaterialSlotName = FName(*GroupName);
+    PopulateMeshMaterialSlots(Mesh, MaterialGroupNames, MaterialsByGroup, DefaultMaterial);
 
-        UMaterialInterface* Assigned = nullptr;
-        bool bFallback = false;
-        if (UMaterialInstanceConstant* const* Found = MaterialsByGroup.Find(GroupName))
-        {
-            Assigned = *Found;
-        }
-        if (!Assigned)
-        {
-            Assigned = DefaultMaterial;
-            bFallback = true;
-        }
-        Mat.MaterialInterface = Assigned;
-        Mesh->GetMaterials().Add(Mat);
+    // 7b — LODInfo and LODModels[0] must exist before Create/CommitMeshDescription
+    FSkeletalMeshLODModel& LODModel = PrepareSkeletalMeshLod0(Mesh);
 
-        if (bFallback)
-        {
-            UE_LOG(LogDsonImporter, Warning,
-                TEXT("[wire] no MIC for group \"%s\" — using M_DazDefault"), *GroupName);
-            UE_LOG(LogDsonImporter, Log,
-                TEXT("[wire] section %d -> %s -> M_DazDefault (no MIC for group \"%s\")"),
-                SlotIdx, *GroupName, *GroupName);
-        }
-        else
-        {
-            UE_LOG(LogDsonImporter, Log,
-                TEXT("[wire] section %d -> %s -> %s"),
-                SlotIdx, *GroupName, *Assigned->GetName());
-        }
-    };
-
-    if (MaterialGroupNames.Num() == 0)
-    {
-        AssignSlot(TEXT("DefaultMaterial"), 0);
-    }
-    else
-    {
-        for (int32 m = 0; m < MaterialGroupNames.Num(); ++m)
-        {
-            AssignSlot(MaterialGroupNames[m], m);
-        }
-    }
-
-    // 8d — LODInfo (required before CreateMeshDescription)
-    Mesh->ResetLODInfo();
-    FSkeletalMeshLODInfo& NewLODInfo = Mesh->AddLODInfo();
-    NewLODInfo.ReductionSettings.NumOfTrianglesPercentage = 1.0f;
-    NewLODInfo.ReductionSettings.NumOfVertPercentage      = 1.0f;
-    NewLODInfo.ReductionSettings.MaxDeviationPercentage   = 0.0f;
-    NewLODInfo.LODHysteresis                              = 0.02f;
-
-    // 8b — LODModels[0] must exist before CommitMeshDescription (line 2514 of SkeletalMesh.cpp
-    //      ensures LODModels.IsValidIndex(0) to stamp bulk-data fields onto the LODModel)
-    FSkeletalMeshModel* ImportedResource = Mesh->GetImportedModel();
-    ImportedResource->LODModels.Empty();
-    ImportedResource->LODModels.Add(new FSkeletalMeshLODModel());
-    FSkeletalMeshLODModel& LODModel = ImportedResource->LODModels[0];
-
-    // 7b — Create the MeshDescription and register all skeletal mesh attributes
+    // 7c — Create the MeshDescription and register all skeletal mesh attributes
     FMeshDescription* MeshDesc = Mesh->CreateMeshDescription(0);
     check(MeshDesc);
     FSkeletalMeshAttributes SkelAttribs(*MeshDesc);
     SkelAttribs.Register();
 
-    // 7c — Populate bone attributes from the reference skeleton
+    // 7d — Populate bone attributes from the reference skeleton
     {
         const FReferenceSkeleton& RefSkel = Skeleton->GetReferenceSkeleton();
         SkelAttribs.ReserveNewBones(RefSkel.GetRawBoneNum());
@@ -558,7 +576,7 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
         }
     }
 
-    // 7d — Vertex positions and skin weights (one root-bone influence per vertex)
+    // 7e — Vertex positions and skin weights (one root-bone influence per vertex)
     TVertexAttributesRef<FVector3f> VertexPositions   = SkelAttribs.GetVertexPositions();
     FSkinWeightsVertexAttributesRef VertexSkinWeights = SkelAttribs.GetVertexSkinWeights();
 
@@ -578,7 +596,7 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
         }
     }
 
-    // 7e — UV channels, polygon groups, vertex instances, and triangles
+    // 7f — UV channels, polygon groups, vertex instances, and triangles
     TVertexInstanceAttributesRef<FVector2f> VertexInstanceUVs      = SkelAttribs.GetVertexInstanceUVs();
     TPolygonGroupAttributesRef<FName>       PolyGroupMaterialNames = SkelAttribs.GetPolygonGroupMaterialSlotNames();
 
@@ -625,7 +643,7 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
         // Non-fatal: continue with placeholder weights
     }
 
-    // 7f — Commit to bulk storage (replaces deprecated SaveLODImportedData)
+    // 7g — Commit to bulk storage (replaces deprecated SaveLODImportedData)
     if (!Mesh->CommitMeshDescription(0))
     {
         UE_LOG(LogDsonImporter, Error,
