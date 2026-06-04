@@ -265,6 +265,50 @@ namespace
         return VertexIDs;
     }
 
+    static void PopulateMeshDescriptionTriangles(
+        FMeshDescription& MeshDesc,
+        FSkeletalMeshAttributes& SkelAttribs,
+        USkeletalMesh* Mesh,
+        const TArray<FVertexID>& VertexIDs,
+        const TArray<FDsonTriangle>& Triangles,
+        const TArray<FVector2f>& UVs)
+    {
+        TVertexInstanceAttributesRef<FVector2f> VertexInstanceUVs      = SkelAttribs.GetVertexInstanceUVs();
+        TPolygonGroupAttributesRef<FName>       PolyGroupMaterialNames = SkelAttribs.GetPolygonGroupMaterialSlotNames();
+
+        VertexInstanceUVs.SetNumChannels(1);
+
+        const int32 NumMaterials = Mesh->GetMaterials().Num();
+        TArray<FPolygonGroupID> PolyGroups;
+        PolyGroups.Reserve(NumMaterials);
+        for (int32 m = 0; m < NumMaterials; ++m)
+        {
+            const FPolygonGroupID PGID = MeshDesc.CreatePolygonGroup();
+            PolyGroupMaterialNames.Set(PGID, Mesh->GetMaterials()[m].ImportedMaterialSlotName);
+            PolyGroups.Add(PGID);
+        }
+
+        TArray<FVertexInstanceID> CornerInstances;
+        CornerInstances.SetNum(3);
+        for (int32 t = 0; t < Triangles.Num(); ++t)
+        {
+            const FDsonTriangle& Tri = Triangles[t];
+            const int32 SafeMatIdx = FMath::Clamp(Tri.MaterialIndex, 0, PolyGroups.Num() - 1);
+
+            for (int32 c = 0; c < 3; ++c)
+            {
+                const FVertexID VID = VertexIDs[Tri.VertIndex[c]];
+                const FVertexInstanceID VIID = MeshDesc.CreateVertexInstance(VID);
+                const FVector2f UV = UVs.IsValidIndex(Tri.UVIndex[c])
+                    ? UVs[Tri.UVIndex[c]] : FVector2f::ZeroVector;
+                VertexInstanceUVs.Set(VIID, 0, UV);
+                CornerInstances[c] = VIID;
+            }
+
+            MeshDesc.CreateTriangle(PolyGroups[SafeMatIdx], CornerInstances);
+        }
+    }
+
     static TArray<FDsonTriangle> ReadTriangles(
         uint64_t DsfHandle,
         int32 FaceCount,
@@ -611,42 +655,7 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
     const TArray<FVertexID> VertexIDs = PopulateMeshDescriptionVertices(*MeshDesc, SkelAttribs, Positions);
 
     // 7f — UV channels, polygon groups, vertex instances, and triangles
-    TVertexInstanceAttributesRef<FVector2f> VertexInstanceUVs      = SkelAttribs.GetVertexInstanceUVs();
-    TPolygonGroupAttributesRef<FName>       PolyGroupMaterialNames = SkelAttribs.GetPolygonGroupMaterialSlotNames();
-
-    VertexInstanceUVs.SetNumChannels(1);
-
-    const int32 NumMaterials = Mesh->GetMaterials().Num();
-    TArray<FPolygonGroupID> PolyGroups;
-    PolyGroups.Reserve(NumMaterials);
-    for (int32 m = 0; m < NumMaterials; ++m)
-    {
-        const FPolygonGroupID PGID = MeshDesc->CreatePolygonGroup();
-        PolyGroupMaterialNames.Set(PGID, Mesh->GetMaterials()[m].ImportedMaterialSlotName);
-        PolyGroups.Add(PGID);
-    }
-
-    {
-        TArray<FVertexInstanceID> CornerInstances;
-        CornerInstances.SetNum(3);
-        for (int32 t = 0; t < Triangles.Num(); ++t)
-        {
-            const FDsonTriangle& Tri       = Triangles[t];
-            const int32          SafeMatIdx = FMath::Clamp(Tri.MaterialIndex, 0, PolyGroups.Num() - 1);
-
-            for (int32 c = 0; c < 3; ++c)
-            {
-                const FVertexID         VID  = VertexIDs[Tri.VertIndex[c]];
-                const FVertexInstanceID VIID = MeshDesc->CreateVertexInstance(VID);
-                const FVector2f         UV   = UVs.IsValidIndex(Tri.UVIndex[c])
-                                                   ? UVs[Tri.UVIndex[c]] : FVector2f::ZeroVector;
-                VertexInstanceUVs.Set(VIID, 0, UV);
-                CornerInstances[c] = VIID;
-            }
-
-            MeshDesc->CreateTriangle(PolyGroups[SafeMatIdx], CornerInstances);
-        }
-    }
+    PopulateMeshDescriptionTriangles(*MeshDesc, SkelAttribs, Mesh, VertexIDs, Triangles, UVs);
 
     // Apply real skin weights from the DSF skin modifier (replaces placeholder)
     if (!FDsonSkinWeightsBuilder::Apply(DsfHandle, Mesh, Skeleton))
