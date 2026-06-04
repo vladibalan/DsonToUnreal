@@ -19,6 +19,50 @@
  * Read this file for bone hierarchy, transform conversion, and skeleton asset creation.
  */
 
+namespace
+{
+    struct FBoneEntry
+    {
+        FString Id;
+        FString Name;
+        FString ParentId;
+        FTransform Transform;
+    };
+
+    void SortBonesParentsFirst(TArray<FBoneEntry>& Bones)
+    {
+        // Topological sort: parent before child (UE5 requires parent index < child index).
+        TMap<FString, int32> IdToArrayIndex;
+        IdToArrayIndex.Reserve(Bones.Num());
+        for (int32 i = 0; i < Bones.Num(); ++i)
+            IdToArrayIndex.Add(Bones[i].Id, i);
+
+        TArray<FBoneEntry> Sorted;
+        Sorted.Reserve(Bones.Num());
+        TSet<FString> Visited;
+        Visited.Reserve(Bones.Num());
+
+        TFunction<void(const FBoneEntry&)> Visit = [&](const FBoneEntry& Bone)
+        {
+            if (Visited.Contains(Bone.Id))
+                return;
+            if (!Bone.ParentId.IsEmpty())
+            {
+                const int32* ParentArrayIdx = IdToArrayIndex.Find(Bone.ParentId);
+                if (ParentArrayIdx)
+                    Visit(Bones[*ParentArrayIdx]);
+            }
+            Visited.Add(Bone.Id);
+            Sorted.Add(Bone);
+        };
+
+        for (const FBoneEntry& B : Bones)
+            Visit(B);
+
+        Bones = MoveTemp(Sorted);
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Build
 // ---------------------------------------------------------------------------
@@ -69,14 +113,6 @@ void FDsonSkeletonBuilder::BuildReferenceSkeletonFromDsf(uint64_t DsfHandle, FRe
 
     const int32 NodeCount = GDsonParser.GetNodeCount ? GDsonParser.GetNodeCount(DsfHandle) : 0;
 
-    struct FBoneEntry
-    {
-        FString Id;
-        FString Name;
-        FString ParentId;
-        FTransform Transform;
-    };
-
     TArray<FBoneEntry> Bones;
     Bones.Reserve(NodeCount);
 
@@ -107,35 +143,7 @@ void FDsonSkeletonBuilder::BuildReferenceSkeletonFromDsf(uint64_t DsfHandle, FRe
     if (Bones.IsEmpty())
         return;
 
-    // Topological sort: parent before child (UE5 requires parent index < child index)
-    TMap<FString, int32> IdToArrayIndex;
-    IdToArrayIndex.Reserve(Bones.Num());
-    for (int32 i = 0; i < Bones.Num(); ++i)
-        IdToArrayIndex.Add(Bones[i].Id, i);
-
-    TArray<FBoneEntry> Sorted;
-    Sorted.Reserve(Bones.Num());
-    TSet<FString> Visited;
-    Visited.Reserve(Bones.Num());
-
-    TFunction<void(const FBoneEntry&)> Visit = [&](const FBoneEntry& Bone)
-    {
-        if (Visited.Contains(Bone.Id))
-            return;
-        if (!Bone.ParentId.IsEmpty())
-        {
-            const int32* ParentArrayIdx = IdToArrayIndex.Find(Bone.ParentId);
-            if (ParentArrayIdx)
-                Visit(Bones[*ParentArrayIdx]);
-        }
-        Visited.Add(Bone.Id);
-        Sorted.Add(Bone);
-    };
-
-    for (const FBoneEntry& B : Bones)
-        Visit(B);
-
-    Bones = MoveTemp(Sorted);
+    SortBonesParentsFirst(Bones);
 
     // Set of all bone ids — any parent id NOT in this set means the bone is a root.
     TSet<FString> BoneIdSet;
