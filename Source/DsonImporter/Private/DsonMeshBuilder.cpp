@@ -309,6 +309,33 @@ namespace
         }
     }
 
+    static bool PopulateMeshRefSkeleton(USkeletalMesh* Mesh, USkeleton* Skeleton)
+    {
+        const FReferenceSkeleton& SkelRef = Skeleton->GetReferenceSkeleton();
+        FSkeletalMeshImportData TempData;
+        TempData.RefBonesBinary.Reserve(SkelRef.GetRawBoneNum());
+        for (int32 b = 0; b < SkelRef.GetRawBoneNum(); ++b)
+        {
+            SkeletalMeshImportData::FBone Bone;
+            Bone.Name        = SkelRef.GetBoneName(b).ToString();
+            Bone.ParentIndex = SkelRef.GetRawParentIndex(b);
+            Bone.NumChildren = 0;
+            Bone.BonePos.Transform = FTransform3f(SkelRef.GetRawRefBonePose()[b]);
+            TempData.RefBonesBinary.Add(Bone);
+        }
+
+        int32 SkeletalDepth = 0;
+        if (!SkeletalMeshImportUtils::ProcessImportMeshSkeleton(
+                Skeleton, Mesh->GetRefSkeleton(), SkeletalDepth, TempData))
+        {
+            UE_LOG(LogDsonImporter, Error,
+                TEXT("DsonMeshBuilder: ProcessImportMeshSkeleton failed"));
+            return false;
+        }
+
+        return true;
+    }
+
     static TArray<FDsonTriangle> ReadTriangles(
         uint64_t DsfHandle,
         int32 FaceCount,
@@ -681,39 +708,18 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
     Mesh->PreEditChange(nullptr);
     Mesh->InvalidateDeriveDataCacheGUID();
 
-    // 8c — Populate Mesh->GetRefSkeleton() via a minimal FSkeletalMeshImportData;
-    //      BuildSkeletalMesh reads the mesh's own FReferenceSkeleton, not the MeshDescription bones.
-    {
-        const FReferenceSkeleton& SkelRef = Skeleton->GetReferenceSkeleton();
-        FSkeletalMeshImportData TempData;
-        TempData.RefBonesBinary.Reserve(SkelRef.GetRawBoneNum());
-        for (int32 b = 0; b < SkelRef.GetRawBoneNum(); ++b)
-        {
-            SkeletalMeshImportData::FBone Bone;
-            Bone.Name        = SkelRef.GetBoneName(b).ToString();
-            Bone.ParentIndex = SkelRef.GetRawParentIndex(b);
-            Bone.NumChildren = 0;
-            Bone.BonePos.Transform = FTransform3f(SkelRef.GetRawRefBonePose()[b]);
-            TempData.RefBonesBinary.Add(Bone);
-        }
-        int32 SkeletalDepth = 0;
-        if (!SkeletalMeshImportUtils::ProcessImportMeshSkeleton(
-                Skeleton, Mesh->GetRefSkeleton(), SkeletalDepth, TempData))
-        {
-            UE_LOG(LogDsonImporter, Error,
-                TEXT("DsonMeshBuilder: ProcessImportMeshSkeleton failed"));
-            return nullptr;
-        }
-    }
+    // 8b — Populate Mesh->GetRefSkeleton(); BuildSkeletalMesh reads this, not MeshDescription bones.
+    if (!PopulateMeshRefSkeleton(Mesh, Skeleton))
+        return nullptr;
 
-    // 8e — Bounds, vertex-color state, and tex-coord count
+    // 8c — Bounds, vertex-color state, and tex-coord count
     FBox3f BoundingBox(Positions.GetData(), Positions.Num());
     Mesh->SetImportedBounds(FBoxSphereBounds(FBox(BoundingBox)));
     Mesh->SetHasVertexColors(false);
     Mesh->SetVertexColorGuid(FGuid());
     LODModel.NumTexCoords = 1;
 
-    // 8f — Build settings, then invoke IMeshBuilderModule (requires LODInfo + MeshDescription)
+    // 8d — Build settings, then invoke IMeshBuilderModule (requires LODInfo + MeshDescription)
     Mesh->GetLODInfo(0)->BuildSettings.bRecomputeNormals  = true;
     Mesh->GetLODInfo(0)->BuildSettings.bRecomputeTangents = true;
 
@@ -731,7 +737,7 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
         return nullptr;
     }
 
-    // 8g — Post-build: inv-ref matrices, skeleton merge, then skeleton assignment
+    // 8e — Post-build: inv-ref matrices, skeleton merge, then skeleton assignment
     Mesh->CalculateInvRefMatrices();
     if (!Skeleton->MergeAllBonesToBoneTree(Mesh))
     {
