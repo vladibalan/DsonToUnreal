@@ -2,6 +2,8 @@
 
 This document is for fast agent discovery. It explains where to look before opening full implementation files.
 
+For audit, review, debugging, or diagnostic requests, read `Docs/AuditGuide.md` after this overview.
+
 ## Shape
 
 The plugin is an Unreal Editor module:
@@ -110,3 +112,4 @@ The plugin is an Unreal Editor module:
 
 When asked to change behavior, identify the component using the routing table first. Read the relevant header and top-of-file `.cpp` comment, then inspect only the function involved.
 
+For audits and diagnostics, identify the symptom first, collect the relevant log or asset evidence, then inspect the routed source component.

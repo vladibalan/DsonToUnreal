@@ -7,9 +7,10 @@
 For discovery, prefer this order:
 
 1. `Docs/ImporterArchitecture.md`
-2. The relevant `.h` file for the component you need.
-3. The top comment and section headings in the matching `.cpp`.
-4. The full `.cpp` only after identifying the task area.
+2. For audit, review, debugging, or diagnostic requests: `Docs/AuditGuide.md`
+3. The relevant `.h` file for the component you need.
+4. The top comment and section headings in the matching `.cpp`.
+5. The full `.cpp` only after identifying the task area.
 
 ## Task Routing
 
@@ -35,6 +36,13 @@ Do not inspect these during normal discovery:
 - `Intermediate/`
 - `.git/`
 
+For audits and diagnostics, inspect generated folders only when they are evidence:
+
+- `Saved/Logs/` for current and backup editor logs.
+- `Saved/Crashes/` for crash logs and crash context.
+- `Intermediate/` only for generated code or build-output questions.
+- `Binaries/` only for packaging, stale binary, or DLL-load questions.
+
 ## Code Notes
 
 - `GDsonParser` is populated at module startup by loading exports from `DsonParser.dll`.
@@ -42,3 +50,10 @@ Do not inspect these during normal discovery:
 - DSON URLs are usually relative to DAZ content roots and may include URL encoding and fragments.
 - The import flow starts from the File menu, opens `SDsonImportWindow`, validates the chosen `.duf`/`.dsf`, then builds skeleton, materials/textures, mesh, and skin weights.
 
+## Audit Notes
+
+- Start audit/diagnostic requests with `Docs/AuditGuide.md`.
+- Route by symptom before opening source files.
+- Collect log evidence first when the user reports a crash, import failure, missing asset, or wrong output.
+- For code-review audits, report findings first with file/line references.
+- If no issue is found, state the evidence checked and remaining risk.
