@@ -45,7 +45,8 @@ static bool IsColorChannel(const FString& ChannelId)
 // DumpOneFile
 // ---------------------------------------------------------------------------
 
-static void DumpOneFile(const FString& FilePath, const FDsonImportSettings& Settings, FDsonTextureImporter& Importer)
+static void DumpOneFile(const FString& FilePath, const FDsonImportSettings& Settings,
+    FDsonTextureImporter& Importer, const FString& OutputFolder)
 {
     if (FilePath.IsEmpty())
     {
@@ -196,6 +197,7 @@ static void DumpOneFile(const FString& FilePath, const FDsonImportSettings& Sett
                     Tex ? TEXT("OK") : TEXT("FAIL"));
             }
         }
+
     }
 
     GDsonParser.Destroy(Handle);
@@ -205,7 +207,8 @@ static void DumpOneFile(const FString& FilePath, const FDsonImportSettings& Sett
 // FDsonMaterialDiagnostic::Dump
 // ---------------------------------------------------------------------------
 
-void FDsonMaterialDiagnostic::Dump(const FDsonImportSettings& Settings, FDsonTextureImporter& Importer)
+void FDsonMaterialDiagnostic::Dump(const FDsonImportSettings& Settings,
+    FDsonTextureImporter& Importer, const FString& OutputFolder)
 {
     if (!GDsonParser.IsValid())
     {
@@ -213,20 +216,8 @@ void FDsonMaterialDiagnostic::Dump(const FDsonImportSettings& Settings, FDsonTex
         return;
     }
 
-    DumpOneFile(Settings.DsonFilePath, Settings, Importer);
+    DumpOneFile(Settings.DsonFilePath, Settings, Importer, OutputFolder);
 
     if (!Settings.ResolvedFigureDsfPath.IsEmpty())
-        DumpOneFile(Settings.ResolvedFigureDsfPath, Settings, Importer);
-
-    UE_LOG(LogDsonImporter, Log, TEXT("=== DsonTextureImporter smoke-test summary ==="));
-    UE_LOG(LogDsonImporter, Log, TEXT("  Imported:      %d"), Importer.GetImportedCount());
-    UE_LOG(LogDsonImporter, Log, TEXT("  Cache hits:    %d"), Importer.GetCacheHitCount());
-    UE_LOG(LogDsonImporter, Log, TEXT("  Failures:      %d"), Importer.GetFailureCount());
-    if (Importer.GetFailedUrls().Num() > 0)
-    {
-        UE_LOG(LogDsonImporter, Log, TEXT("  Failed URLs:"));
-        for (const FString& Url : Importer.GetFailedUrls())
-            UE_LOG(LogDsonImporter, Log, TEXT("    %s"), *Url);
-    }
-    UE_LOG(LogDsonImporter, Log, TEXT("=============================================="));
+        DumpOneFile(Settings.ResolvedFigureDsfPath, Settings, Importer, OutputFolder);
 }
