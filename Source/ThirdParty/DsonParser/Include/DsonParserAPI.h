@@ -6,6 +6,21 @@
 #define DSONPARSER_API __declspec(dllimport)
 #endif
 
+// Public C ABI orientation:
+// This header exposes a parsed DSON/DSF/DUF document through an opaque handle and
+// index-based accessors. The implementation owns all returned const char*
+// strings; copy them if they must survive DsonDocument_Clear/Destroy or later
+// scratch-string API calls. Invalid handles or indexes return empty strings,
+// zero/false, or -1 depending on the function family.
+//
+// Index conventions:
+// - Node/geometry/material/modifier indexes address the corresponding library
+//   arrays parsed from *_library sections.
+// - Scene node/material/modifier/UV indexes address scene.* instance arrays.
+// - Morph indexes address a filtered list of modifiers where type == "morph";
+//   they are not raw modifier_library indexes.
+// - Skin APIs use raw modifier_library indexes for skin_binding modifiers.
+
 #ifdef __cplusplus
 extern "C" {
 #endif

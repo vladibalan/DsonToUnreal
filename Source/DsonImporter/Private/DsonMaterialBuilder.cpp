@@ -47,6 +47,8 @@ static const TMap<FString, FDazParamBinding>& GetIrayUberMapping()
             { FName(TEXT("DiffuseColor")),     NAME_None,                       FName(TEXT("DiffuseMap")),       FName(TEXT("UseDiffuseMap")),       true  });
         M.Add(TEXT("Translucency Color"),
             { FName(TEXT("TranslucencyColor")), NAME_None,                      FName(TEXT("TranslucencyMap")),  FName(TEXT("UseTranslucencyMap")),  true  });
+        M.Add(TEXT("Translucency Weight"),
+            { NAME_None,                        FName(TEXT("TranslucencyWeight")), NAME_None,                       NAME_None,                          false });
         M.Add(TEXT("Glossy Layered Weight"),
             { NAME_None,                        FName(TEXT("GlossyWeight")),    FName(TEXT("GlossyMap")),        FName(TEXT("UseGlossyMap")),        false });
         M.Add(TEXT("Bump Strength"),
