@@ -171,6 +171,21 @@ DSONPARSER_API const char* DsonDocument_GetUVSetId(DsonDocumentHandle handle, in
 DSONPARSER_API int         DsonDocument_GetUVCount(DsonDocumentHandle handle, int uvSetIndex);
 DSONPARSER_API double      DsonDocument_GetUVU(DsonDocumentHandle handle, int uvSetIndex, int uvIndex);
 DSONPARSER_API double      DsonDocument_GetUVV(DsonDocumentHandle handle, int uvSetIndex, int uvIndex);
+// vertex_count from the uv_set entry — needed for identity-default expansion
+// when consumers expand sparse overrides into a flat per-corner array.
+DSONPARSER_API int DsonDocument_GetUVSetVertexCount(DsonDocumentHandle handle, int uvSetIndex);
+
+// Sparse UV override entries from polygon_vertex_indices.
+// Each entry is [face, corner, uv_index] for a face corner whose UV index
+// differs from its vertex index. Consumers expand to a flat per-corner array
+// by seeding with identity (uv_index = vertex_index) and applying overrides.
+DSONPARSER_API int DsonDocument_GetUVOverrideCount(DsonDocumentHandle handle, int uvSetIndex);
+DSONPARSER_API int DsonDocument_GetUVOverrideFace(DsonDocumentHandle handle, int uvSetIndex, int overrideIndex);
+DSONPARSER_API int DsonDocument_GetUVOverrideCorner(DsonDocumentHandle handle, int uvSetIndex, int overrideIndex);
+DSONPARSER_API int DsonDocument_GetUVOverrideUVIndex(DsonDocumentHandle handle, int uvSetIndex, int overrideIndex);
+
+// Returns 0 for the sparse triplet format used by DAZ uv_set DSFs (the common case).
+// Use the GetUVOverride* family above for sparse data.
 DSONPARSER_API int         DsonDocument_GetUVPolygonVertexIndexCount(DsonDocumentHandle handle, int uvSetIndex);
 DSONPARSER_API int         DsonDocument_GetUVPolygonVertexIndex(DsonDocumentHandle handle, int uvSetIndex, int index);
 

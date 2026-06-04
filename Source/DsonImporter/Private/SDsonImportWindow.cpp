@@ -268,7 +268,27 @@ FReply SDsonImportWindow::OnImportClicked()
             FPaths::GetBaseFilename(PendingSettings.DsonFilePath));
 
     TMap<FString, UMaterialInstanceConstant*> MaterialsByGroup;
-    Builder.BuildAllSceneMaterials(PendingSettings.DsonFilePath, MaterialOutputFolder, MaterialsByGroup);
+    FString UvSetUrl;
+    Builder.BuildAllSceneMaterials(PendingSettings.DsonFilePath, MaterialOutputFolder,
+        MaterialsByGroup, UvSetUrl);
+
+    FString UvSetAbsPath;
+    if (!UvSetUrl.IsEmpty())
+    {
+        UvSetAbsPath = FDsonContentRoots::ResolveUrl(UvSetUrl, ContentRoots);
+        if (UvSetAbsPath.IsEmpty())
+        {
+            UE_LOG(LogDsonImporter, Warning, TEXT("[uv] failed to resolve UV set URL: %s"), *UvSetUrl);
+        }
+        else
+        {
+            UE_LOG(LogDsonImporter, Log, TEXT("[uv] resolved UV set DSF: %s"), *UvSetAbsPath);
+        }
+    }
+    else
+    {
+        UE_LOG(LogDsonImporter, Warning, TEXT("[uv] no UV set URL found in scene materials"));
+    }
 
     // Summary (always — moved out of Dump)
     UE_LOG(LogDsonImporter, Log, TEXT("=== DsonTextureImporter summary ==="));
@@ -312,7 +332,7 @@ FReply SDsonImportWindow::OnImportClicked()
             TEXT("Skeleton imported successfully: %s"), *Skeleton->GetPathName());
 
         USkeletalMesh* Mesh = FDsonMeshBuilder::Build(
-            PendingSettings, Skeleton, MaterialsByGroup, DefaultMaterial);
+            PendingSettings, Skeleton, MaterialsByGroup, DefaultMaterial, UvSetAbsPath);
         if (Mesh)
         {
             UE_LOG(LogDsonImporter, Log,

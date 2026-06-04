@@ -32,10 +32,13 @@ public:
         const FString& OutputFolder);
 
     // Open DufPath, build all scene materials, and populate OutByGroup keyed by group[0] name.
+    // OutUvSetUrl receives the raw UV set URL (with fragment) from the first scene material that
+    // has one; empty if none found.
     void BuildAllSceneMaterials(
         const FString& DufPath,
         const FString& OutputFolder,
-        TMap<FString, UMaterialInstanceConstant*>& OutByGroup);
+        TMap<FString, UMaterialInstanceConstant*>& OutByGroup,
+        FString& OutUvSetUrl);
 
     int32 GetBuiltCount()    const { return BuiltCount;    }
     int32 GetFailureCount()  const { return FailureCount;  }

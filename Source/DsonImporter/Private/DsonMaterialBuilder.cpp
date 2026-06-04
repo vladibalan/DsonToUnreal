@@ -342,7 +342,8 @@ UMaterialInstanceConstant* FDsonMaterialBuilder::BuildSceneMaterial(
 void FDsonMaterialBuilder::BuildAllSceneMaterials(
     const FString& DufPath,
     const FString& OutputFolder,
-    TMap<FString, UMaterialInstanceConstant*>& OutByGroup)
+    TMap<FString, UMaterialInstanceConstant*>& OutByGroup,
+    FString& OutUvSetUrl)
 {
     FString FileContent;
     if (!FFileHelper::LoadFileToString(FileContent, *DufPath) || FileContent.IsEmpty())
@@ -389,6 +390,18 @@ void FDsonMaterialBuilder::BuildAllSceneMaterials(
 
         const char* NameRaw = (GroupCount > 0 && GDsonParser.GetSceneMaterialGroupName)
             ? GDsonParser.GetSceneMaterialGroupName(H, i, 0) : nullptr;
+
+        if (OutUvSetUrl.IsEmpty() && GDsonParser.GetSceneMaterialUVSetId)
+        {
+            if (const char* UvSetRaw = GDsonParser.GetSceneMaterialUVSetId(H, i))
+            {
+                const FString Candidate = UTF8_TO_TCHAR(UvSetRaw);
+                if (!Candidate.IsEmpty())
+                {
+                    OutUvSetUrl = Candidate;
+                }
+            }
+        }
 
         if (GroupCount == 0 || !NameRaw)
         {
