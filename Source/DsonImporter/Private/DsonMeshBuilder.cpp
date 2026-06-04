@@ -372,6 +372,22 @@ namespace
         return true;
     }
 
+    static void FinalizeBuiltMeshSkeleton(USkeletalMesh* Mesh, USkeleton* Skeleton)
+    {
+        Mesh->CalculateInvRefMatrices();
+        if (!Skeleton->MergeAllBonesToBoneTree(Mesh))
+        {
+            UE_LOG(LogDsonImporter, Warning,
+                TEXT("DsonMeshBuilder: MergeAllBonesToBoneTree failed — skeleton may be mismatched"));
+        }
+        Mesh->SetSkeleton(Skeleton);
+
+        if (!Mesh->GetResourceForRendering() || !Mesh->GetResourceForRendering()->LODRenderData.IsValidIndex(0))
+        {
+            Mesh->Build();
+        }
+    }
+
     static TArray<FDsonTriangle> ReadTriangles(
         uint64_t DsfHandle,
         int32 FaceCount,
@@ -756,18 +772,7 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
         return nullptr;
 
     // 8e — Post-build: inv-ref matrices, skeleton merge, then skeleton assignment
-    Mesh->CalculateInvRefMatrices();
-    if (!Skeleton->MergeAllBonesToBoneTree(Mesh))
-    {
-        UE_LOG(LogDsonImporter, Warning,
-            TEXT("DsonMeshBuilder: MergeAllBonesToBoneTree failed — skeleton may be mismatched"));
-    }
-    Mesh->SetSkeleton(Skeleton);
-
-    if (!Mesh->GetResourceForRendering() || !Mesh->GetResourceForRendering()->LODRenderData.IsValidIndex(0))
-    {
-        Mesh->Build();
-    }
+    FinalizeBuiltMeshSkeleton(Mesh, Skeleton);
 
     // Step 9 — Save
     return FDsonAssetUtils::SaveAssetPackage(Package, Mesh, PackagePath, TEXT("DsonMeshBuilder"))
