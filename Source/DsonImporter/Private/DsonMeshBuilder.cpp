@@ -219,6 +219,52 @@ namespace
         return ImportedResource->LODModels[0];
     }
 
+    static void PopulateMeshDescriptionBones(
+        FSkeletalMeshAttributes& SkelAttribs,
+        const USkeleton* Skeleton)
+    {
+        const FReferenceSkeleton& RefSkel = Skeleton->GetReferenceSkeleton();
+        SkelAttribs.ReserveNewBones(RefSkel.GetRawBoneNum());
+
+        FSkeletalMeshAttributes::FBoneNameAttributesRef        BoneNames   = SkelAttribs.GetBoneNames();
+        FSkeletalMeshAttributes::FBoneParentIndexAttributesRef BoneParents = SkelAttribs.GetBoneParentIndices();
+        FSkeletalMeshAttributes::FBonePoseAttributesRef        BonePoses   = SkelAttribs.GetBonePoses();
+
+        for (int32 b = 0; b < RefSkel.GetRawBoneNum(); ++b)
+        {
+            const FBoneID BoneID = SkelAttribs.CreateBone();
+            BoneNames  .Set(BoneID, RefSkel.GetBoneName(b));
+            BoneParents.Set(BoneID, RefSkel.GetRawParentIndex(b));
+            BonePoses  .Set(BoneID, RefSkel.GetRawRefBonePose()[b]);
+        }
+    }
+
+    static TArray<FVertexID> PopulateMeshDescriptionVertices(
+        FMeshDescription& MeshDesc,
+        FSkeletalMeshAttributes& SkelAttribs,
+        const TArray<FVector3f>& Positions)
+    {
+        TVertexAttributesRef<FVector3f> VertexPositions   = SkelAttribs.GetVertexPositions();
+        FSkinWeightsVertexAttributesRef VertexSkinWeights = SkelAttribs.GetVertexSkinWeights();
+
+        TArray<FVertexID> VertexIDs;
+        VertexIDs.Reserve(Positions.Num());
+
+        using namespace UE::AnimationCore;
+        TArray<FBoneWeight> SingleInfluence;
+        SingleInfluence.Add(FBoneWeight(static_cast<FBoneIndexType>(0), 1.0f));
+
+        for (int32 i = 0; i < Positions.Num(); ++i)
+        {
+            const FVertexID VID = MeshDesc.CreateVertex();
+            VertexIDs.Add(VID);
+            VertexPositions  .Set(VID, Positions[i]);
+            VertexSkinWeights.Set(VID, SingleInfluence);
+        }
+
+        return VertexIDs;
+    }
+
     static TArray<FDsonTriangle> ReadTriangles(
         uint64_t DsfHandle,
         int32 FaceCount,
@@ -559,42 +605,10 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
     SkelAttribs.Register();
 
     // 7d — Populate bone attributes from the reference skeleton
-    {
-        const FReferenceSkeleton& RefSkel = Skeleton->GetReferenceSkeleton();
-        SkelAttribs.ReserveNewBones(RefSkel.GetRawBoneNum());
-
-        FSkeletalMeshAttributes::FBoneNameAttributesRef        BoneNames   = SkelAttribs.GetBoneNames();
-        FSkeletalMeshAttributes::FBoneParentIndexAttributesRef BoneParents = SkelAttribs.GetBoneParentIndices();
-        FSkeletalMeshAttributes::FBonePoseAttributesRef        BonePoses   = SkelAttribs.GetBonePoses();
-
-        for (int32 b = 0; b < RefSkel.GetRawBoneNum(); ++b)
-        {
-            const FBoneID BoneID = SkelAttribs.CreateBone();
-            BoneNames  .Set(BoneID, RefSkel.GetBoneName(b));
-            BoneParents.Set(BoneID, RefSkel.GetRawParentIndex(b));
-            BonePoses  .Set(BoneID, RefSkel.GetRawRefBonePose()[b]);
-        }
-    }
+    PopulateMeshDescriptionBones(SkelAttribs, Skeleton);
 
     // 7e — Vertex positions and skin weights (one root-bone influence per vertex)
-    TVertexAttributesRef<FVector3f> VertexPositions   = SkelAttribs.GetVertexPositions();
-    FSkinWeightsVertexAttributesRef VertexSkinWeights = SkelAttribs.GetVertexSkinWeights();
-
-    TArray<FVertexID> VertexIDs;
-    VertexIDs.Reserve(Positions.Num());
-    {
-        using namespace UE::AnimationCore;
-        TArray<FBoneWeight> SingleInfluence;
-        SingleInfluence.Add(FBoneWeight(static_cast<FBoneIndexType>(0), 1.0f));
-
-        for (int32 i = 0; i < Positions.Num(); ++i)
-        {
-            const FVertexID VID = MeshDesc->CreateVertex();
-            VertexIDs.Add(VID);
-            VertexPositions  .Set(VID, Positions[i]);
-            VertexSkinWeights.Set(VID, SingleInfluence);
-        }
-    }
+    const TArray<FVertexID> VertexIDs = PopulateMeshDescriptionVertices(*MeshDesc, SkelAttribs, Positions);
 
     // 7f — UV channels, polygon groups, vertex instances, and triangles
     TVertexInstanceAttributesRef<FVector2f> VertexInstanceUVs      = SkelAttribs.GetVertexInstanceUVs();
