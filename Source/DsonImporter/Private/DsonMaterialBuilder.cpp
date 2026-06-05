@@ -216,14 +216,20 @@ static void ApplySceneMaterialChannel(
             (float)Val);
     }
 
-    // Texture + UseFlag: orthogonal to color/scalar, applied when an image url exists.
+    // Texture + UseFlag: orthogonal to color/scalar, applied when an image path exists.
     if (Binding.TextureParam != NAME_None)
     {
-        FString ImgUrl = S(GDsonParser.GetSceneMaterialChannelImageUrl
+        const FString TexturePath = S(GDsonParser.GetSceneMaterialChannelTexturePath
+            ? GDsonParser.GetSceneMaterialChannelTexturePath(DsonHandle, SceneMatIdx, ChannelIdx) : nullptr);
+        const FString ImgUrl = S(GDsonParser.GetSceneMaterialChannelImageUrl
             ? GDsonParser.GetSceneMaterialChannelImageUrl(DsonHandle, SceneMatIdx, ChannelIdx) : nullptr);
-        if (!ImgUrl.IsEmpty())
+
+        // texture_path is the parser's resolved image_library link (e.g. layered/LIE images
+        // referenced by #fragment); image_url is the raw ref, which may be an unresolvable fragment.
+        const FString& TextureRef = !TexturePath.IsEmpty() ? TexturePath : ImgUrl;
+        if (!TextureRef.IsEmpty())
         {
-            UTexture2D* Tex = TextureImporter.ImportOrFind(ImgUrl, Binding.bSRGB);
+            UTexture2D* Tex = TextureImporter.ImportOrFind(TextureRef, Binding.bSRGB);
             if (Tex)
             {
                 MIC->SetTextureParameterValueEditorOnly(
