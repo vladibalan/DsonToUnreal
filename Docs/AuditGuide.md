@@ -12,7 +12,8 @@ Use this document for audit, review, debugging, and diagnostic requests. The goa
 
 For code-review style audits, lead with findings. Do not summarize first. Use
 `Docs/CodeReviewRules.md` as the checklist — it encodes this repo's DRY, UE 5.4.4
-compatibility, parser-ABI, RAII, and compactness rules (R1–R7).
+compatibility, parser-ABI, RAII, compactness, orientation-doc-sync, and
+roadmap-upkeep rules (R1–R9).
 
 ## Evidence Sources
 

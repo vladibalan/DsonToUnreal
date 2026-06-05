@@ -138,12 +138,37 @@ the available tooling, update the relevant doc **in the same change**:
 - **New tooling, build/index step, or workflow** → document it where agents look
   (`AGENTS.md`) so the next session does not rediscover it.
 - **A rule, helper, or convention referenced by name elsewhere changes** → fix
-  the references (e.g. an `R1–R7` enumeration becomes `R1–R8`).
+  the references (e.g. an `R1–R8` enumeration becomes `R1–R9`).
 
 A doc edit is in scope even when the diff is "just code": stale orientation is a
 defect, the same as a stale code comment. Reviewer action: if a change adds,
 removes, or renames a file, or changes routing or tooling, and no orientation doc
 was touched, flag it and name the doc + section that needs the update.
+
+### R9 — Keep the project roadmap current as work lands
+`Docs/Roadmap.md` is the single source of truth for **project status**: phase
+completion, deferred-to-v2 features, known latent issues, and the cleanup
+backlog. It exists to replace external, quickly-stale handoff documents — so it
+is only worth having if it is updated **in the same change that alters the status
+it records**, never as a follow-up. Update it when, and as part of the change
+where:
+- **A phase or feature completes** → mark it Done with a one-line note on the
+  shipped scope (and what was deliberately left as v1).
+- **A bug is fixed** → remove it from Known Issues, noting the fix location.
+- **A new bug or limitation is discovered** → add it to Known Issues with enough
+  file/symptom context to reproduce.
+- **Work is deferred** → record it under Deferred / v2 rather than losing it in a
+  chat that will not be re-read.
+- **A cleanup item is done or newly identified** → tick or add it in the backlog.
+
+Keep `Roadmap.md` about *status*, not mechanism: load-bearing technical
+invariants (the coordinate flip — see R4) and material-parameter contracts
+(`MaterialMastersV1.md`) are owned elsewhere; reference them, don't restate them,
+so they cannot drift.
+
+A status change with no roadmap edit is the same defect class as stale
+orientation under R8. Reviewer action: if a change completes or defers a phase,
+or fixes or adds a bug, and `Docs/Roadmap.md` was not touched, flag it.
 
 ## Quick checklist (state results after each change)
 
@@ -161,3 +186,5 @@ was touched, flag it and name the doc + section that needs the update.
 - [ ] R8: agent-orientation docs updated to match the change —
       `Docs/ImporterArchitecture.md` (file map / components) and `AGENTS.md`
       (Read Order, Task Routing, tooling); name-referenced enumerations fixed.
+- [ ] R9: `Docs/Roadmap.md` updated for any phase/feature/bug/deferral/cleanup
+      status change this diff makes.

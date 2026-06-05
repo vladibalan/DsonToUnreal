@@ -20,7 +20,10 @@ belong here.
 
 For discovery, prefer this order:
 
-1. `Docs/ImporterArchitecture.md`
+1. `Docs/ImporterArchitecture.md` (code layout). For **project status** — what
+   phase the importer is at, what shipped, what is deferred, and the bug/cleanup
+   backlog — read `Docs/Roadmap.md` (the single source of truth that replaces the
+   old external handoffs).
 2. For audit, review, debugging, or diagnostic requests: `Docs/AuditGuide.md`
    - For code-review runs (DRY / modern-C++ / compactness) **and before editing
      source**, see "Before editing source" below — it governs authoring, not just review.
@@ -36,15 +39,17 @@ These rules govern *authoring*, not just review. Before you edit any file under
 `Source/DsonImporter/`:
 
 1. **If you have not read [`Docs/CodeReviewRules.md`](Docs/CodeReviewRules.md) this
-   session, read it now.** It is the standing checklist (R1–R8) covering the
+   session, read it now.** It is the standing checklist (R1–R9) covering the
    hazards that are easy to introduce and expensive to catch later: UE 5.4.4 API
    compatibility (R1), the single-source-of-truth parser ABI in
    `DsonParserFunctions.h` (R2), RAII handles + immediate parser-string copy (R3),
    the shared DRY helpers and the correctness-critical coordinate flip (R4),
    compactness without losing functionality (R5), the C++20 idiom (R6), the
-   permissive-parser / return-value / breaking-change contracts (R7), and keeping
-   the agent-orientation docs in sync with the change (R8). **Write code that
-   already complies with R1–R8 rather than fixing it on review.**
+   permissive-parser / return-value / breaking-change contracts (R7), keeping
+   the agent-orientation docs in sync with the change (R8), and keeping
+   `Docs/Roadmap.md` current as phases complete, bugs are fixed/found, or work is
+   deferred (R9). **Write code that already complies with R1–R9 rather than
+   fixing it on review.**
 2. **After each edit, self-audit the diff against that doc's Quick Checklist and
    state the result.** Name the rules you checked and confirm the diff satisfies
    them, or flag what doesn't — do not say "looks fine".
@@ -73,6 +78,7 @@ the X-macro list.)
 - Compile-time parser ABI drift check (no runtime code): `Source/DsonImporter/Private/DsonParserAbiCheck.cpp`
 - Third-party parser import library and DLL packaging: `Source/ThirdParty/DsonParser/`
 - Master material parameter contract: `MaterialMastersV1.md`
+- Project status, phase tracking, deferred features, known issues, cleanup backlog: `Docs/Roadmap.md`
 
 ## Generated Folders
 

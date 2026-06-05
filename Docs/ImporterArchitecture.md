@@ -2,6 +2,10 @@
 
 This document is for fast agent discovery. It explains where to look before opening full implementation files.
 
+This document describes *code layout*. For **project status** — phase completion,
+deferred-to-v2 features, known issues, and the cleanup backlog — see
+`Docs/Roadmap.md`.
+
 For audit, review, debugging, or diagnostic requests, read `Docs/AuditGuide.md` after this overview.
 
 ## Shape
