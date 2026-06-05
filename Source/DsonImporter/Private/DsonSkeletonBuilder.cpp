@@ -2,6 +2,7 @@
 #include "DsonImporter.h"
 #include "DsonAssetUtils.h"
 #include "DsonParserFunctions.h"
+#include "DsonImportUtils.h"
 #include "DsonLoadedDocument.h"
 
 #include "Animation/Skeleton.h"
@@ -28,24 +29,6 @@ namespace
         FString ParentId;
         FTransform Transform;
     };
-
-    double ReadDazUnitScale(uint64_t DsfHandle)
-    {
-        double UnitScale = GDsonParser.GetUnitScale
-            ? GDsonParser.GetUnitScale(DsfHandle) : 1.0 / 100.0;
-        if (UnitScale == 0.0)
-            UnitScale = 1.0 / 100.0; // DAZ default: 1 DAZ unit = 1 cm
-        return UnitScale;
-    }
-
-    FString NormalizeDazParentId(const char* ParentRaw)
-    {
-        FString ParentId = ParentRaw ? UTF8_TO_TCHAR(ParentRaw) : TEXT("");
-        // DAZ parent refs are URL fragment ids like "#hip"; strip the leading '#'.
-        if (ParentId.StartsWith(TEXT("#")))
-            ParentId.RemoveAt(0, 1, false);
-        return ParentId;
-    }
 
     void SortBonesParentsFirst(TArray<FBoneEntry>& Bones)
     {
@@ -165,12 +148,11 @@ USkeleton* FDsonSkeletonBuilder::Build(const FDsonImportSettings& Settings)
         return nullptr;
     }
 
-    uint64_t DsfHandle = 0;
     FDsonLoadedDocument DsfDocument;
     if (!DsfDocument.LoadFromFileAsError(Settings.ResolvedFigureDsfPath, TEXT("DsonSkeletonBuilder")))
         return nullptr;
 
-    DsfHandle = DsfDocument.GetHandle64();
+    const uint64_t DsfHandle = DsfDocument.GetHandle64();
     FReferenceSkeleton RefSkeleton;
     BuildReferenceSkeletonFromDsf(DsfHandle, RefSkeleton);
 
@@ -194,7 +176,7 @@ void FDsonSkeletonBuilder::BuildReferenceSkeletonFromDsf(uint64_t DsfHandle, FRe
 {
     // Collect bone nodes, sort parents before children, then add parent-relative transforms.
     // This method bridges parser node order and UE's strict reference skeleton ordering.
-    const double UnitScale = ReadDazUnitScale(DsfHandle);
+    const double UnitScale = DsonImportUtils::ReadDazUnitScale(DsfHandle);
 
     const int32 NodeCount = GDsonParser.GetNodeCount ? GDsonParser.GetNodeCount(DsfHandle) : 0;
 
@@ -215,7 +197,7 @@ void FDsonSkeletonBuilder::BuildReferenceSkeletonFromDsf(uint64_t DsfHandle, FRe
 
         Entry.Id       = IdRaw ? UTF8_TO_TCHAR(IdRaw) : FString::Printf(TEXT("Bone_%d"), i);
         Entry.Name     = Entry.Id;
-        Entry.ParentId = NormalizeDazParentId(PrRaw);
+        Entry.ParentId = DsonImportUtils::NormalizeDazId(PrRaw);
         Entry.Transform = MakeBoneTransform(DsfHandle, i, UnitScale);
     }
 
@@ -327,13 +309,10 @@ FTransform FDsonSkeletonBuilder::MakeBoneTransform(uint64_t DsfHandle, int32 Nod
     const double CY = GDsonParser.GetNodeCenterPointY ? GDsonParser.GetNodeCenterPointY(DsfHandle, NodeIndex) : 0.0;
     const double CZ = GDsonParser.GetNodeCenterPointZ ? GDsonParser.GetNodeCenterPointZ(DsfHandle, NodeIndex) : 0.0;
 
-    // World-space joint position. DAZ->UE with handedness flip:
-    // UE_X = DAZ_Z, UE_Y = -DAZ_X, UE_Z = DAZ_Y. The -DAZ_X reflection converts DAZ's
-    // right-handed frame to UE's left-handed frame (see DazToUeBasisMatrix).
+    // World-space joint position. Shared DAZ->UE handedness flip (see DsonImportUtils).
     // ToCm = UnitScale: Genesis is authored in cm and unit_scale defaults to 1.0.
     // Do NOT reintroduce a *100 here.
-    const double ToCm = UnitScale;
-    const FVector Translation(CZ * ToCm, -CX * ToCm, CY * ToCm);
+    const FVector Translation = DsonImportUtils::DazPointToUe(CX, CY, CZ, UnitScale);
 
     const double OX = GDsonParser.GetNodeOrientationX ? GDsonParser.GetNodeOrientationX(DsfHandle, NodeIndex) : 0.0;
     const double OY = GDsonParser.GetNodeOrientationY ? GDsonParser.GetNodeOrientationY(DsfHandle, NodeIndex) : 0.0;

@@ -1,8 +1,6 @@
 #pragma once
 #include "CoreMinimal.h"
-
-// Matches typedef void* DsonDocumentHandle in DsonParserFunctions.h - identical typedef, safe to repeat.
-typedef void* DsonDocumentHandle;
+#include "DsonParserFunctions.h"  // DsonDocumentHandle
 
 class UMaterialInstanceConstant;
 class UMaterial;

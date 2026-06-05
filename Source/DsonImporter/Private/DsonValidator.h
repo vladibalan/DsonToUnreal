@@ -1,7 +1,7 @@
 #pragma once
 #include "CoreMinimal.h"
 
-UENUM()
+// Plain C++ enum: used only internally (no UPROPERTY/Blueprint exposure), so no UENUM/reflection.
 enum class EDsonAssetType : uint8
 {
     Unknown,
@@ -11,7 +11,7 @@ enum class EDsonAssetType : uint8
     Unsupported
 };
 
-UENUM()
+// Plain C++ enum: internal-only, no reflection needed.
 enum class EGenesisGeneration : uint8
 {
     Unknown,
@@ -19,6 +19,10 @@ enum class EGenesisGeneration : uint8
     Genesis8,
     Genesis9
 };
+
+// Human-readable Genesis generation label, shared by the validator UI text and the
+// material diagnostic dump so the mapping lives in exactly one place.
+FString GenerationToString(EGenesisGeneration Generation);
 
 struct FDsonDependency
 {

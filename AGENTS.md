@@ -2,6 +2,20 @@
 
 `DsonToUnreal` imports DAZ Studio DSON/DSF/DUF Genesis assets into Unreal Engine 5.4.4. This plugin is an editor module named `DsonImporter`.
 
+## Version Control
+
+**This plugin folder is its own git repository.** The surrounding host project
+(`D:/Unreal Projects/DsonHost`) is **not** under git — only this `Plugins/DsonToUnreal`
+directory is. For any `git status`/`diff`/`log`/`commit` of plugin changes, run git
+from here (`Plugins/DsonToUnreal`), not from the host root.
+
+- Repo root: `Plugins/DsonToUnreal` (run `git rev-parse --show-toplevel` here to confirm).
+- Remote: `origin` → `https://github.com/vladibalan/DsonToUnreal`.
+- Default branch: `main`.
+
+All source edits in this guide's scope live inside this repo, so commits/PRs for them
+belong here.
+
 ## Read Order
 
 For discovery, prefer this order:

@@ -2,6 +2,7 @@
 #include "DsonImporter.h"
 #include "DsonAssetUtils.h"
 #include "DsonParserFunctions.h"
+#include "DsonImportUtils.h"
 #include "DsonLoadedDocument.h"
 #include "DsonSkinWeightsBuilder.h"
 
@@ -142,9 +143,7 @@ namespace
 
     static TArray<FVector3f> ReadVertexPositions(uint64_t DsfHandle)
     {
-        const double UnitScale = GDsonParser.GetUnitScale
-            ? GDsonParser.GetUnitScale(DsfHandle) : 1.0 / 100.0;
-        const double ToCm = UnitScale;
+        const double UnitScale = DsonImportUtils::ReadDazUnitScale(DsfHandle);
 
         // Count returns 0 on invalid handle/index or empty list; either way, no verts.
         const int32 VertCount = GDsonParser.GetVertexCount
@@ -156,17 +155,11 @@ namespace
             const double VX = GDsonParser.GetVertexX ? GDsonParser.GetVertexX(DsfHandle, 0, i) : 0.0;
             const double VY = GDsonParser.GetVertexY ? GDsonParser.GetVertexY(DsfHandle, 0, i) : 0.0;
             const double VZ = GDsonParser.GetVertexZ ? GDsonParser.GetVertexZ(DsfHandle, 0, i) : 0.0;
-            // DAZ (Y-up, RH) -> UE5 (Z-up, LH) with handedness flip:
-            // UE_X=DAZ_Z, UE_Y=-DAZ_X, UE_Z=DAZ_Y. The -DAZ_X reflection converts
-            // right-handed DAZ to left-handed UE and MUST match DsonSkeletonBuilder's
-            // bone conversion, or mesh and skeleton are mirrored relative to each other
-            // and skin weights tear. Reflection also flips polygon winding, which
-            // ReadTriangles accounts for by preserving source corner order.
-            Positions.Add(FVector3f(
-                static_cast<float>(VZ * ToCm),
-                static_cast<float>(-VX * ToCm),
-                static_cast<float>(VY * ToCm)
-            ));
+            // Shared DAZ->UE handedness flip (see DsonImportUtils::DazPointToUe). This MUST
+            // match the skeleton bone conversion or mesh and skeleton mirror apart and skin
+            // weights tear. The reflection also flips polygon winding, which ReadTriangles
+            // accounts for by preserving source corner order.
+            Positions.Add(FVector3f(DsonImportUtils::DazPointToUe(VX, VY, VZ, UnitScale)));
         }
 
         return Positions;
@@ -505,28 +498,12 @@ namespace
 
     static void ReadUvSetValues(uint64_t UvHandle, FDsonUvData& OutData)
     {
-        UE_LOG(LogDsonImporter, Log,
-            TEXT("[uv] fn-ptrs: SetCount=%d Count=%d U=%d V=%d PVIxCount=%d PVIx=%d VtxCount=%d OvrCount=%d OvrFace=%d OvrCorner=%d OvrUVIdx=%d"),
-            GDsonParser.GetUVSetCount ? 1 : 0,
-            GDsonParser.GetUVCount ? 1 : 0,
-            GDsonParser.GetUVU ? 1 : 0,
-            GDsonParser.GetUVV ? 1 : 0,
-            GDsonParser.GetUVPolygonVertexIndexCount ? 1 : 0,
-            GDsonParser.GetUVPolygonVertexIndex ? 1 : 0,
-            GDsonParser.GetUVSetVertexCount ? 1 : 0,
-            GDsonParser.GetUVOverrideCount ? 1 : 0,
-            GDsonParser.GetUVOverrideFace ? 1 : 0,
-            GDsonParser.GetUVOverrideCorner ? 1 : 0,
-            GDsonParser.GetUVOverrideUVIndex ? 1 : 0);
-
         const int32 RawUVSetCount = GDsonParser.GetUVSetCount
             ? GDsonParser.GetUVSetCount(UvHandle) : 0;
         if (RawUVSetCount < 0)
             UE_LOG(LogDsonImporter, Warning,
                 TEXT("DsonMeshBuilder: GetUVSetCount returned %d"), RawUVSetCount);
         OutData.UVSetCount = FMath::Max(0, RawUVSetCount);
-        UE_LOG(LogDsonImporter, Log, TEXT("[uv] UVSetCount=%d (raw=%d)"),
-            OutData.UVSetCount, RawUVSetCount);
 
         if (OutData.UVSetCount > 0)
         {
@@ -538,18 +515,8 @@ namespace
             {
                 const double U = GDsonParser.GetUVU ? GDsonParser.GetUVU(UvHandle, 0, i) : 0.0;
                 const double V = GDsonParser.GetUVV ? GDsonParser.GetUVV(UvHandle, 0, i) : 0.0;
-                OutData.UVs.Add(FVector2f((float)U, 1.0f - (float)V));
+                OutData.UVs.Add(FVector2f(static_cast<float>(U), 1.0f - static_cast<float>(V)));
             }
-        }
-
-        UE_LOG(LogDsonImporter, Log, TEXT("[uv] UVs.Num()=%d"), OutData.UVs.Num());
-        if (OutData.UVs.Num() > 0)
-        {
-            const int32 LastIdx = FMath::Min(OutData.UVs.Num() - 1, 99);
-            UE_LOG(LogDsonImporter, Log,
-                TEXT("[uv] UVs[0]=(%.4f,%.4f) UVs[%d]=(%.4f,%.4f)"),
-                OutData.UVs[0].X, OutData.UVs[0].Y,
-                LastIdx, OutData.UVs[LastIdx].X, OutData.UVs[LastIdx].Y);
         }
     }
 
@@ -562,8 +529,6 @@ namespace
         if (OutData.UVSetCount <= 0 || !GDsonParser.GetPolylistCount ||
             !GDsonParser.GetPolylistFaceVertexCount || !GDsonParser.GetPolylistFaceVertex)
         {
-            UE_LOG(LogDsonImporter, Log, TEXT("[uv] UVPolyVertIndices.Num()=%d"),
-                OutData.UVPolyVertIndices.Num());
             return;
         }
 
@@ -597,22 +562,11 @@ namespace
         int32 SkippedVertexNotInFace            = 0;
         int32 SkippedUvIdxOob                   = 0;
 
-        const int32 SamplesToLog                    = FMath::Min(OverrideCount, 10);
-        int32       VertNotInFaceSamples            = 0;
-        const int32 VertNotInFaceSamplesMax         = 5;
-
         for (int32 i = 0; i < OverrideCount; ++i)
         {
             const int32 Face = GDsonParser.GetUVOverrideFace ? GDsonParser.GetUVOverrideFace(UvHandle, 0, i) : -1;
             const int32 VertIdx = GDsonParser.GetUVOverrideCorner ? GDsonParser.GetUVOverrideCorner(UvHandle, 0, i) : -1;
             const int32 UvIdx = GDsonParser.GetUVOverrideUVIndex ? GDsonParser.GetUVOverrideUVIndex(UvHandle, 0, i) : -1;
-
-            if (i < SamplesToLog)
-            {
-                UE_LOG(LogDsonImporter, Log,
-                    TEXT("[uv] override[%d] face=%d vertIdx=%d uv=%d"),
-                    i, Face, VertIdx, UvIdx);
-            }
 
             if (Face < 0 || Face >= FaceCount) { ++SkippedFaceOob; continue; }
             if (VertIdx < 0)                   { ++SkippedCornerNeg; continue; }
@@ -636,19 +590,6 @@ namespace
             if (MatchedCorner < 0)
             {
                 ++SkippedVertexNotInFace;
-                if (VertNotInFaceSamples < VertNotInFaceSamplesMax)
-                {
-                    FString FaceVerts;
-                    for (int32 c = 0; c < CornerCount; ++c)
-                    {
-                        if (c > 0) FaceVerts += TEXT(",");
-                        FaceVerts += FString::FromInt(GDsonParser.GetPolylistFaceVertex(DsfHandle, 0, Face, c));
-                    }
-                    UE_LOG(LogDsonImporter, Log,
-                        TEXT("[uv] skip[vert-not-in-face] override[%d]: face=%d vertIdx=%d faceVerts=[%s] uv=%d"),
-                        i, Face, VertIdx, *FaceVerts, UvIdx);
-                    ++VertNotInFaceSamples;
-                }
                 continue;
             }
 
@@ -661,16 +602,6 @@ namespace
             FaceCount, RunningCorners, OutData.UVs.Num(),
             AppliedOverrides,
             SkippedFaceOob, SkippedCornerNeg, SkippedUvIdxNeg, SkippedUvIdxOob, SkippedVertexNotInFace);
-
-        UE_LOG(LogDsonImporter, Log, TEXT("[uv] UVPolyVertIndices.Num()=%d"),
-            OutData.UVPolyVertIndices.Num());
-        if (OutData.UVPolyVertIndices.Num() >= 6)
-        {
-            UE_LOG(LogDsonImporter, Log,
-                TEXT("[uv] UVPolyVertIndices[0..5]=%d,%d,%d,%d,%d,%d"),
-                OutData.UVPolyVertIndices[0], OutData.UVPolyVertIndices[1], OutData.UVPolyVertIndices[2],
-                OutData.UVPolyVertIndices[3], OutData.UVPolyVertIndices[4], OutData.UVPolyVertIndices[5]);
-        }
     }
 
     static FDsonUvData ReadUvData(uint64_t DsfHandle, const FString& UvSetDsfPath, int32 FaceCount)

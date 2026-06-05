@@ -1,4 +1,5 @@
 #include "DsonContentRoots.h"
+#include "DsonImportUtils.h"
 #include "Misc/Paths.h"
 #include "DsonImporter.h"
 
@@ -41,17 +42,9 @@ static void AddExistingContentRootIfUnique(const FString& Path, TArray<FString>&
         OutPaths.Add(Path);
 }
 
-static FString StripDsonUrlFragment(const FString& Url)
-{
-    int32 HashIndex = INDEX_NONE;
-    return Url.FindChar(TEXT('#'), HashIndex)
-        ? Url.Left(HashIndex)
-        : Url;
-}
-
 static FString MakeContentRelativePath(const FString& DsonUrl)
 {
-    FString Decoded = FDsonContentRoots::UrlDecode(StripDsonUrlFragment(DsonUrl));
+    FString Decoded = FDsonContentRoots::UrlDecode(DsonImportUtils::StripUrlFragment(DsonUrl));
     if (Decoded.StartsWith(TEXT("/")))
         Decoded = Decoded.RightChop(1);
 

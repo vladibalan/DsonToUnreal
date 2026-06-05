@@ -2,6 +2,7 @@
 #include "DsonImporter.h"
 #include "DsonAssetUtils.h"
 #include "DsonContentRoots.h"
+#include "DsonImportUtils.h"
 
 #include "Engine/Texture2D.h"
 #include "Factories/TextureFactory.h"
@@ -40,14 +41,6 @@ static FString SanitizePackageSubdir(const FString& RelDir)
         SanitizedParts.Add(ObjectTools::SanitizeObjectName(Part));
 
     return FString::Join(SanitizedParts, TEXT("/"));
-}
-
-static FString StripDsonUrlFragment(const FString& Url)
-{
-    int32 HashIndex = INDEX_NONE;
-    return Url.FindChar(TEXT('#'), HashIndex)
-        ? Url.Left(HashIndex)
-        : Url;
 }
 
 static FString NormalizeDirectoryPrefix(const FString& Directory)
@@ -101,7 +94,7 @@ FString FDsonTextureImporter::DeriveRelativeSubpath(
     const FString& ImageUrl, const FString& ResolvedAbsPath) const
 {
     // Strip fragment after '#', matching the behaviour of FDsonContentRoots::ResolveUrl
-    const FString Url = StripDsonUrlFragment(ImageUrl);
+    const FString Url = DsonImportUtils::StripUrlFragment(ImageUrl);
 
     if (Url.StartsWith(TEXT("/")))
     {

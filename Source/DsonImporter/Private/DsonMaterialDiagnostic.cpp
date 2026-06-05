@@ -1,6 +1,7 @@
 #include "DsonMaterialDiagnostic.h"
 #include "DsonImporter.h"
 #include "DsonParserFunctions.h"
+#include "DsonImportUtils.h"
 #include "DsonLoadedDocument.h"
 #include "DsonTextureImporter.h"
 
@@ -16,24 +17,10 @@
 // Helpers
 // ---------------------------------------------------------------------------
 
-static FString GenString(EGenesisGeneration Gen)
-{
-    switch (Gen)
-    {
-        case EGenesisGeneration::Genesis3: return TEXT("Genesis 3");
-        case EGenesisGeneration::Genesis8: return TEXT("Genesis 8");
-        case EGenesisGeneration::Genesis9: return TEXT("Genesis 9");
-        default:                           return TEXT("Unknown");
-    }
-}
-
-// Converts a nullable const char* (already retrieved from the parser) to FString.
-// The caller must not make further parser calls between obtaining the raw pointer
-// and passing it here - see the "immediate conversion" rule in the hard rules.
-static FString S(const char* Raw)
-{
-    return Raw ? FString(UTF8_TO_TCHAR(Raw)) : TEXT("");
-}
+// Short local alias for the shared nullable-utf8 -> FString helper (used heavily below).
+// The caller must not make further parser calls between obtaining the raw pointer and
+// passing it here - see the "immediate conversion" rule in the hard rules.
+static FString S(const char* Raw) { return DsonImportUtils::FromUtf8(Raw); }
 
 static bool IsColorChannel(const FString& ChannelId)
 {
@@ -128,7 +115,7 @@ static TArray<FString> ReadSceneMaterialGroups(uint64_t DsonHandle, int32 SceneM
 // ---------------------------------------------------------------------------
 
 static void DumpOneFile(const FString& FilePath, const FDsonImportSettings& Settings,
-    FDsonTextureImporter& Importer, const FString& OutputFolder)
+    FDsonTextureImporter& Importer)
 {
     // Dumps one DSON file without mutating main import state. This is intentionally
     // verbose evidence collection for material audits.
@@ -152,7 +139,7 @@ static void DumpOneFile(const FString& FilePath, const FDsonImportSettings& Sett
     UE_LOG(LogDsonImporter, Log, TEXT("=== DSON Material Diagnostic ==="));
     UE_LOG(LogDsonImporter, Log, TEXT("File: %s"), *FilePath);
     UE_LOG(LogDsonImporter, Log, TEXT("Asset type: %s"), *AssetTypeStr);
-    UE_LOG(LogDsonImporter, Log, TEXT("Generation: %s"), *GenString(Settings.Generation));
+    UE_LOG(LogDsonImporter, Log, TEXT("Generation: %s"), *GenerationToString(Settings.Generation));
 
     // Library Materials - compact: one line per channel.
     const int32 MatCount = GDsonParser.GetMaterialCount ? GDsonParser.GetMaterialCount(H) : 0;
@@ -247,7 +234,7 @@ static void DumpOneFile(const FString& FilePath, const FDsonImportSettings& Sett
 // ---------------------------------------------------------------------------
 
 void FDsonMaterialDiagnostic::Dump(const FDsonImportSettings& Settings,
-    FDsonTextureImporter& Importer, const FString& OutputFolder)
+    FDsonTextureImporter& Importer)
 {
     if (!GDsonParser.IsValid())
     {
@@ -255,8 +242,8 @@ void FDsonMaterialDiagnostic::Dump(const FDsonImportSettings& Settings,
         return;
     }
 
-    DumpOneFile(Settings.DsonFilePath, Settings, Importer, OutputFolder);
+    DumpOneFile(Settings.DsonFilePath, Settings, Importer);
 
     if (!Settings.ResolvedFigureDsfPath.IsEmpty())
-        DumpOneFile(Settings.ResolvedFigureDsfPath, Settings, Importer, OutputFolder);
+        DumpOneFile(Settings.ResolvedFigureDsfPath, Settings, Importer);
 }

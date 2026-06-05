@@ -108,7 +108,7 @@ FDsonImportResult FDsonImportPipeline::Run(
 
     if (Settings.bDumpMaterialDiagnostics)
     {
-        FDsonMaterialDiagnostic::Dump(Settings, Importer, MaterialOutputFolder);
+        FDsonMaterialDiagnostic::Dump(Settings, Importer);
     }
 
     UMaterial* DefaultMaterial = LoadDefaultFallbackMaterial();

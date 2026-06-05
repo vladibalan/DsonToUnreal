@@ -1,6 +1,7 @@
 #include "DsonSkinWeightsBuilder.h"
 #include "DsonImporter.h"
 #include "DsonParserFunctions.h"
+#include "DsonImportUtils.h"
 
 #include "Engine/SkeletalMesh.h"
 #include "Animation/Skeleton.h"
@@ -17,15 +18,6 @@
  *
  * Read this file for missing influences, wrong bone mapping, or skin deformation problems.
  */
-
-static FString NormalizeDazNodeId(const char* RawNodeId)
-{
-    FString NodeId = RawNodeId ? UTF8_TO_TCHAR(RawNodeId) : FString();
-    if (NodeId.StartsWith(TEXT("#")))
-        NodeId.RemoveFromStart(TEXT("#"));
-
-    return NodeId;
-}
 
 static TArray<UE::AnimationCore::FBoneWeight> MakeRootBoneFallbackWeights()
 {
@@ -56,7 +48,7 @@ static bool ReadCappedVertexInfluence(
             DsfHandle, SkinModIdx, VertexIdx, InfluenceIdx, 8, &BoneNodeIdRaw, &Weight))
         return false;
 
-    OutInfluence.NodeId = NormalizeDazNodeId(BoneNodeIdRaw);
+    OutInfluence.NodeId = DsonImportUtils::NormalizeDazId(BoneNodeIdRaw);
     OutInfluence.Weight = Weight;
     return true;
 }
@@ -139,7 +131,7 @@ void FDsonSkinWeightsBuilder::BuildDazNodeIdToBoneIndexMap(
         if (!RawNodeId)
             continue;
 
-        const FString NodeId = NormalizeDazNodeId(RawNodeId);
+        const FString NodeId = DsonImportUtils::NormalizeDazId(RawNodeId);
 
         const int32* BoneIdxPtr = BoneNameMap.Find(NodeId);
         if (!BoneIdxPtr)

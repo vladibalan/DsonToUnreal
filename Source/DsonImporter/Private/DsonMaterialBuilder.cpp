@@ -2,6 +2,7 @@
 #include "DsonImporter.h"
 #include "DsonAssetUtils.h"
 #include "DsonParserFunctions.h"
+#include "DsonImportUtils.h"
 #include "DsonLoadedDocument.h"
 #include "DsonTextureImporter.h"
 
@@ -139,11 +140,8 @@ static const TMap<FString, FDazParamBinding>* GetMappingForShader(EDazShaderKind
 // Helper: nullable const char* -> FString (same pattern as the diagnostic)
 // ---------------------------------------------------------------------------
 
-static FString S(const char* Raw)
-{
-    // Parser string pointers are transient; convert immediately before another parser call.
-    return Raw ? FString(UTF8_TO_TCHAR(Raw)) : TEXT("");
-}
+// Short local alias for the shared nullable-utf8 -> FString helper (used heavily below).
+static FString S(const char* Raw) { return DsonImportUtils::FromUtf8(Raw); }
 
 static FSceneMaterialMetadata ReadSceneMaterialMetadata(uint64_t DsonHandle, int32 SceneMatIdx)
 {

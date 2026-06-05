@@ -1,5 +1,6 @@
 #include "DsonValidator.h"
 #include "DsonContentRoots.h"
+#include "DsonImportUtils.h"
 #include "DsonParserFunctions.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
@@ -24,7 +25,7 @@ bool FDsonValidationResult::AllDependenciesResolved() const
     return true;
 }
 
-FString FDsonValidationResult::GetGenerationString() const
+FString GenerationToString(EGenesisGeneration Generation)
 {
     switch (Generation)
     {
@@ -35,14 +36,9 @@ FString FDsonValidationResult::GetGenerationString() const
     }
 }
 
-static FString MakeDependencyDedupKey(const FString& Url)
+FString FDsonValidationResult::GetGenerationString() const
 {
-    FString UrlKey = Url;
-    int32 HashIdx = INDEX_NONE;
-    if (UrlKey.FindChar(TEXT('#'), HashIdx))
-        UrlKey = UrlKey.Left(HashIdx);
-
-    return UrlKey;
+    return GenerationToString(Generation);
 }
 
 static FDsonDependency BuildDependency(const FString& Url, const TArray<FString>& ContentRoots)
@@ -255,7 +251,7 @@ void FDsonValidator::ResolveDependencies(
             const FString UrlStr = UTF8_TO_TCHAR(RawUrl);
 
             // Use the path portion (before #) as the deduplication key.
-            const FString UrlKey = MakeDependencyDedupKey(UrlStr);
+            const FString UrlKey = DsonImportUtils::StripUrlFragment(UrlStr);
             if (SeenUrls.Contains(UrlKey))
                 continue;
             SeenUrls.Add(UrlKey);
