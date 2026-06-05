@@ -116,6 +116,18 @@ static const TMap<FString, FDazParamBinding>& GetPBRSkinMapping()
     return Map;
 }
 
+static const TMap<FString, FDazParamBinding>* GetMappingForShader(EDazShaderKind Kind)
+{
+    switch (Kind)
+    {
+        case EDazShaderKind::IrayUber: return &GetIrayUberMapping();
+        case EDazShaderKind::PBRSkin:  return &GetPBRSkinMapping();
+        case EDazShaderKind::Default:  return nullptr;
+    }
+
+    return nullptr;
+}
+
 // ---------------------------------------------------------------------------
 // Helper: nullable const char* -> FString (same pattern as the diagnostic)
 // ---------------------------------------------------------------------------
@@ -339,11 +351,7 @@ UMaterialInstanceConstant* FDsonMaterialBuilder::BuildSceneMaterial(
 
     // Step 5 - iterate channels and apply parameters from the active mapping table.
     // Default shader has no defined mapping so no parameter overrides are applied.
-    const TMap<FString, FDazParamBinding>* MappingPtr = nullptr;
-    if (Kind == EDazShaderKind::IrayUber) MappingPtr = &GetIrayUberMapping();
-    else if (Kind == EDazShaderKind::PBRSkin)  MappingPtr = &GetPBRSkinMapping();
-
-    if (MappingPtr)
+    if (const TMap<FString, FDazParamBinding>* Mapping = GetMappingForShader(Kind))
     {
         const int32 ChCount = GDsonParser.GetSceneMaterialChannelCount
             ? GDsonParser.GetSceneMaterialChannelCount(H, SceneMatIdx) : 0;
@@ -353,7 +361,7 @@ UMaterialInstanceConstant* FDsonMaterialBuilder::BuildSceneMaterial(
             FString ChId = S(GDsonParser.GetSceneMaterialChannelId
                 ? GDsonParser.GetSceneMaterialChannelId(H, SceneMatIdx, c) : nullptr);
 
-            const FDazParamBinding* Binding = MappingPtr->Find(ChId);
+            const FDazParamBinding* Binding = Mapping->Find(ChId);
             if (!Binding)
                 continue;
 
