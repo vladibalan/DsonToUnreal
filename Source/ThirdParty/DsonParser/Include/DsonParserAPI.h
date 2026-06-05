@@ -10,8 +10,10 @@
 // This header exposes a parsed DSON/DSF/DUF document through an opaque handle and
 // index-based accessors. The implementation owns all returned const char*
 // strings; copy them if they must survive DsonDocument_Clear/Destroy or later
-// scratch-string API calls. Invalid handles or indexes return empty strings,
-// zero/false, or -1 depending on the function family.
+// scratch-string API calls. Invalid handles or indexes return a family-specific
+// "empty" value: count functions and numeric getters return 0 (count functions
+// never return -1), bool getters return false, string getters return "", and the
+// value/index accessors that have no element to report return -1.
 //
 // Index conventions:
 // - Node/geometry/material/modifier indexes address the corresponding library

@@ -96,13 +96,9 @@ namespace
 
     static TArray<FString> ReadMaterialGroupNames(uint64_t DsfHandle)
     {
-        const int32 RawMatGroupCount = GDsonParser.GetPolygonMaterialGroupCount
+        // Count returns 0 on invalid handle/index or empty list; either way, no groups.
+        const int32 MatGroupCount = GDsonParser.GetPolygonMaterialGroupCount
             ? GDsonParser.GetPolygonMaterialGroupCount(DsfHandle, 0) : 0;
-        if (RawMatGroupCount < 0)
-            UE_LOG(LogDsonImporter, Warning,
-                TEXT("DsonMeshBuilder: GetPolygonMaterialGroupCount returned %d for geom 0"), RawMatGroupCount);
-
-        const int32 MatGroupCount = FMath::Max(0, RawMatGroupCount);
         TArray<FString> MaterialGroupNames;
         MaterialGroupNames.Reserve(MatGroupCount);
         for (int32 m = 0; m < MatGroupCount; ++m)
@@ -139,13 +135,9 @@ namespace
 
     static int32 ReadFaceCount(uint64_t DsfHandle)
     {
-        const int32 RawFaceCount = GDsonParser.GetPolylistCount
+        // Count returns 0 on invalid handle/index or empty list; either way, no faces.
+        return GDsonParser.GetPolylistCount
             ? GDsonParser.GetPolylistCount(DsfHandle, 0) : 0;
-        if (RawFaceCount < 0)
-            UE_LOG(LogDsonImporter, Warning,
-                TEXT("DsonMeshBuilder: GetPolylistCount returned %d for geom 0"), RawFaceCount);
-
-        return FMath::Max(0, RawFaceCount);
     }
 
     static TArray<FVector3f> ReadVertexPositions(uint64_t DsfHandle)
@@ -154,13 +146,9 @@ namespace
             ? GDsonParser.GetUnitScale(DsfHandle) : 1.0 / 100.0;
         const double ToCm = UnitScale;
 
-        const int32 RawVertCount = GDsonParser.GetVertexCount
+        // Count returns 0 on invalid handle/index or empty list; either way, no verts.
+        const int32 VertCount = GDsonParser.GetVertexCount
             ? GDsonParser.GetVertexCount(DsfHandle, 0) : 0;
-        if (RawVertCount < 0)
-            UE_LOG(LogDsonImporter, Warning,
-                TEXT("DsonMeshBuilder: GetVertexCount returned %d for geom 0"), RawVertCount);
-
-        const int32 VertCount = FMath::Max(0, RawVertCount);
         TArray<FVector3f> Positions;
         Positions.Reserve(VertCount);
         for (int32 i = 0; i < VertCount; ++i)
@@ -462,12 +450,9 @@ namespace
         int32 UVFlatOffset = 0;
         for (int32 f = 0; f < FaceCount; ++f)
         {
-            const int32 RawCornerCount = GDsonParser.GetPolylistFaceVertexCount
+            // Count returns 0 on invalid handle/index or empty face; either way, no corners.
+            const int32 CornerCount = GDsonParser.GetPolylistFaceVertexCount
                 ? GDsonParser.GetPolylistFaceVertexCount(DsfHandle, 0, f) : 0;
-            if (RawCornerCount < 0)
-                UE_LOG(LogDsonImporter, Warning,
-                    TEXT("DsonMeshBuilder: GetPolylistFaceVertexCount returned %d for geom 0 face %d"), RawCornerCount, f);
-            const int32 CornerCount = FMath::Max(0, RawCornerCount);
             const int32 MatIdx = GDsonParser.GetPolylistFaceMaterialIndex
                 ? GDsonParser.GetPolylistFaceMaterialIndex(DsfHandle, 0, f) : 0;
 
@@ -545,12 +530,9 @@ namespace
 
         if (OutData.UVSetCount > 0)
         {
-            const int32 RawUVCount = GDsonParser.GetUVCount
+            // Count returns 0 on invalid handle/index or empty set; either way, no UVs.
+            const int32 UVCount = GDsonParser.GetUVCount
                 ? GDsonParser.GetUVCount(UvHandle, 0) : 0;
-            if (RawUVCount < 0)
-                UE_LOG(LogDsonImporter, Warning,
-                    TEXT("DsonMeshBuilder: GetUVCount returned %d for uvset 0"), RawUVCount);
-            const int32 UVCount = FMath::Max(0, RawUVCount);
             OutData.UVs.Reserve(UVCount);
             for (int32 i = 0; i < UVCount; ++i)
             {
