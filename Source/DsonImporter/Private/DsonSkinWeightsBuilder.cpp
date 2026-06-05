@@ -27,6 +27,14 @@ static FString NormalizeDazNodeId(const char* RawNodeId)
     return NodeId;
 }
 
+static TArray<UE::AnimationCore::FBoneWeight> MakeRootBoneFallbackWeights()
+{
+    TArray<UE::AnimationCore::FBoneWeight> Weights;
+    Weights.Add(UE::AnimationCore::FBoneWeight(
+        static_cast<FBoneIndexType>(0), 1.0f));
+    return Weights;
+}
+
 // ---------------------------------------------------------------------------
 // FindSkinModifierIndex
 // ---------------------------------------------------------------------------
@@ -165,9 +173,7 @@ bool FDsonSkinWeightsBuilder::Apply(
         if (InfluenceCount <= 0)
         {
             ++FallbackCount;
-            TArray<FBoneWeight> Fallback;
-            Fallback.Add(FBoneWeight(static_cast<FBoneIndexType>(0), 1.0f));
-            SkinWeights.Set(FVertexID(i), Fallback);
+            SkinWeights.Set(FVertexID(i), MakeRootBoneFallbackWeights());
             continue;
         }
 
@@ -209,7 +215,7 @@ bool FDsonSkinWeightsBuilder::Apply(
         if (Influences.IsEmpty())
         {
             ++FallbackCount;
-            Influences.Add(FBoneWeight(static_cast<FBoneIndexType>(0), 1.0f));
+            Influences = MakeRootBoneFallbackWeights();
         }
 
         // e. Commit
