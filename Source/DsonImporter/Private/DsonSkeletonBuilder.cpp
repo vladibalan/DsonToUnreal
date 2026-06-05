@@ -61,6 +61,75 @@ namespace
 
         Bones = MoveTemp(Sorted);
     }
+
+    FTransform MakeLocalBoneTransform(const FBoneEntry& Bone, const FBoneEntry& ParentBone)
+    {
+        const FQuat ParentWorldRot = ParentBone.Transform.GetRotation();
+        const FVector ParentWorldPos = ParentBone.Transform.GetTranslation();
+        const FQuat SelfWorldRot = Bone.Transform.GetRotation();
+        const FVector SelfWorldPos = Bone.Transform.GetTranslation();
+
+        const FQuat ParentWorldRotInv = ParentWorldRot.Inverse();
+
+        FTransform LocalTransform = Bone.Transform;
+        LocalTransform.SetRotation(ParentWorldRotInv * SelfWorldRot);
+        LocalTransform.SetTranslation(
+            ParentWorldRotInv.RotateVector(SelfWorldPos - ParentWorldPos));
+        return LocalTransform;
+    }
+
+    void AddBonesToReferenceSkeleton(
+        const TArray<FBoneEntry>& Bones,
+        FReferenceSkeleton& OutRefSkeleton)
+    {
+        TSet<FString> BoneIdSet;
+        BoneIdSet.Reserve(Bones.Num());
+        for (const FBoneEntry& B : Bones)
+            BoneIdSet.Add(B.Id);
+
+        TMap<FString, int32> IdToRefIndex;
+        IdToRefIndex.Reserve(Bones.Num());
+
+        FReferenceSkeletonModifier Modifier(OutRefSkeleton, nullptr);
+        int32 RefBoneCount = 0;
+
+        for (const FBoneEntry& B : Bones)
+        {
+            int32 ParentRefIndex = INDEX_NONE;
+            if (BoneIdSet.Contains(B.ParentId))
+            {
+                const int32* Found = IdToRefIndex.Find(B.ParentId);
+                if (!Found)
+                {
+                    UE_LOG(LogDsonImporter, Warning,
+                        TEXT("DsonSkeletonBuilder: parent '%s' of bone '%s' not yet resolved, skipping"),
+                        *B.ParentId, *B.Name);
+                    continue;
+                }
+                ParentRefIndex = *Found;
+            }
+
+            FTransform LocalTransform = B.Transform;
+            if (ParentRefIndex != INDEX_NONE)
+            {
+                const FBoneEntry* ParentEntry = Bones.FindByPredicate(
+                    [&](const FBoneEntry& E){ return E.Id == B.ParentId; });
+                if (ParentEntry)
+                {
+                    LocalTransform = MakeLocalBoneTransform(B, *ParentEntry);
+                }
+            }
+            // Root bones keep their world transform as their local transform.
+
+            FMeshBoneInfo BoneInfo;
+            BoneInfo.Name = FName(*B.Name);
+            BoneInfo.ParentIndex = ParentRefIndex;
+            Modifier.Add(BoneInfo, LocalTransform);
+
+            IdToRefIndex.Add(B.Id, RefBoneCount++);
+        }
+        // Modifier destructor finalises OutRefSkeleton.
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -132,7 +201,7 @@ void FDsonSkeletonBuilder::BuildReferenceSkeletonFromDsf(uint64_t DsfHandle, FRe
         Entry.Name     = Entry.Id;
         {
             FString RawParent = PrRaw ? UTF8_TO_TCHAR(PrRaw) : TEXT("");
-            // DAZ parent refs are URL fragment ids like "#hip" — strip the leading '#'
+            // DAZ parent refs are URL fragment ids like "#hip"; strip the leading '#'.
             if (RawParent.StartsWith(TEXT("#")))
                 RawParent.RemoveAt(0, 1, false);
             Entry.ParentId = MoveTemp(RawParent);
@@ -144,75 +213,7 @@ void FDsonSkeletonBuilder::BuildReferenceSkeletonFromDsf(uint64_t DsfHandle, FRe
         return;
 
     SortBonesParentsFirst(Bones);
-
-    // Set of all bone ids — any parent id NOT in this set means the bone is a root.
-    TSet<FString> BoneIdSet;
-    BoneIdSet.Reserve(Bones.Num());
-    for (const FBoneEntry& B : Bones)
-        BoneIdSet.Add(B.Id);
-
-    // bone id → index in OutRefSkeleton, populated as bones are added
-    TMap<FString, int32> IdToRefIndex;
-    IdToRefIndex.Reserve(Bones.Num());
-
-    FReferenceSkeletonModifier Modifier(OutRefSkeleton, nullptr);
-    int32 RefBoneCount = 0;
-
-    for (const FBoneEntry& B : Bones)
-    {
-        int32 ParentRefIndex = INDEX_NONE;
-        if (BoneIdSet.Contains(B.ParentId))
-        {
-            const int32* Found = IdToRefIndex.Find(B.ParentId);
-            if (!Found)
-            {
-                UE_LOG(LogDsonImporter, Warning,
-                    TEXT("DsonSkeletonBuilder: parent '%s' of bone '%s' not yet resolved, skipping"),
-                    *B.ParentId, *B.Name);
-                continue;
-            }
-            ParentRefIndex = *Found;
-        }
-
-        // B.Transform holds this bone's WORLD-space transform:
-        //   rotation    = world-space joint orientation (UE space)
-        //   translation = world-space joint position (UE space, cm)
-        // UE5 ref-pose bones are stored as parent-relative LOCAL transforms, so we
-        // convert here once the parent's world transform is known.
-        FTransform LocalTransform = B.Transform;
-        if (ParentRefIndex != INDEX_NONE)
-        {
-            const FBoneEntry* ParentEntry = Bones.FindByPredicate(
-                [&](const FBoneEntry& E){ return E.Id == B.ParentId; });
-            if (ParentEntry)
-            {
-                const FQuat   ParentWorldRot = ParentEntry->Transform.GetRotation();
-                const FVector ParentWorldPos = ParentEntry->Transform.GetTranslation();
-                const FQuat   SelfWorldRot   = B.Transform.GetRotation();
-                const FVector SelfWorldPos   = B.Transform.GetTranslation();
-
-                const FQuat ParentWorldRotInv = ParentWorldRot.Inverse();
-
-                // Local rotation: delta from parent's world frame to this bone's.
-                const FQuat LocalRot = ParentWorldRotInv * SelfWorldRot;
-                // Local translation: world offset expressed in the parent's rotated frame.
-                const FVector LocalPos =
-                    ParentWorldRotInv.RotateVector(SelfWorldPos - ParentWorldPos);
-
-                LocalTransform.SetRotation(LocalRot);
-                LocalTransform.SetTranslation(LocalPos);
-            }
-        }
-        // Root bones keep their world transform as their local transform.
-
-        FMeshBoneInfo BoneInfo;
-        BoneInfo.Name        = FName(*B.Name);
-        BoneInfo.ParentIndex = ParentRefIndex;
-        Modifier.Add(BoneInfo, LocalTransform);
-
-        IdToRefIndex.Add(B.Id, RefBoneCount++);
-    }
-    // Modifier destructor finalises OutRefSkeleton
+    AddBonesToReferenceSkeleton(Bones, OutRefSkeleton);
 }
 
 // ---------------------------------------------------------------------------
@@ -221,10 +222,10 @@ void FDsonSkeletonBuilder::BuildReferenceSkeletonFromDsf(uint64_t DsfHandle, FRe
 
 namespace
 {
-    // DAZ (Y-up, RIGHT-handed) → UE5 (Z-up, LEFT-handed). Converting between opposite
-    // handedness REQUIRES a reflection (a determinant −1 map). The position remap is:
+    // DAZ (Y-up, RIGHT-handed) -> UE5 (Z-up, LEFT-handed). Converting between opposite
+    // handedness REQUIRES a reflection (a determinant -1 map). The position remap is:
     //     UE_X =  DAZ_Z
-    //     UE_Y = -DAZ_X      ← negated; this is the reflection that flips handedness
+    //     UE_Y = -DAZ_X      <- negated; this is the reflection that flips handedness
     //     UE_Z =  DAZ_Y
     //
     // Without the negation the map is a pure rotation (det +1) which cannot convert
@@ -234,8 +235,8 @@ namespace
     // For rotations, the DAZ orientation is carried into UE space by conjugation
     //     R_ue = M^-1 * R_daz * M
     // where M is this basis change as a UE row-vector FMatrix (v_ue = v_daz * M).
-    // M is orthogonal with det −1; conjugating a proper rotation by it yields another
-    // proper rotation (det +1), so bones stay valid rotations — verified against the
+    // M is orthogonal with det -1; conjugating a proper rotation by it yields another
+    // proper rotation (det +1), so bones stay valid rotations; verified against the
     // figure's joint data (FK reconstructs to zero error).
     const FMatrix& DazToUeBasisMatrix()
     {
@@ -316,8 +317,8 @@ FTransform FDsonSkeletonBuilder::MakeBoneTransform(uint64_t DsfHandle, int32 Nod
     const double CY = GDsonParser.GetNodeCenterPointY ? GDsonParser.GetNodeCenterPointY(DsfHandle, NodeIndex) : 0.0;
     const double CZ = GDsonParser.GetNodeCenterPointZ ? GDsonParser.GetNodeCenterPointZ(DsfHandle, NodeIndex) : 0.0;
 
-    // World-space joint position. DAZ→UE with handedness flip: UE_X←DAZ_Z,
-    // UE_Y←-DAZ_X, UE_Z←DAZ_Y. The -DAZ_X is the reflection that converts DAZ's
+    // World-space joint position. DAZ->UE with handedness flip:
+    // UE_X = DAZ_Z, UE_Y = -DAZ_X, UE_Z = DAZ_Y. The -DAZ_X reflection converts DAZ's
     // right-handed frame to UE's left-handed frame (see DazToUeBasisMatrix).
     // ToCm = UnitScale: Genesis is authored in cm and unit_scale defaults to 1.0.
     // Do NOT reintroduce a *100 here.
@@ -333,7 +334,7 @@ FTransform FDsonSkeletonBuilder::MakeBoneTransform(uint64_t DsfHandle, int32 Nod
     const FString RotationOrder = OrderRaw ? UTF8_TO_TCHAR(OrderRaw) : TEXT("XYZ");
 
     // The DAZ `orientation` is a JOINT ORIENTATION: it defines the bone's local axis
-    // frame expressed in the figure (world) frame — it is NOT a parent-relative local
+    // frame expressed in the figure (world) frame; it is NOT a parent-relative local
     // rotation, and the Euler angles cannot be axis-permuted directly. Build the DAZ
     // orientation quaternion honouring the node's rotation order, then change basis
     // into UE space by conjugation R_ue = B * R_daz * B^-1.
