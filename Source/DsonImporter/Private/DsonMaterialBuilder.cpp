@@ -29,7 +29,7 @@ static const TCHAR* kPBRSkinMasterPath  = TEXT("/DsonToUnreal/Materials/M_DazPBR
 static const TCHAR* kDefaultMasterPath  = TEXT("/DsonToUnreal/Materials/M_DazDefault");
 
 // ---------------------------------------------------------------------------
-// FDazParamBinding — file-private parameter mapping descriptor
+// FDazParamBinding - file-private parameter mapping descriptor
 // ---------------------------------------------------------------------------
 
 struct FDazParamBinding
@@ -41,8 +41,17 @@ struct FDazParamBinding
     bool  bSRGB;         // Passed to FDsonTextureImporter::ImportOrFind
 };
 
+struct FMaterialInstanceAssetContext
+{
+    UPackage* Package = nullptr;
+    UMaterialInstanceConstant* MIC = nullptr;
+    FString PackagePath;
+
+    bool IsValid() const { return Package && MIC; }
+};
+
 // ---------------------------------------------------------------------------
-// Mapping tables — initialized once, returned by const reference
+// Mapping tables - initialized once, returned by const reference
 // ---------------------------------------------------------------------------
 
 static const TMap<FString, FDazParamBinding>& GetIrayUberMapping()
@@ -108,13 +117,40 @@ static const TMap<FString, FDazParamBinding>& GetPBRSkinMapping()
 }
 
 // ---------------------------------------------------------------------------
-// Helper: nullable const char* → FString (same pattern as the diagnostic)
+// Helper: nullable const char* -> FString (same pattern as the diagnostic)
 // ---------------------------------------------------------------------------
 
 static FString S(const char* Raw)
 {
     // Parser string pointers are transient; convert immediately before another parser call.
     return Raw ? FString(UTF8_TO_TCHAR(Raw)) : TEXT("");
+}
+
+static FMaterialInstanceAssetContext CreateMaterialInstanceAsset(
+    const FString& MatId,
+    const FString& OutputFolder)
+{
+    FMaterialInstanceAssetContext AssetContext;
+
+    const FString SanitizedId = ObjectTools::SanitizeObjectName(MatId);
+    const FString AssetName = TEXT("MI_") + SanitizedId;
+    AssetContext.PackagePath = OutputFolder / AssetName;
+
+    AssetContext.Package = FDsonAssetUtils::CreateLoadedPackage(
+        AssetContext.PackagePath, TEXT("DsonMaterialBuilder"));
+    if (!AssetContext.Package)
+        return AssetContext;
+
+    AssetContext.MIC = NewObject<UMaterialInstanceConstant>(
+        AssetContext.Package, *AssetName, RF_Public | RF_Standalone);
+    if (!AssetContext.MIC)
+    {
+        UE_LOG(LogDsonImporter, Error,
+            TEXT("DsonMaterialBuilder: NewObject<UMaterialInstanceConstant> failed for '%s'"),
+            *AssetContext.PackagePath);
+    }
+
+    return AssetContext;
 }
 
 // ---------------------------------------------------------------------------
@@ -135,7 +171,7 @@ FDsonMaterialBuilder::FDsonMaterialBuilder(const TArray<FString>& InContentRoots
 EDazShaderKind FDsonMaterialBuilder::DetectShader(
     const FString& Url, const FString& ShaderType) const
 {
-    // URL wins — PBRSkin's external .dsf reference is unambiguous
+    // URL wins: PBRSkin's external .dsf reference is unambiguous.
     // Shader selection controls both master material and channel mapping table.
     // Audits for wrong-looking skin usually start here, then inspect the mapping table.
     if (Url.Contains(TEXT("PBRSkin")))   return EDazShaderKind::PBRSkin;
@@ -148,12 +184,12 @@ EDazShaderKind FDsonMaterialBuilder::DetectShader(
     {
         UE_LOG(LogDsonImporter, Warning,
             TEXT("DsonMaterialBuilder: ambiguous daz_brick shader with no PBRSkin URL marker "
-                 "— defaulting to IrayUber. Url='%s'"), *Url);
+                 "- defaulting to IrayUber. Url='%s'"), *Url);
         return EDazShaderKind::IrayUber;
     }
 
     UE_LOG(LogDsonImporter, Warning,
-        TEXT("DsonMaterialBuilder: unknown shader_type='%s' url='%s' — using M_DazDefault"),
+        TEXT("DsonMaterialBuilder: unknown shader_type='%s' url='%s' - using M_DazDefault"),
         *ShaderType, *Url);
     return EDazShaderKind::Default;
 }
@@ -204,7 +240,7 @@ UMaterialInstanceConstant* FDsonMaterialBuilder::BuildSceneMaterial(
     // into FString immediately, because later parser calls may invalidate returned char*.
     const uint64_t H = reinterpret_cast<uint64_t>(Doc);
 
-    // Step 1 — read id / url / shader_type; detect shader; increment per-shader counter
+    // Step 1 - read id / url / shader_type; detect shader; increment per-shader counter
     FString MatId = S(GDsonParser.GetSceneMaterialId
         ? GDsonParser.GetSceneMaterialId(H, SceneMatIdx) : nullptr);
     FString Url = S(GDsonParser.GetSceneMaterialUrl
@@ -221,46 +257,31 @@ UMaterialInstanceConstant* FDsonMaterialBuilder::BuildSceneMaterial(
         case EDazShaderKind::Default:  ++DefaultCount;  break;
     }
 
-    // Step 2 — load master; do NOT substitute a different master on failure
+    // Step 2 - load master; do NOT substitute a different master on failure
     UMaterial* Master = LoadMasterForShader(Kind);
     if (!Master)
     {
         UE_LOG(LogDsonImporter, Error,
-            TEXT("DsonMaterialBuilder: aborting build for scene material '%s' — master load failed"),
+            TEXT("DsonMaterialBuilder: aborting build for scene material '%s' - master load failed"),
             *MatId);
         ++FailureCount;
         return nullptr;
     }
 
-    // Step 3 — sanitize id, derive asset name and package path
-    const FString SanitizedId = ObjectTools::SanitizeObjectName(MatId);
-    const FString AssetName   = TEXT("MI_") + SanitizedId;
-    const FString PackagePath = OutputFolder / AssetName;
-
-    // Step 4 — create and fully load package
-    UPackage* Package = FDsonAssetUtils::CreateLoadedPackage(PackagePath, TEXT("DsonMaterialBuilder"));
-    if (!Package)
+    // Step 3 - create and fully load MIC package
+    const FMaterialInstanceAssetContext AssetContext =
+        CreateMaterialInstanceAsset(MatId, OutputFolder);
+    if (!AssetContext.IsValid())
     {
         ++FailureCount;
         return nullptr;
     }
+    UMaterialInstanceConstant* MIC = AssetContext.MIC;
 
-    // Step 5 — create MIC
-    UMaterialInstanceConstant* MIC = NewObject<UMaterialInstanceConstant>(
-        Package, *AssetName, RF_Public | RF_Standalone);
-    if (!MIC)
-    {
-        UE_LOG(LogDsonImporter, Error,
-            TEXT("DsonMaterialBuilder: NewObject<UMaterialInstanceConstant> failed for '%s'"),
-            *PackagePath);
-        ++FailureCount;
-        return nullptr;
-    }
-
-    // Step 6 — assign parent
+    // Step 4 - assign parent
     MIC->Parent = Master;
 
-    // Step 7 — iterate channels and apply parameters from the active mapping table.
+    // Step 5 - iterate channels and apply parameters from the active mapping table.
     // Default shader has no defined mapping so no parameter overrides are applied.
     const TMap<FString, FDazParamBinding>* MappingPtr = nullptr;
     if (Kind == EDazShaderKind::IrayUber) MappingPtr = &GetIrayUberMapping();
@@ -283,7 +304,7 @@ UMaterialInstanceConstant* FDsonMaterialBuilder::BuildSceneMaterial(
             const bool bHasColor = GDsonParser.GetSceneMaterialChannelHasColor
                 ? GDsonParser.GetSceneMaterialChannelHasColor(H, SceneMatIdx, c) : false;
 
-            // Color or scalar — both get applied even when a texture is also present.
+            // Color or scalar: both get applied even when a texture is also present.
             // The master multiplies the constant by the texture sample when UseFlag=1.
             if (bHasColor && Binding->ColorParam != NAME_None)
             {
@@ -306,7 +327,7 @@ UMaterialInstanceConstant* FDsonMaterialBuilder::BuildSceneMaterial(
                     (float)Val);
             }
 
-            // Texture + UseFlag — orthogonal to color/scalar, applied when an image url exists
+            // Texture + UseFlag: orthogonal to color/scalar, applied when an image url exists.
             if (Binding->TextureParam != NAME_None)
             {
                 FString ImgUrl = S(GDsonParser.GetSceneMaterialChannelImageUrl
@@ -329,17 +350,18 @@ UMaterialInstanceConstant* FDsonMaterialBuilder::BuildSceneMaterial(
         }
     }
 
-    // Step 8 — finalise parameter override arrays before save
+    // Step 6 - finalise parameter override arrays before save
     MIC->PostEditChange();
 
-    // Step 9 — save (mirrors DsonTextureImporter exactly)
-    if (!FDsonAssetUtils::SaveAssetPackage(Package, MIC, PackagePath, TEXT("DsonMaterialBuilder")))
+    // Step 7 - save (mirrors DsonTextureImporter exactly)
+    if (!FDsonAssetUtils::SaveAssetPackage(
+            AssetContext.Package, MIC, AssetContext.PackagePath, TEXT("DsonMaterialBuilder")))
     {
         ++FailureCount;
         return nullptr;
     }
 
-    // Step 10 — notify asset registry
+    // Step 8 - notify asset registry
     ++BuiltCount;
     return MIC;
 }
@@ -393,7 +415,7 @@ void FDsonMaterialBuilder::BuildAllSceneMaterials(
             FString SceneId = S(GDsonParser.GetSceneMaterialId
                 ? GDsonParser.GetSceneMaterialId(H, i) : nullptr);
             UE_LOG(LogDsonImporter, Warning,
-                TEXT("[mat] scene material '%s' has no mappable group — MIC built but not wired"), *SceneId);
+                TEXT("[mat] scene material '%s' has no mappable group - MIC built but not wired"), *SceneId);
             continue;
         }
 
@@ -402,7 +424,7 @@ void FDsonMaterialBuilder::BuildAllSceneMaterials(
         if (OutByGroup.Contains(GroupName))
         {
             UE_LOG(LogDsonImporter, Warning,
-                TEXT("[mat] duplicate group \"%s\" — later MIC wins"), *GroupName);
+                TEXT("[mat] duplicate group \"%s\" - later MIC wins"), *GroupName);
         }
 
         OutByGroup.Add(GroupName, MIC);
