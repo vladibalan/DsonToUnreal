@@ -153,6 +153,62 @@ static FMaterialInstanceAssetContext CreateMaterialInstanceAsset(
     return AssetContext;
 }
 
+static void ApplySceneMaterialChannel(
+    uint64_t DsonHandle,
+    int32 SceneMatIdx,
+    int32 ChannelIdx,
+    const FDazParamBinding& Binding,
+    UMaterialInstanceConstant* MIC,
+    FDsonTextureImporter& TextureImporter)
+{
+    const bool bHasColor = GDsonParser.GetSceneMaterialChannelHasColor
+        ? GDsonParser.GetSceneMaterialChannelHasColor(DsonHandle, SceneMatIdx, ChannelIdx) : false;
+
+    // Color or scalar: both get applied even when a texture is also present.
+    // The master multiplies the constant by the texture sample when UseFlag=1.
+    if (bHasColor && Binding.ColorParam != NAME_None)
+    {
+        const double R = GDsonParser.GetSceneMaterialChannelColorR
+            ? GDsonParser.GetSceneMaterialChannelColorR(DsonHandle, SceneMatIdx, ChannelIdx) : 0.0;
+        const double G = GDsonParser.GetSceneMaterialChannelColorG
+            ? GDsonParser.GetSceneMaterialChannelColorG(DsonHandle, SceneMatIdx, ChannelIdx) : 0.0;
+        const double B = GDsonParser.GetSceneMaterialChannelColorB
+            ? GDsonParser.GetSceneMaterialChannelColorB(DsonHandle, SceneMatIdx, ChannelIdx) : 0.0;
+        MIC->SetVectorParameterValueEditorOnly(
+            FMaterialParameterInfo(Binding.ColorParam),
+            FLinearColor((float)R, (float)G, (float)B, 1.0f));
+    }
+    else if (!bHasColor && Binding.ScalarParam != NAME_None)
+    {
+        const double Val = GDsonParser.GetSceneMaterialChannelValue
+            ? GDsonParser.GetSceneMaterialChannelValue(DsonHandle, SceneMatIdx, ChannelIdx) : 0.0;
+        MIC->SetScalarParameterValueEditorOnly(
+            FMaterialParameterInfo(Binding.ScalarParam),
+            (float)Val);
+    }
+
+    // Texture + UseFlag: orthogonal to color/scalar, applied when an image url exists.
+    if (Binding.TextureParam != NAME_None)
+    {
+        FString ImgUrl = S(GDsonParser.GetSceneMaterialChannelImageUrl
+            ? GDsonParser.GetSceneMaterialChannelImageUrl(DsonHandle, SceneMatIdx, ChannelIdx) : nullptr);
+        if (!ImgUrl.IsEmpty())
+        {
+            UTexture2D* Tex = TextureImporter.ImportOrFind(ImgUrl, Binding.bSRGB);
+            if (Tex)
+            {
+                MIC->SetTextureParameterValueEditorOnly(
+                    FMaterialParameterInfo(Binding.TextureParam), Tex);
+                if (Binding.UseFlag != NAME_None)
+                {
+                    MIC->SetScalarParameterValueEditorOnly(
+                        FMaterialParameterInfo(Binding.UseFlag), 1.0f);
+                }
+            }
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Construction
 // ---------------------------------------------------------------------------
@@ -301,52 +357,7 @@ UMaterialInstanceConstant* FDsonMaterialBuilder::BuildSceneMaterial(
             if (!Binding)
                 continue;
 
-            const bool bHasColor = GDsonParser.GetSceneMaterialChannelHasColor
-                ? GDsonParser.GetSceneMaterialChannelHasColor(H, SceneMatIdx, c) : false;
-
-            // Color or scalar: both get applied even when a texture is also present.
-            // The master multiplies the constant by the texture sample when UseFlag=1.
-            if (bHasColor && Binding->ColorParam != NAME_None)
-            {
-                const double R = GDsonParser.GetSceneMaterialChannelColorR
-                    ? GDsonParser.GetSceneMaterialChannelColorR(H, SceneMatIdx, c) : 0.0;
-                const double G = GDsonParser.GetSceneMaterialChannelColorG
-                    ? GDsonParser.GetSceneMaterialChannelColorG(H, SceneMatIdx, c) : 0.0;
-                const double B = GDsonParser.GetSceneMaterialChannelColorB
-                    ? GDsonParser.GetSceneMaterialChannelColorB(H, SceneMatIdx, c) : 0.0;
-                MIC->SetVectorParameterValueEditorOnly(
-                    FMaterialParameterInfo(Binding->ColorParam),
-                    FLinearColor((float)R, (float)G, (float)B, 1.0f));
-            }
-            else if (!bHasColor && Binding->ScalarParam != NAME_None)
-            {
-                const double Val = GDsonParser.GetSceneMaterialChannelValue
-                    ? GDsonParser.GetSceneMaterialChannelValue(H, SceneMatIdx, c) : 0.0;
-                MIC->SetScalarParameterValueEditorOnly(
-                    FMaterialParameterInfo(Binding->ScalarParam),
-                    (float)Val);
-            }
-
-            // Texture + UseFlag: orthogonal to color/scalar, applied when an image url exists.
-            if (Binding->TextureParam != NAME_None)
-            {
-                FString ImgUrl = S(GDsonParser.GetSceneMaterialChannelImageUrl
-                    ? GDsonParser.GetSceneMaterialChannelImageUrl(H, SceneMatIdx, c) : nullptr);
-                if (!ImgUrl.IsEmpty())
-                {
-                    UTexture2D* Tex = TextureImporter.ImportOrFind(ImgUrl, Binding->bSRGB);
-                    if (Tex)
-                    {
-                        MIC->SetTextureParameterValueEditorOnly(
-                            FMaterialParameterInfo(Binding->TextureParam), Tex);
-                        if (Binding->UseFlag != NAME_None)
-                        {
-                            MIC->SetScalarParameterValueEditorOnly(
-                                FMaterialParameterInfo(Binding->UseFlag), 1.0f);
-                        }
-                    }
-                }
-            }
+            ApplySceneMaterialChannel(H, SceneMatIdx, c, *Binding, MIC, TextureImporter);
         }
     }
 
