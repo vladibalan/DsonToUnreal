@@ -18,6 +18,15 @@
  * Read this file for missing influences, wrong bone mapping, or skin deformation problems.
  */
 
+static FString NormalizeDazNodeId(const char* RawNodeId)
+{
+    FString NodeId = RawNodeId ? UTF8_TO_TCHAR(RawNodeId) : FString();
+    if (NodeId.StartsWith(TEXT("#")))
+        NodeId.RemoveFromStart(TEXT("#"));
+
+    return NodeId;
+}
+
 // ---------------------------------------------------------------------------
 // FindSkinModifierIndex
 // ---------------------------------------------------------------------------
@@ -84,7 +93,7 @@ bool FDsonSkinWeightsBuilder::Apply(
     USkeletalMesh* Mesh,
     USkeleton* Skeleton)
 {
-    // Step 1 — Guard
+    // Step 1 - Guard
     if (!GDsonParser.IsValid())
     {
         UE_LOG(LogDsonImporter, Error,
@@ -92,12 +101,12 @@ bool FDsonSkinWeightsBuilder::Apply(
         return false;
     }
 
-    // Step 2 — Find skin modifier
+    // Step 2 - Find skin modifier
     const int32 SkinModIdx = FindSkinModifierIndex(DsfHandle);
     if (SkinModIdx < 0)
         return false;
 
-    // Step 3 — Get vertex count from MeshDescription LOD 0
+    // Step 3 - Get vertex count from MeshDescription LOD 0
     FMeshDescription* MeshDesc = Mesh->GetMeshDescription(0);
     if (!MeshDesc)
     {
@@ -107,7 +116,7 @@ bool FDsonSkinWeightsBuilder::Apply(
     }
     const int32 VertCount = MeshDesc->Vertices().Num();
 
-    // Step 4 — Build DAZ node-id → UE5 bone-index lookup from the skeleton.
+    // Step 4 - Build DAZ node-id to UE5 bone-index lookup from the skeleton.
     TMap<FString, int32> BoneNameMap;
     BuildBoneIdMap(Skeleton, BoneNameMap);
 
@@ -121,9 +130,7 @@ bool FDsonSkinWeightsBuilder::Apply(
             if (!RawNodeId)
                 continue;
 
-            FString NodeId = UTF8_TO_TCHAR(RawNodeId);
-            if (NodeId.StartsWith(TEXT("#")))
-                NodeId.RemoveFromStart(TEXT("#"));
+            const FString NodeId = NormalizeDazNodeId(RawNodeId);
 
             const int32* BoneIdxPtr = BoneNameMap.Find(NodeId);
             if (!BoneIdxPtr)
@@ -138,11 +145,11 @@ bool FDsonSkinWeightsBuilder::Apply(
         }
     }
 
-    // Step 5 — Get skin weight attribute
+    // Step 5 - Get skin weight attribute
     FSkeletalMeshAttributes SkelAttribs(*MeshDesc);
     FSkinWeightsVertexAttributesRef SkinWeights = SkelAttribs.GetVertexSkinWeights();
 
-    // Step 6 — Iterate vertices and assign influences
+    // Step 6 - Iterate vertices and assign influences
     using namespace UE::AnimationCore;
 
     TSet<FString> WarnedNodeIds;
@@ -154,7 +161,7 @@ bool FDsonSkinWeightsBuilder::Apply(
         const int32 InfluenceCount = GDsonParser.GetVertexInfluenceCount
             ? GDsonParser.GetVertexInfluenceCount(DsfHandle, SkinModIdx, i, 8) : 0;
 
-        // b. No influences — assign root-bone fallback
+        // b. No influences - assign root-bone fallback
         if (InfluenceCount <= 0)
         {
             ++FallbackCount;
@@ -178,9 +185,7 @@ bool FDsonSkinWeightsBuilder::Apply(
                     DsfHandle, SkinModIdx, i, k, 8, &BoneNodeIdRaw, &Weight))
                 break;
 
-            FString NodeId = BoneNodeIdRaw ? UTF8_TO_TCHAR(BoneNodeIdRaw) : FString();
-            if (NodeId.StartsWith(TEXT("#")))
-                NodeId.RemoveFromStart(TEXT("#"));
+            const FString NodeId = NormalizeDazNodeId(BoneNodeIdRaw);
 
             const int32* BoneIdxPtr = DazNodeIdToBoneIndex.Find(NodeId);
             if (!BoneIdxPtr)
@@ -200,7 +205,7 @@ bool FDsonSkinWeightsBuilder::Apply(
                 static_cast<float>(Weight)));
         }
 
-        // d. All influences had unknown node ids — fall back to root bone
+        // d. All influences had unknown node ids - fall back to root bone
         if (Influences.IsEmpty())
         {
             ++FallbackCount;
@@ -211,7 +216,7 @@ bool FDsonSkinWeightsBuilder::Apply(
         SkinWeights.Set(FVertexID(i), Influences);
     }
 
-    // Step 7 — Log aggregate fallback count
+    // Step 7 - Log aggregate fallback count
     if (FallbackCount > 0)
     {
         UE_LOG(LogDsonImporter, Warning,

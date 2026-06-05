@@ -23,7 +23,7 @@ private:
     // Returns -1 if none found.
     static int32 FindSkinModifierIndex(uint64_t DsfHandle);
 
-    // Builds a bone-name → UE5 bone-index map from the skeleton's FReferenceSkeleton.
+    // Builds a bone-name to UE5 bone-index map from the skeleton's FReferenceSkeleton.
     static void BuildBoneIdMap(
         const USkeleton* Skeleton,
         TMap<FString, int32>& OutMap);
