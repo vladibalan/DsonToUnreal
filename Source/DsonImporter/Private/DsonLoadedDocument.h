@@ -17,8 +17,10 @@ public:
     FDsonLoadedDocument(FDsonLoadedDocument&& Other) noexcept;
     FDsonLoadedDocument& operator=(FDsonLoadedDocument&& Other) noexcept;
 
-    bool LoadFromFileAsError(const FString& Path, const TCHAR* LogPrefix);
-    bool LoadFromFileAsWarning(const FString& Path, const TCHAR* LogPrefix);
+    // OutError (optional) receives the same human-readable failure text that is logged,
+    // for callers that surface it in UI (e.g. the validator dialog).
+    bool LoadFromFileAsError(const FString& Path, const TCHAR* LogPrefix, FString* OutError = nullptr);
+    bool LoadFromFileAsWarning(const FString& Path, const TCHAR* LogPrefix, FString* OutError = nullptr);
 
     DsonDocumentHandle GetHandle() const { return Handle; }
     uint64_t GetHandle64() const { return reinterpret_cast<uint64_t>(Handle); }
@@ -27,11 +29,8 @@ public:
     void Reset();
 
 private:
-    bool LoadFromFile(const FString& Path, const TCHAR* LogPrefix, bool bWarnOnly);
+    bool LoadFromFile(const FString& Path, const TCHAR* LogPrefix, bool bWarnOnly, FString* OutError);
     void LogFailure(const TCHAR* LogPrefix, const FString& Message, bool bWarnOnly) const;
-    void LogReadFailure(const TCHAR* LogPrefix, const FString& Path, bool bWarnOnly) const;
-    void LogCreateFailure(const TCHAR* LogPrefix, const FString& Path, bool bWarnOnly) const;
-    void LogLoadFailure(const TCHAR* LogPrefix, const FString& Path, const FString& ErrorText, bool bWarnOnly) const;
 
     DsonDocumentHandle Handle = nullptr;
 };

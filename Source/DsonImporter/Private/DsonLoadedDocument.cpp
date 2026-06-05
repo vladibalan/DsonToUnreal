@@ -24,35 +24,38 @@ FDsonLoadedDocument& FDsonLoadedDocument::operator=(FDsonLoadedDocument&& Other)
     return *this;
 }
 
-bool FDsonLoadedDocument::LoadFromFileAsError(const FString& Path, const TCHAR* LogPrefix)
+bool FDsonLoadedDocument::LoadFromFileAsError(const FString& Path, const TCHAR* LogPrefix, FString* OutError)
 {
-    return LoadFromFile(Path, LogPrefix, false);
+    return LoadFromFile(Path, LogPrefix, false, OutError);
 }
 
-bool FDsonLoadedDocument::LoadFromFileAsWarning(const FString& Path, const TCHAR* LogPrefix)
+bool FDsonLoadedDocument::LoadFromFileAsWarning(const FString& Path, const TCHAR* LogPrefix, FString* OutError)
 {
-    return LoadFromFile(Path, LogPrefix, true);
+    return LoadFromFile(Path, LogPrefix, true, OutError);
 }
 
-bool FDsonLoadedDocument::LoadFromFile(const FString& Path, const TCHAR* LogPrefix, bool bWarnOnly)
+bool FDsonLoadedDocument::LoadFromFile(const FString& Path, const TCHAR* LogPrefix, bool bWarnOnly, FString* OutError)
 {
     Reset();
 
+    // Log the failure and (optionally) hand the same text back to the caller for UI.
+    auto Fail = [&](const FString& Message) -> bool
+    {
+        if (OutError)
+            *OutError = Message;
+        LogFailure(LogPrefix, Message, bWarnOnly);
+        return false;
+    };
+
     FString FileContent;
     if (!FFileHelper::LoadFileToString(FileContent, *Path) || FileContent.IsEmpty())
-    {
-        LogReadFailure(LogPrefix, Path, bWarnOnly);
-        return false;
-    }
+        return Fail(FString::Printf(TEXT("failed to read or empty file '%s'"), *Path));
 
     FTCHARToUTF8 Utf8(*FileContent);
 
     Handle = GDsonParser.Create ? GDsonParser.Create() : nullptr;
     if (!Handle)
-    {
-        LogCreateFailure(LogPrefix, Path, bWarnOnly);
-        return false;
-    }
+        return Fail(FString::Printf(TEXT("GDsonParser.Create() returned null for '%s'"), *Path));
 
     const int32 Result = GDsonParser.LoadFromString
         ? GDsonParser.LoadFromString(Handle, Utf8.Get())
@@ -61,9 +64,8 @@ bool FDsonLoadedDocument::LoadFromFile(const FString& Path, const TCHAR* LogPref
     {
         const char* ErrRaw = GDsonParser.GetLastError ? GDsonParser.GetLastError() : nullptr;
         const FString ErrorText = ErrRaw ? UTF8_TO_TCHAR(ErrRaw) : TEXT("unknown error");
-        LogLoadFailure(LogPrefix, Path, ErrorText, bWarnOnly);
         Reset();
-        return false;
+        return Fail(FString::Printf(TEXT("LoadFromString failed for '%s': %s"), *Path, *ErrorText));
     }
 
     return true;
@@ -90,50 +92,5 @@ void FDsonLoadedDocument::LogFailure(
     else
     {
         UE_LOG(LogDsonImporter, Error, TEXT("%s: %s"), LogPrefix, *Message);
-    }
-}
-
-void FDsonLoadedDocument::LogReadFailure(const TCHAR* LogPrefix, const FString& Path, bool bWarnOnly) const
-{
-    if (bWarnOnly)
-    {
-        LogFailure(LogPrefix, FString::Printf(
-            TEXT("failed to read or empty file '%s'"), *Path), bWarnOnly);
-    }
-    else
-    {
-        LogFailure(LogPrefix, FString::Printf(
-            TEXT("failed to read file '%s'"), *Path), bWarnOnly);
-    }
-}
-
-void FDsonLoadedDocument::LogCreateFailure(const TCHAR* LogPrefix, const FString& Path, bool bWarnOnly) const
-{
-    if (bWarnOnly)
-    {
-        LogFailure(LogPrefix, FString::Printf(
-            TEXT("GDsonParser.Create() returned null for '%s'"), *Path), bWarnOnly);
-    }
-    else
-    {
-        LogFailure(LogPrefix, TEXT("GDsonParser.Create() returned null"), bWarnOnly);
-    }
-}
-
-void FDsonLoadedDocument::LogLoadFailure(
-    const TCHAR* LogPrefix,
-    const FString& Path,
-    const FString& ErrorText,
-    bool bWarnOnly) const
-{
-    if (bWarnOnly)
-    {
-        LogFailure(LogPrefix, FString::Printf(
-            TEXT("LoadFromString failed for '%s': %s"), *Path, *ErrorText), bWarnOnly);
-    }
-    else
-    {
-        LogFailure(LogPrefix, FString::Printf(
-            TEXT("LoadFromString failed for '%s': %s"), *Path, *ErrorText), bWarnOnly);
     }
 }

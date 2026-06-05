@@ -83,132 +83,29 @@ void FDsonImporterModule::StartupModule()
     UE_LOG(LogDsonImporter, Log,
         TEXT("DsonParser.dll loaded successfully from: %s"), *DllPath);
 
-#define LOAD_FN(Member, ExportName) \
+    // Bind every export from the single DSON_PARSER_API_LIST source of truth. Required
+    // exports (1) log as Error; optional ones (0) log as Warning. To add/change an export,
+    // edit the list in DsonParserFunctions.h - nothing here changes.
+#define DSON_PARSER_BIND(Required, Ret, Member, ExportName, Params) \
     GDsonParser.Member = (decltype(GDsonParser.Member)) \
         FPlatformProcess::GetDllExport(DsonParserHandle, TEXT(#ExportName)); \
-    if (!GDsonParser.Member) { \
-        UE_LOG(LogDsonImporter, Error, \
-            TEXT("DsonParser: missing export: " #ExportName)); \
+    if (!GDsonParser.Member) \
+    { \
+        if constexpr ((Required) != 0) \
+        { \
+            UE_LOG(LogDsonImporter, Error, \
+                TEXT("DsonParser: missing export: " #ExportName)); \
+        } \
+        else \
+        { \
+            UE_LOG(LogDsonImporter, Warning, \
+                TEXT("DsonParser: missing export: " #ExportName)); \
+        } \
     }
 
-    LOAD_FN(Create,                     DsonDocument_Create)
-    LOAD_FN(Destroy,                    DsonDocument_Destroy)
-    LOAD_FN(GetLastError,               DsonParser_GetLastError)
-    LOAD_FN(GetAssetType,               DsonDocument_GetAssetType)
-    LOAD_FN(GetAssetId,                 DsonDocument_GetAssetId)
-    LOAD_FN(GetSceneNodeCount,          DsonDocument_GetSceneNodeCount)
-    LOAD_FN(GetSceneNodeGeometryCount,  DsonDocument_GetSceneNodeGeometryCount)
-    LOAD_FN(GetSceneNodeGeometryUrl,    DsonDocument_GetSceneNodeGeometryUrl)
-    LOAD_FN(LoadFromString,             DsonDocument_LoadFromString)
+    DSON_PARSER_API_LIST(DSON_PARSER_BIND)
 
-#undef LOAD_FN
-
-#define LOAD_FN_WARN(Member, ExportName) \
-    GDsonParser.Member = (decltype(GDsonParser.Member)) \
-        FPlatformProcess::GetDllExport(DsonParserHandle, TEXT(#ExportName)); \
-    if (!GDsonParser.Member) { \
-        UE_LOG(LogDsonImporter, Warning, \
-            TEXT("DsonParser: missing export: " #ExportName)); \
-    }
-
-    LOAD_FN_WARN(GetNodeCount,        DsonDocument_GetNodeCount)
-    LOAD_FN_WARN(GetNodeId,           DsonDocument_GetNodeId)
-    LOAD_FN_WARN(GetNodeName,         DsonDocument_GetNodeName)
-    LOAD_FN_WARN(GetNodeType,         DsonDocument_GetNodeType)
-    LOAD_FN_WARN(GetNodeParent,       DsonDocument_GetNodeParent)
-    LOAD_FN_WARN(GetNodeCenterPointX, DsonDocument_GetNodeCenterPointX)
-    LOAD_FN_WARN(GetNodeCenterPointY, DsonDocument_GetNodeCenterPointY)
-    LOAD_FN_WARN(GetNodeCenterPointZ, DsonDocument_GetNodeCenterPointZ)
-    LOAD_FN_WARN(GetNodeOrientationX, DsonDocument_GetNodeOrientationX)
-    LOAD_FN_WARN(GetNodeOrientationY, DsonDocument_GetNodeOrientationY)
-    LOAD_FN_WARN(GetNodeOrientationZ, DsonDocument_GetNodeOrientationZ)
-    LOAD_FN_WARN(GetNodeRotationOrder,DsonDocument_GetNodeRotationOrder)
-    LOAD_FN_WARN(GetNodeGeneralScale, DsonDocument_GetNodeGeneralScale)
-    LOAD_FN_WARN(GetUnitScale,        DsonDocument_GetUnitScale)
-
-    LOAD_FN_WARN(GetGeometryCount,            DsonDocument_GetGeometryCount)
-    LOAD_FN_WARN(GetVertexCount,              DsonDocument_GetVertexCount)
-    LOAD_FN_WARN(GetVertexX,                  DsonDocument_GetVertexX)
-    LOAD_FN_WARN(GetVertexY,                  DsonDocument_GetVertexY)
-    LOAD_FN_WARN(GetVertexZ,                  DsonDocument_GetVertexZ)
-    LOAD_FN_WARN(GetPolylistCount,            DsonDocument_GetPolylistCount)
-    LOAD_FN_WARN(GetPolylistFaceVertexCount,  DsonDocument_GetPolylistFaceVertexCount)
-    LOAD_FN_WARN(GetPolylistFaceVertex,       DsonDocument_GetPolylistFaceVertex)
-    LOAD_FN_WARN(GetPolylistFaceMaterialIndex,DsonDocument_GetPolylistFaceMaterialIndex)
-    LOAD_FN_WARN(GetUVSetCount,                  DsonDocument_GetUVSetCount)
-    LOAD_FN_WARN(GetUVCount,                     DsonDocument_GetUVCount)
-    LOAD_FN_WARN(GetUVU,                         DsonDocument_GetUVU)
-    LOAD_FN_WARN(GetUVV,                         DsonDocument_GetUVV)
-    LOAD_FN_WARN(GetUVPolygonVertexIndexCount,   DsonDocument_GetUVPolygonVertexIndexCount)
-    LOAD_FN_WARN(GetUVPolygonVertexIndex,        DsonDocument_GetUVPolygonVertexIndex)
-    LOAD_FN_WARN(GetUVSetVertexCount,            DsonDocument_GetUVSetVertexCount)
-    LOAD_FN_WARN(GetUVOverrideCount,             DsonDocument_GetUVOverrideCount)
-    LOAD_FN_WARN(GetUVOverrideFace,              DsonDocument_GetUVOverrideFace)
-    LOAD_FN_WARN(GetUVOverrideCorner,            DsonDocument_GetUVOverrideCorner)
-    LOAD_FN_WARN(GetUVOverrideUVIndex,           DsonDocument_GetUVOverrideUVIndex)
-    LOAD_FN_WARN(GetPolygonMaterialGroupCount,   DsonDocument_GetPolygonMaterialGroupCount)
-    LOAD_FN_WARN(GetPolygonMaterialGroupName,    DsonDocument_GetPolygonMaterialGroupName)
-
-    LOAD_FN_WARN(GetModifierId,                  DsonDocument_GetModifierId)
-    LOAD_FN_WARN(GetModifierName,                DsonDocument_GetModifierName)
-    LOAD_FN_WARN(GetModifierType,                DsonDocument_GetModifierType)
-    LOAD_FN_WARN(GetModifierCount,               DsonDocument_GetModifierCount)
-    LOAD_FN_WARN(GetModifierSkinVertexCount,      DsonDocument_GetModifierSkinVertexCount)
-    LOAD_FN_WARN(GetModifierSkinJointCount,       DsonDocument_GetModifierSkinJointCount)
-    LOAD_FN_WARN(GetSkinJointCount,              DsonDocument_GetSkinJointCount)
-    LOAD_FN_WARN(GetSkinJointNodeId,             DsonDocument_GetSkinJointNodeId)
-    LOAD_FN_WARN(GetSkinJointWeightCount,        DsonDocument_GetSkinJointWeightCount)
-    LOAD_FN_WARN(GetSkinJointWeightVertexIndex,  DsonDocument_GetSkinJointWeightVertexIndex)
-    LOAD_FN_WARN(GetSkinJointWeight,             DsonDocument_GetSkinJointWeight)
-    LOAD_FN_WARN(GetVertexInfluenceCount,        DsonDocument_GetVertexInfluenceCount)
-    LOAD_FN_WARN(GetVertexBoneInfluence,         DsonDocument_GetVertexBoneInfluence)
-    LOAD_FN_WARN(GetVertexBoneInfluenceCapped,   DsonDocument_GetVertexBoneInfluenceCapped)
-
-    LOAD_FN_WARN(GetMaterialCount,        DsonDocument_GetMaterialCount)
-    LOAD_FN_WARN(GetMaterialId,           DsonDocument_GetMaterialId)
-    LOAD_FN_WARN(GetMaterialName,         DsonDocument_GetMaterialName)
-    LOAD_FN_WARN(GetMaterialGeometryId,   DsonDocument_GetMaterialGeometryId)
-    LOAD_FN_WARN(GetMaterialUVSetId,      DsonDocument_GetMaterialUVSetId)
-    LOAD_FN_WARN(GetMaterialType,         DsonDocument_GetMaterialType)
-    LOAD_FN_WARN(GetMaterialShaderType,   DsonDocument_GetMaterialShaderType)
-    LOAD_FN_WARN(GetMaterialGroupCount,   DsonDocument_GetMaterialGroupCount)
-    LOAD_FN_WARN(GetMaterialGroupName,    DsonDocument_GetMaterialGroupName)
-
-    LOAD_FN_WARN(GetMaterialChannelCount,       DsonDocument_GetMaterialChannelCount)
-    LOAD_FN_WARN(GetMaterialChannelId,          DsonDocument_GetMaterialChannelId)
-    LOAD_FN_WARN(GetMaterialChannelType,        DsonDocument_GetMaterialChannelType)
-    LOAD_FN_WARN(GetMaterialChannelValue,       DsonDocument_GetMaterialChannelValue)
-    LOAD_FN_WARN(GetMaterialChannelColorR,      DsonDocument_GetMaterialChannelColorR)
-    LOAD_FN_WARN(GetMaterialChannelColorG,      DsonDocument_GetMaterialChannelColorG)
-    LOAD_FN_WARN(GetMaterialChannelColorB,      DsonDocument_GetMaterialChannelColorB)
-    LOAD_FN_WARN(GetMaterialChannelHasColor,    DsonDocument_GetMaterialChannelHasColor)
-    LOAD_FN_WARN(GetMaterialChannelImageUrl,    DsonDocument_GetMaterialChannelImageUrl)
-    LOAD_FN_WARN(GetMaterialChannelTexturePath, DsonDocument_GetMaterialChannelTexturePath)
-
-    LOAD_FN_WARN(GetSceneMaterialCount,      DsonDocument_GetSceneMaterialCount)
-    LOAD_FN_WARN(GetSceneMaterialId,         DsonDocument_GetSceneMaterialId)
-    LOAD_FN_WARN(GetSceneMaterialUrl,        DsonDocument_GetSceneMaterialUrl)
-    LOAD_FN_WARN(GetSceneMaterialGroupCount, DsonDocument_GetSceneMaterialGroupCount)
-    LOAD_FN_WARN(GetSceneMaterialGroupName,  DsonDocument_GetSceneMaterialGroupName)
-
-    LOAD_FN_WARN(GetSceneMaterialName,          DsonDocument_GetSceneMaterialName)
-    LOAD_FN_WARN(GetSceneMaterialGeometryId,    DsonDocument_GetSceneMaterialGeometryId)
-    LOAD_FN_WARN(GetSceneMaterialUVSetId,       DsonDocument_GetSceneMaterialUVSetId)
-    LOAD_FN_WARN(GetSceneMaterialType,          DsonDocument_GetSceneMaterialType)
-    LOAD_FN_WARN(GetSceneMaterialShaderType,    DsonDocument_GetSceneMaterialShaderType)
-
-    LOAD_FN_WARN(GetSceneMaterialChannelCount,       DsonDocument_GetSceneMaterialChannelCount)
-    LOAD_FN_WARN(GetSceneMaterialChannelId,          DsonDocument_GetSceneMaterialChannelId)
-    LOAD_FN_WARN(GetSceneMaterialChannelType,        DsonDocument_GetSceneMaterialChannelType)
-    LOAD_FN_WARN(GetSceneMaterialChannelValue,       DsonDocument_GetSceneMaterialChannelValue)
-    LOAD_FN_WARN(GetSceneMaterialChannelColorR,      DsonDocument_GetSceneMaterialChannelColorR)
-    LOAD_FN_WARN(GetSceneMaterialChannelColorG,      DsonDocument_GetSceneMaterialChannelColorG)
-    LOAD_FN_WARN(GetSceneMaterialChannelColorB,      DsonDocument_GetSceneMaterialChannelColorB)
-    LOAD_FN_WARN(GetSceneMaterialChannelHasColor,    DsonDocument_GetSceneMaterialChannelHasColor)
-    LOAD_FN_WARN(GetSceneMaterialChannelImageUrl,    DsonDocument_GetSceneMaterialChannelImageUrl)
-    LOAD_FN_WARN(GetSceneMaterialChannelTexturePath, DsonDocument_GetSceneMaterialChannelTexturePath)
-
-#undef LOAD_FN_WARN
+#undef DSON_PARSER_BIND
 
     if (!GDsonParser.IsValid())
     {

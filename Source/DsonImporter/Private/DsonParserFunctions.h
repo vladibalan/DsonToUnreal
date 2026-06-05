@@ -5,248 +5,155 @@
 // Opaque handle returned by DsonDocument_Create and passed to all API functions
 typedef void* DsonDocumentHandle;
 
-// Function pointer types for each API function currently called by the plugin
-typedef DsonDocumentHandle (*Fn_Create)();
-typedef void               (*Fn_Destroy)(DsonDocumentHandle handle);
-typedef int                (*Fn_LoadFromString)(DsonDocumentHandle handle, const char* json);
-typedef const char*        (*Fn_GetLastError)();
-typedef const char*        (*Fn_GetAssetType)(DsonDocumentHandle handle);
-typedef const char*        (*Fn_GetAssetId)(DsonDocumentHandle handle);
-typedef int                (*Fn_GetSceneNodeCount)(DsonDocumentHandle handle);
-typedef int                (*Fn_GetSceneNodeGeometryCount)(DsonDocumentHandle handle, int sceneNodeIndex);
-typedef const char*        (*Fn_GetSceneNodeGeometryUrl)(DsonDocumentHandle handle, int sceneNodeIndex, int geomRefIndex);
-
-// Node iteration
-typedef int32_t            (*DsonDocument_GetNodeCountFn)(uint64_t handle);
-typedef const char*        (*DsonDocument_GetNodeIdFn)(uint64_t handle, int32_t nodeIndex);
-typedef const char*        (*DsonDocument_GetNodeNameFn)(uint64_t handle, int32_t nodeIndex);
-typedef const char*        (*DsonDocument_GetNodeTypeFn)(uint64_t handle, int32_t nodeIndex);
-typedef const char*        (*DsonDocument_GetNodeParentFn)(uint64_t handle, int32_t nodeIndex);
-typedef double             (*DsonDocument_GetNodeCenterPointXFn)(uint64_t handle, int32_t nodeIndex);
-typedef double             (*DsonDocument_GetNodeCenterPointYFn)(uint64_t handle, int32_t nodeIndex);
-typedef double             (*DsonDocument_GetNodeCenterPointZFn)(uint64_t handle, int32_t nodeIndex);
-typedef double             (*DsonDocument_GetNodeOrientationXFn)(uint64_t handle, int32_t nodeIndex);
-typedef double             (*DsonDocument_GetNodeOrientationYFn)(uint64_t handle, int32_t nodeIndex);
-typedef double             (*DsonDocument_GetNodeOrientationZFn)(uint64_t handle, int32_t nodeIndex);
-typedef const char*        (*DsonDocument_GetNodeRotationOrderFn)(uint64_t handle, int32_t nodeIndex);
-typedef double             (*DsonDocument_GetNodeGeneralScaleFn)(uint64_t handle, int32_t nodeIndex);
-typedef double             (*DsonDocument_GetUnitScaleFn)(uint64_t handle);
-
-// Geometry
-typedef int32_t  (*DsonDocument_GetGeometryCountFn)(uint64_t handle);
-typedef int32_t  (*DsonDocument_GetVertexCountFn)(uint64_t handle, int32_t geomIndex);
-typedef double   (*DsonDocument_GetVertexXFn)(uint64_t handle, int32_t geomIndex, int32_t vertIndex);
-typedef double   (*DsonDocument_GetVertexYFn)(uint64_t handle, int32_t geomIndex, int32_t vertIndex);
-typedef double   (*DsonDocument_GetVertexZFn)(uint64_t handle, int32_t geomIndex, int32_t vertIndex);
-typedef int32_t  (*DsonDocument_GetPolylistCountFn)(uint64_t handle, int32_t geomIndex);
-typedef int32_t  (*DsonDocument_GetPolylistFaceVertexCountFn)(uint64_t handle, int32_t geomIndex, int32_t faceIndex);
-typedef int32_t  (*DsonDocument_GetPolylistFaceVertexFn)(uint64_t handle, int32_t geomIndex, int32_t faceIndex, int32_t cornerIndex);
-typedef int32_t  (*DsonDocument_GetPolylistFaceMaterialIndexFn)(uint64_t handle, int32_t geomIndex, int32_t faceIndex);
-typedef int32_t  (*DsonDocument_GetUVSetCountFn)(uint64_t handle);
-typedef int32_t  (*DsonDocument_GetUVCountFn)(uint64_t handle, int32_t uvSetIndex);
-typedef double   (*DsonDocument_GetUVUFn)(uint64_t handle, int32_t uvSetIndex, int32_t uvIndex);
-typedef double   (*DsonDocument_GetUVVFn)(uint64_t handle, int32_t uvSetIndex, int32_t uvIndex);
-typedef int32_t  (*DsonDocument_GetUVPolygonVertexIndexCountFn)(uint64_t handle, int32_t uvSetIndex);
-typedef int32_t  (*DsonDocument_GetUVPolygonVertexIndexFn)(uint64_t handle, int32_t uvSetIndex, int32_t index);
-typedef int (*DsonDocument_GetUVSetVertexCountFn)(uint64_t handle, int32_t uvSetIndex);
-typedef int (*DsonDocument_GetUVOverrideCountFn)(uint64_t handle, int32_t uvSetIndex);
-typedef int (*DsonDocument_GetUVOverrideFaceFn)(uint64_t handle, int32_t uvSetIndex, int32_t overrideIndex);
-typedef int (*DsonDocument_GetUVOverrideCornerFn)(uint64_t handle, int32_t uvSetIndex, int32_t overrideIndex);
-typedef int (*DsonDocument_GetUVOverrideUVIndexFn)(uint64_t handle, int32_t uvSetIndex, int32_t overrideIndex);
-typedef int         (*DsonDocument_GetPolygonMaterialGroupCountFn)(uint64_t handle, int32_t geomIndex);
-typedef const char* (*DsonDocument_GetPolygonMaterialGroupNameFn)(uint64_t handle, int32_t geomIndex, int32_t groupIndex);
-
-// Modifier info
-typedef const char* (*DsonDocument_GetModifierIdFn)(uint64_t handle, int32_t index);
-typedef const char* (*DsonDocument_GetModifierNameFn)(uint64_t handle, int32_t index);
-typedef const char* (*DsonDocument_GetModifierTypeFn)(uint64_t handle, int32_t index);
-typedef int32_t     (*DsonDocument_GetModifierCountFn)(uint64_t handle);
-typedef int32_t     (*DsonDocument_GetModifierSkinVertexCountFn)(uint64_t handle, int32_t modifierIndex);
-typedef int32_t     (*DsonDocument_GetModifierSkinJointCountFn)(uint64_t handle, int32_t modifierIndex);
-
-// Skin weights - joint-based access
-typedef int32_t     (*DsonDocument_GetSkinJointCountFn)(uint64_t handle, int32_t modifierIndex);
-typedef const char* (*DsonDocument_GetSkinJointNodeIdFn)(uint64_t handle, int32_t modifierIndex, int32_t jointIndex);
-typedef int32_t     (*DsonDocument_GetSkinJointWeightCountFn)(uint64_t handle, int32_t modifierIndex, int32_t jointIndex);
-typedef int32_t     (*DsonDocument_GetSkinJointWeightVertexIndexFn)(uint64_t handle, int32_t modifierIndex, int32_t jointIndex, int32_t weightIndex);
-typedef double      (*DsonDocument_GetSkinJointWeightFn)(uint64_t handle, int32_t modifierIndex, int32_t jointIndex, int32_t weightIndex);
-
-// Skin weights - per-vertex access (capped and normalized)
-typedef int32_t     (*DsonDocument_GetVertexInfluenceCountFn)(uint64_t handle, int32_t modifierIndex, int32_t vertexIndex, int32_t maxInfluences);
-typedef bool        (*DsonDocument_GetVertexBoneInfluenceFn)(uint64_t handle, int32_t modifierIndex, int32_t vertexIndex, int32_t influenceIndex, const char** boneNodeId, double* weight);
-typedef bool        (*DsonDocument_GetVertexBoneInfluenceCappedFn)(uint64_t handle, int32_t modifierIndex, int32_t vertexIndex, int32_t influenceIndex, int32_t maxInfluences, const char** boneNodeId, double* weight);
-
-// Library materials
-typedef int32_t     (*DsonDocument_GetMaterialCountFn)(uint64_t handle);
-typedef const char* (*DsonDocument_GetMaterialIdFn)(uint64_t handle, int32_t matIndex);
-typedef const char* (*DsonDocument_GetMaterialNameFn)(uint64_t handle, int32_t matIndex);
-typedef const char* (*DsonDocument_GetMaterialGeometryIdFn)(uint64_t handle, int32_t matIndex);
-typedef const char* (*DsonDocument_GetMaterialUVSetIdFn)(uint64_t handle, int32_t matIndex);
-typedef const char* (*DsonDocument_GetMaterialTypeFn)(uint64_t handle, int32_t matIndex);
-typedef const char* (*DsonDocument_GetMaterialShaderTypeFn)(uint64_t handle, int32_t matIndex);
-typedef int32_t     (*DsonDocument_GetMaterialGroupCountFn)(uint64_t handle, int32_t matIndex);
-typedef const char* (*DsonDocument_GetMaterialGroupNameFn)(uint64_t handle, int32_t matIndex, int32_t groupIndex);
-
-// Library material channel accessors (indexed)
-typedef int32_t     (*DsonDocument_GetMaterialChannelCountFn)(uint64_t handle, int32_t matIndex);
-typedef const char* (*DsonDocument_GetMaterialChannelIdFn)(uint64_t handle, int32_t matIndex, int32_t channelIdx);
-typedef const char* (*DsonDocument_GetMaterialChannelTypeFn)(uint64_t handle, int32_t matIndex, int32_t channelIdx);
-typedef double      (*DsonDocument_GetMaterialChannelValueFn)(uint64_t handle, int32_t matIndex, int32_t channelIdx);
-typedef double      (*DsonDocument_GetMaterialChannelColorRFn)(uint64_t handle, int32_t matIndex, int32_t channelIdx);
-typedef double      (*DsonDocument_GetMaterialChannelColorGFn)(uint64_t handle, int32_t matIndex, int32_t channelIdx);
-typedef double      (*DsonDocument_GetMaterialChannelColorBFn)(uint64_t handle, int32_t matIndex, int32_t channelIdx);
-typedef bool        (*DsonDocument_GetMaterialChannelHasColorFn)(uint64_t handle, int32_t matIndex, int32_t channelIdx);
-typedef const char* (*DsonDocument_GetMaterialChannelImageUrlFn)(uint64_t handle, int32_t matIndex, int32_t channelIdx);
-typedef const char* (*DsonDocument_GetMaterialChannelTexturePathFn)(uint64_t handle, int32_t matIndex, int32_t channelIdx);
-
-// Scene materials
-typedef int32_t     (*DsonDocument_GetSceneMaterialCountFn)(uint64_t handle);
-typedef const char* (*DsonDocument_GetSceneMaterialIdFn)(uint64_t handle, int32_t matIndex);
-typedef const char* (*DsonDocument_GetSceneMaterialUrlFn)(uint64_t handle, int32_t matIndex);
-typedef int32_t     (*DsonDocument_GetSceneMaterialGroupCountFn)(uint64_t handle, int32_t matIndex);
-typedef const char* (*DsonDocument_GetSceneMaterialGroupNameFn)(uint64_t handle, int32_t matIndex, int32_t groupIndex);
-
-// Scene material surface accessors
-typedef const char* (*DsonDocument_GetSceneMaterialNameFn)(uint64_t handle, int32_t sceneMatIndex);
-typedef const char* (*DsonDocument_GetSceneMaterialGeometryIdFn)(uint64_t handle, int32_t sceneMatIndex);
-typedef const char* (*DsonDocument_GetSceneMaterialUVSetIdFn)(uint64_t handle, int32_t sceneMatIndex);
-typedef const char* (*DsonDocument_GetSceneMaterialTypeFn)(uint64_t handle, int32_t sceneMatIndex);
-typedef const char* (*DsonDocument_GetSceneMaterialShaderTypeFn)(uint64_t handle, int32_t sceneMatIndex);
-
-// Scene material channel accessors (indexed)
-typedef int32_t     (*DsonDocument_GetSceneMaterialChannelCountFn)(uint64_t handle, int32_t sceneMatIndex);
-typedef const char* (*DsonDocument_GetSceneMaterialChannelIdFn)(uint64_t handle, int32_t sceneMatIndex, int32_t channelIdx);
-typedef const char* (*DsonDocument_GetSceneMaterialChannelTypeFn)(uint64_t handle, int32_t sceneMatIndex, int32_t channelIdx);
-typedef double      (*DsonDocument_GetSceneMaterialChannelValueFn)(uint64_t handle, int32_t sceneMatIndex, int32_t channelIdx);
-typedef double      (*DsonDocument_GetSceneMaterialChannelColorRFn)(uint64_t handle, int32_t sceneMatIndex, int32_t channelIdx);
-typedef double      (*DsonDocument_GetSceneMaterialChannelColorGFn)(uint64_t handle, int32_t sceneMatIndex, int32_t channelIdx);
-typedef double      (*DsonDocument_GetSceneMaterialChannelColorBFn)(uint64_t handle, int32_t sceneMatIndex, int32_t channelIdx);
-typedef bool        (*DsonDocument_GetSceneMaterialChannelHasColorFn)(uint64_t handle, int32_t sceneMatIndex, int32_t channelIdx);
-typedef const char* (*DsonDocument_GetSceneMaterialChannelImageUrlFn)(uint64_t handle, int32_t sceneMatIndex, int32_t channelIdx);
-typedef const char* (*DsonDocument_GetSceneMaterialChannelTexturePathFn)(uint64_t handle, int32_t sceneMatIndex, int32_t channelIdx);
+/*
+ * Single source of truth for every parser export the plugin binds.
+ *
+ *   X(Required, Ret, Member, ExportName, Params)
+ *     Required   : 1 => load failure logged as Error and required by IsValid();
+ *                  0 => optional, load failure logged as Warning.
+ *     Ret        : function pointer return type.
+ *     Member     : field name on FDsonParserAPI (also how call sites reference it).
+ *     ExportName : exact symbol name exported by DsonParser.dll.
+ *     Params     : parenthesized parameter-type list for the function pointer.
+ *
+ * This one list generates the struct fields (DsonParserFunctions.h), the IsValid()
+ * check, and the DLL-binding loop (DsonImporter.cpp). Add or change an export in
+ * exactly one place here. Signatures must match the DLL's C ABI; the historical mix
+ * of DsonDocumentHandle/int (scene/asset accessors) and uint64_t/int32_t (everything
+ * else) is preserved deliberately.
+ */
+#define DSON_PARSER_API_LIST(X) \
+    /* Core lifecycle + asset/scene basics (required) */ \
+    X(1, DsonDocumentHandle, Create,                    DsonDocument_Create,                    ()) \
+    X(1, void,               Destroy,                   DsonDocument_Destroy,                   (DsonDocumentHandle)) \
+    X(1, int,                LoadFromString,            DsonDocument_LoadFromString,            (DsonDocumentHandle, const char*)) \
+    X(1, const char*,        GetLastError,              DsonParser_GetLastError,                ()) \
+    X(1, const char*,        GetAssetType,              DsonDocument_GetAssetType,              (DsonDocumentHandle)) \
+    X(1, const char*,        GetAssetId,                DsonDocument_GetAssetId,                (DsonDocumentHandle)) \
+    X(1, int,                GetSceneNodeCount,         DsonDocument_GetSceneNodeCount,         (DsonDocumentHandle)) \
+    X(1, int,                GetSceneNodeGeometryCount, DsonDocument_GetSceneNodeGeometryCount, (DsonDocumentHandle, int)) \
+    X(1, const char*,        GetSceneNodeGeometryUrl,   DsonDocument_GetSceneNodeGeometryUrl,   (DsonDocumentHandle, int, int)) \
+    \
+    /* Node iteration (GetNodeCount/GetNodeName required by IsValid) */ \
+    X(1, int32_t,     GetNodeCount,         DsonDocument_GetNodeCount,         (uint64_t)) \
+    X(0, const char*, GetNodeId,            DsonDocument_GetNodeId,            (uint64_t, int32_t)) \
+    X(1, const char*, GetNodeName,          DsonDocument_GetNodeName,          (uint64_t, int32_t)) \
+    X(0, const char*, GetNodeType,          DsonDocument_GetNodeType,          (uint64_t, int32_t)) \
+    X(0, const char*, GetNodeParent,        DsonDocument_GetNodeParent,        (uint64_t, int32_t)) \
+    X(0, double,      GetNodeCenterPointX,  DsonDocument_GetNodeCenterPointX,  (uint64_t, int32_t)) \
+    X(0, double,      GetNodeCenterPointY,  DsonDocument_GetNodeCenterPointY,  (uint64_t, int32_t)) \
+    X(0, double,      GetNodeCenterPointZ,  DsonDocument_GetNodeCenterPointZ,  (uint64_t, int32_t)) \
+    X(0, double,      GetNodeOrientationX,  DsonDocument_GetNodeOrientationX,  (uint64_t, int32_t)) \
+    X(0, double,      GetNodeOrientationY,  DsonDocument_GetNodeOrientationY,  (uint64_t, int32_t)) \
+    X(0, double,      GetNodeOrientationZ,  DsonDocument_GetNodeOrientationZ,  (uint64_t, int32_t)) \
+    X(0, const char*, GetNodeRotationOrder, DsonDocument_GetNodeRotationOrder, (uint64_t, int32_t)) \
+    X(0, double,      GetNodeGeneralScale,  DsonDocument_GetNodeGeneralScale,  (uint64_t, int32_t)) \
+    X(0, double,      GetUnitScale,         DsonDocument_GetUnitScale,         (uint64_t)) \
+    \
+    /* Geometry */ \
+    X(0, int32_t,     GetGeometryCount,             DsonDocument_GetGeometryCount,             (uint64_t)) \
+    X(0, int32_t,     GetVertexCount,               DsonDocument_GetVertexCount,               (uint64_t, int32_t)) \
+    X(0, double,      GetVertexX,                   DsonDocument_GetVertexX,                   (uint64_t, int32_t, int32_t)) \
+    X(0, double,      GetVertexY,                   DsonDocument_GetVertexY,                   (uint64_t, int32_t, int32_t)) \
+    X(0, double,      GetVertexZ,                   DsonDocument_GetVertexZ,                   (uint64_t, int32_t, int32_t)) \
+    X(0, int32_t,     GetPolylistCount,             DsonDocument_GetPolylistCount,             (uint64_t, int32_t)) \
+    X(0, int32_t,     GetPolylistFaceVertexCount,   DsonDocument_GetPolylistFaceVertexCount,   (uint64_t, int32_t, int32_t)) \
+    X(0, int32_t,     GetPolylistFaceVertex,        DsonDocument_GetPolylistFaceVertex,        (uint64_t, int32_t, int32_t, int32_t)) \
+    X(0, int32_t,     GetPolylistFaceMaterialIndex, DsonDocument_GetPolylistFaceMaterialIndex, (uint64_t, int32_t, int32_t)) \
+    X(0, int32_t,     GetUVSetCount,                DsonDocument_GetUVSetCount,                (uint64_t)) \
+    X(0, int32_t,     GetUVCount,                   DsonDocument_GetUVCount,                   (uint64_t, int32_t)) \
+    X(0, double,      GetUVU,                       DsonDocument_GetUVU,                       (uint64_t, int32_t, int32_t)) \
+    X(0, double,      GetUVV,                       DsonDocument_GetUVV,                       (uint64_t, int32_t, int32_t)) \
+    X(0, int32_t,     GetUVPolygonVertexIndexCount, DsonDocument_GetUVPolygonVertexIndexCount, (uint64_t, int32_t)) \
+    X(0, int32_t,     GetUVPolygonVertexIndex,      DsonDocument_GetUVPolygonVertexIndex,      (uint64_t, int32_t, int32_t)) \
+    X(0, int,         GetUVSetVertexCount,          DsonDocument_GetUVSetVertexCount,          (uint64_t, int32_t)) \
+    X(0, int,         GetUVOverrideCount,           DsonDocument_GetUVOverrideCount,           (uint64_t, int32_t)) \
+    X(0, int,         GetUVOverrideFace,            DsonDocument_GetUVOverrideFace,            (uint64_t, int32_t, int32_t)) \
+    X(0, int,         GetUVOverrideCorner,          DsonDocument_GetUVOverrideCorner,          (uint64_t, int32_t, int32_t)) \
+    X(0, int,         GetUVOverrideUVIndex,         DsonDocument_GetUVOverrideUVIndex,         (uint64_t, int32_t, int32_t)) \
+    X(0, int,         GetPolygonMaterialGroupCount, DsonDocument_GetPolygonMaterialGroupCount, (uint64_t, int32_t)) \
+    X(0, const char*, GetPolygonMaterialGroupName,  DsonDocument_GetPolygonMaterialGroupName,  (uint64_t, int32_t, int32_t)) \
+    \
+    /* Modifier info */ \
+    X(0, const char*, GetModifierId,             DsonDocument_GetModifierId,             (uint64_t, int32_t)) \
+    X(0, const char*, GetModifierName,           DsonDocument_GetModifierName,           (uint64_t, int32_t)) \
+    X(0, const char*, GetModifierType,           DsonDocument_GetModifierType,           (uint64_t, int32_t)) \
+    X(0, int32_t,     GetModifierCount,          DsonDocument_GetModifierCount,          (uint64_t)) \
+    X(0, int32_t,     GetModifierSkinVertexCount, DsonDocument_GetModifierSkinVertexCount, (uint64_t, int32_t)) \
+    X(0, int32_t,     GetModifierSkinJointCount,  DsonDocument_GetModifierSkinJointCount,  (uint64_t, int32_t)) \
+    \
+    /* Skin weights */ \
+    X(0, int32_t,     GetSkinJointCount,             DsonDocument_GetSkinJointCount,             (uint64_t, int32_t)) \
+    X(0, const char*, GetSkinJointNodeId,            DsonDocument_GetSkinJointNodeId,            (uint64_t, int32_t, int32_t)) \
+    X(0, int32_t,     GetSkinJointWeightCount,       DsonDocument_GetSkinJointWeightCount,       (uint64_t, int32_t, int32_t)) \
+    X(0, int32_t,     GetSkinJointWeightVertexIndex, DsonDocument_GetSkinJointWeightVertexIndex, (uint64_t, int32_t, int32_t, int32_t)) \
+    X(0, double,      GetSkinJointWeight,            DsonDocument_GetSkinJointWeight,            (uint64_t, int32_t, int32_t, int32_t)) \
+    X(0, int32_t,     GetVertexInfluenceCount,       DsonDocument_GetVertexInfluenceCount,       (uint64_t, int32_t, int32_t, int32_t)) \
+    X(0, bool,        GetVertexBoneInfluence,        DsonDocument_GetVertexBoneInfluence,        (uint64_t, int32_t, int32_t, int32_t, const char**, double*)) \
+    X(0, bool,        GetVertexBoneInfluenceCapped,  DsonDocument_GetVertexBoneInfluenceCapped,  (uint64_t, int32_t, int32_t, int32_t, int32_t, const char**, double*)) \
+    \
+    /* Library materials */ \
+    X(0, int32_t,     GetMaterialCount,      DsonDocument_GetMaterialCount,      (uint64_t)) \
+    X(0, const char*, GetMaterialId,         DsonDocument_GetMaterialId,         (uint64_t, int32_t)) \
+    X(0, const char*, GetMaterialName,       DsonDocument_GetMaterialName,       (uint64_t, int32_t)) \
+    X(0, const char*, GetMaterialGeometryId, DsonDocument_GetMaterialGeometryId, (uint64_t, int32_t)) \
+    X(0, const char*, GetMaterialUVSetId,    DsonDocument_GetMaterialUVSetId,    (uint64_t, int32_t)) \
+    X(0, const char*, GetMaterialType,       DsonDocument_GetMaterialType,       (uint64_t, int32_t)) \
+    X(0, const char*, GetMaterialShaderType, DsonDocument_GetMaterialShaderType, (uint64_t, int32_t)) \
+    X(0, int32_t,     GetMaterialGroupCount, DsonDocument_GetMaterialGroupCount, (uint64_t, int32_t)) \
+    X(0, const char*, GetMaterialGroupName,  DsonDocument_GetMaterialGroupName,  (uint64_t, int32_t, int32_t)) \
+    \
+    /* Library material channels (indexed) */ \
+    X(0, int32_t,     GetMaterialChannelCount,       DsonDocument_GetMaterialChannelCount,       (uint64_t, int32_t)) \
+    X(0, const char*, GetMaterialChannelId,          DsonDocument_GetMaterialChannelId,          (uint64_t, int32_t, int32_t)) \
+    X(0, const char*, GetMaterialChannelType,        DsonDocument_GetMaterialChannelType,        (uint64_t, int32_t, int32_t)) \
+    X(0, double,      GetMaterialChannelValue,       DsonDocument_GetMaterialChannelValue,       (uint64_t, int32_t, int32_t)) \
+    X(0, double,      GetMaterialChannelColorR,      DsonDocument_GetMaterialChannelColorR,      (uint64_t, int32_t, int32_t)) \
+    X(0, double,      GetMaterialChannelColorG,      DsonDocument_GetMaterialChannelColorG,      (uint64_t, int32_t, int32_t)) \
+    X(0, double,      GetMaterialChannelColorB,      DsonDocument_GetMaterialChannelColorB,      (uint64_t, int32_t, int32_t)) \
+    X(0, bool,        GetMaterialChannelHasColor,    DsonDocument_GetMaterialChannelHasColor,    (uint64_t, int32_t, int32_t)) \
+    X(0, const char*, GetMaterialChannelImageUrl,    DsonDocument_GetMaterialChannelImageUrl,    (uint64_t, int32_t, int32_t)) \
+    X(0, const char*, GetMaterialChannelTexturePath, DsonDocument_GetMaterialChannelTexturePath, (uint64_t, int32_t, int32_t)) \
+    \
+    /* Scene materials */ \
+    X(0, int32_t,     GetSceneMaterialCount,      DsonDocument_GetSceneMaterialCount,      (uint64_t)) \
+    X(0, const char*, GetSceneMaterialId,         DsonDocument_GetSceneMaterialId,         (uint64_t, int32_t)) \
+    X(0, const char*, GetSceneMaterialUrl,        DsonDocument_GetSceneMaterialUrl,        (uint64_t, int32_t)) \
+    X(0, int32_t,     GetSceneMaterialGroupCount, DsonDocument_GetSceneMaterialGroupCount, (uint64_t, int32_t)) \
+    X(0, const char*, GetSceneMaterialGroupName,  DsonDocument_GetSceneMaterialGroupName,  (uint64_t, int32_t, int32_t)) \
+    X(0, const char*, GetSceneMaterialName,       DsonDocument_GetSceneMaterialName,       (uint64_t, int32_t)) \
+    X(0, const char*, GetSceneMaterialGeometryId, DsonDocument_GetSceneMaterialGeometryId, (uint64_t, int32_t)) \
+    X(0, const char*, GetSceneMaterialUVSetId,    DsonDocument_GetSceneMaterialUVSetId,    (uint64_t, int32_t)) \
+    X(0, const char*, GetSceneMaterialType,       DsonDocument_GetSceneMaterialType,       (uint64_t, int32_t)) \
+    X(0, const char*, GetSceneMaterialShaderType, DsonDocument_GetSceneMaterialShaderType, (uint64_t, int32_t)) \
+    \
+    /* Scene material channels (indexed) */ \
+    X(0, int32_t,     GetSceneMaterialChannelCount,       DsonDocument_GetSceneMaterialChannelCount,       (uint64_t, int32_t)) \
+    X(0, const char*, GetSceneMaterialChannelId,          DsonDocument_GetSceneMaterialChannelId,          (uint64_t, int32_t, int32_t)) \
+    X(0, const char*, GetSceneMaterialChannelType,        DsonDocument_GetSceneMaterialChannelType,        (uint64_t, int32_t, int32_t)) \
+    X(0, double,      GetSceneMaterialChannelValue,       DsonDocument_GetSceneMaterialChannelValue,       (uint64_t, int32_t, int32_t)) \
+    X(0, double,      GetSceneMaterialChannelColorR,      DsonDocument_GetSceneMaterialChannelColorR,      (uint64_t, int32_t, int32_t)) \
+    X(0, double,      GetSceneMaterialChannelColorG,      DsonDocument_GetSceneMaterialChannelColorG,      (uint64_t, int32_t, int32_t)) \
+    X(0, double,      GetSceneMaterialChannelColorB,      DsonDocument_GetSceneMaterialChannelColorB,      (uint64_t, int32_t, int32_t)) \
+    X(0, bool,        GetSceneMaterialChannelHasColor,    DsonDocument_GetSceneMaterialChannelHasColor,    (uint64_t, int32_t, int32_t)) \
+    X(0, const char*, GetSceneMaterialChannelImageUrl,    DsonDocument_GetSceneMaterialChannelImageUrl,    (uint64_t, int32_t, int32_t)) \
+    X(0, const char*, GetSceneMaterialChannelTexturePath, DsonDocument_GetSceneMaterialChannelTexturePath, (uint64_t, int32_t, int32_t))
 
 struct FDsonParserAPI
 {
-    Fn_Create                    Create                    = nullptr;
-    Fn_Destroy                   Destroy                   = nullptr;
-    Fn_LoadFromString            LoadFromString            = nullptr;
-    Fn_GetLastError              GetLastError              = nullptr;
-    Fn_GetAssetType              GetAssetType              = nullptr;
-    Fn_GetAssetId                GetAssetId                = nullptr;
-    Fn_GetSceneNodeCount         GetSceneNodeCount         = nullptr;
-    Fn_GetSceneNodeGeometryCount GetSceneNodeGeometryCount = nullptr;
-    Fn_GetSceneNodeGeometryUrl   GetSceneNodeGeometryUrl   = nullptr;
-
-    DsonDocument_GetNodeCountFn        GetNodeCount        = nullptr;
-    DsonDocument_GetNodeIdFn           GetNodeId           = nullptr;
-    DsonDocument_GetNodeNameFn         GetNodeName         = nullptr;
-    DsonDocument_GetNodeTypeFn         GetNodeType         = nullptr;
-    DsonDocument_GetNodeParentFn       GetNodeParent       = nullptr;
-    DsonDocument_GetNodeCenterPointXFn GetNodeCenterPointX = nullptr;
-    DsonDocument_GetNodeCenterPointYFn GetNodeCenterPointY = nullptr;
-    DsonDocument_GetNodeCenterPointZFn GetNodeCenterPointZ = nullptr;
-    DsonDocument_GetNodeOrientationXFn GetNodeOrientationX = nullptr;
-    DsonDocument_GetNodeOrientationYFn GetNodeOrientationY = nullptr;
-    DsonDocument_GetNodeOrientationZFn GetNodeOrientationZ = nullptr;
-    DsonDocument_GetNodeRotationOrderFn GetNodeRotationOrder = nullptr;
-    DsonDocument_GetNodeGeneralScaleFn  GetNodeGeneralScale  = nullptr;
-    DsonDocument_GetUnitScaleFn         GetUnitScale         = nullptr;
-
-    DsonDocument_GetGeometryCountFn            GetGeometryCount            = nullptr;
-    DsonDocument_GetVertexCountFn              GetVertexCount              = nullptr;
-    DsonDocument_GetVertexXFn                  GetVertexX                  = nullptr;
-    DsonDocument_GetVertexYFn                  GetVertexY                  = nullptr;
-    DsonDocument_GetVertexZFn                  GetVertexZ                  = nullptr;
-    DsonDocument_GetPolylistCountFn            GetPolylistCount            = nullptr;
-    DsonDocument_GetPolylistFaceVertexCountFn  GetPolylistFaceVertexCount  = nullptr;
-    DsonDocument_GetPolylistFaceVertexFn       GetPolylistFaceVertex       = nullptr;
-    DsonDocument_GetPolylistFaceMaterialIndexFn GetPolylistFaceMaterialIndex = nullptr;
-    DsonDocument_GetUVSetCountFn                  GetUVSetCount                  = nullptr;
-    DsonDocument_GetUVCountFn                     GetUVCount                     = nullptr;
-    DsonDocument_GetUVUFn                         GetUVU                         = nullptr;
-    DsonDocument_GetUVVFn                         GetUVV                         = nullptr;
-    DsonDocument_GetUVPolygonVertexIndexCountFn   GetUVPolygonVertexIndexCount   = nullptr;
-    DsonDocument_GetUVPolygonVertexIndexFn        GetUVPolygonVertexIndex        = nullptr;
-    DsonDocument_GetUVSetVertexCountFn   GetUVSetVertexCount   = nullptr;
-    DsonDocument_GetUVOverrideCountFn    GetUVOverrideCount    = nullptr;
-    DsonDocument_GetUVOverrideFaceFn     GetUVOverrideFace     = nullptr;
-    DsonDocument_GetUVOverrideCornerFn   GetUVOverrideCorner   = nullptr;
-    DsonDocument_GetUVOverrideUVIndexFn  GetUVOverrideUVIndex  = nullptr;
-    DsonDocument_GetPolygonMaterialGroupCountFn   GetPolygonMaterialGroupCount   = nullptr;
-    DsonDocument_GetPolygonMaterialGroupNameFn    GetPolygonMaterialGroupName    = nullptr;
-
-    DsonDocument_GetModifierIdFn                  GetModifierId                  = nullptr;
-    DsonDocument_GetModifierNameFn                GetModifierName                = nullptr;
-    DsonDocument_GetModifierTypeFn                GetModifierType                = nullptr;
-    DsonDocument_GetModifierCountFn               GetModifierCount               = nullptr;
-    DsonDocument_GetModifierSkinVertexCountFn      GetModifierSkinVertexCount     = nullptr;
-    DsonDocument_GetModifierSkinJointCountFn       GetModifierSkinJointCount      = nullptr;
-    DsonDocument_GetSkinJointCountFn              GetSkinJointCount              = nullptr;
-    DsonDocument_GetSkinJointNodeIdFn             GetSkinJointNodeId             = nullptr;
-    DsonDocument_GetSkinJointWeightCountFn        GetSkinJointWeightCount        = nullptr;
-    DsonDocument_GetSkinJointWeightVertexIndexFn  GetSkinJointWeightVertexIndex  = nullptr;
-    DsonDocument_GetSkinJointWeightFn             GetSkinJointWeight             = nullptr;
-    DsonDocument_GetVertexInfluenceCountFn        GetVertexInfluenceCount        = nullptr;
-    DsonDocument_GetVertexBoneInfluenceFn         GetVertexBoneInfluence         = nullptr;
-    DsonDocument_GetVertexBoneInfluenceCappedFn   GetVertexBoneInfluenceCapped   = nullptr;
-
-    DsonDocument_GetMaterialCountFn        GetMaterialCount        = nullptr;
-    DsonDocument_GetMaterialIdFn           GetMaterialId           = nullptr;
-    DsonDocument_GetMaterialNameFn         GetMaterialName         = nullptr;
-    DsonDocument_GetMaterialGeometryIdFn   GetMaterialGeometryId   = nullptr;
-    DsonDocument_GetMaterialUVSetIdFn      GetMaterialUVSetId      = nullptr;
-    DsonDocument_GetMaterialTypeFn         GetMaterialType         = nullptr;
-    DsonDocument_GetMaterialShaderTypeFn   GetMaterialShaderType   = nullptr;
-    DsonDocument_GetMaterialGroupCountFn   GetMaterialGroupCount   = nullptr;
-    DsonDocument_GetMaterialGroupNameFn    GetMaterialGroupName    = nullptr;
-
-    DsonDocument_GetMaterialChannelCountFn       GetMaterialChannelCount       = nullptr;
-    DsonDocument_GetMaterialChannelIdFn          GetMaterialChannelId          = nullptr;
-    DsonDocument_GetMaterialChannelTypeFn        GetMaterialChannelType        = nullptr;
-    DsonDocument_GetMaterialChannelValueFn       GetMaterialChannelValue       = nullptr;
-    DsonDocument_GetMaterialChannelColorRFn      GetMaterialChannelColorR      = nullptr;
-    DsonDocument_GetMaterialChannelColorGFn      GetMaterialChannelColorG      = nullptr;
-    DsonDocument_GetMaterialChannelColorBFn      GetMaterialChannelColorB      = nullptr;
-    DsonDocument_GetMaterialChannelHasColorFn    GetMaterialChannelHasColor    = nullptr;
-    DsonDocument_GetMaterialChannelImageUrlFn    GetMaterialChannelImageUrl    = nullptr;
-    DsonDocument_GetMaterialChannelTexturePathFn GetMaterialChannelTexturePath = nullptr;
-
-    DsonDocument_GetSceneMaterialCountFn      GetSceneMaterialCount      = nullptr;
-    DsonDocument_GetSceneMaterialIdFn         GetSceneMaterialId         = nullptr;
-    DsonDocument_GetSceneMaterialUrlFn        GetSceneMaterialUrl        = nullptr;
-    DsonDocument_GetSceneMaterialGroupCountFn GetSceneMaterialGroupCount = nullptr;
-    DsonDocument_GetSceneMaterialGroupNameFn  GetSceneMaterialGroupName  = nullptr;
-
-    DsonDocument_GetSceneMaterialNameFn          GetSceneMaterialName          = nullptr;
-    DsonDocument_GetSceneMaterialGeometryIdFn    GetSceneMaterialGeometryId    = nullptr;
-    DsonDocument_GetSceneMaterialUVSetIdFn       GetSceneMaterialUVSetId       = nullptr;
-    DsonDocument_GetSceneMaterialTypeFn          GetSceneMaterialType          = nullptr;
-    DsonDocument_GetSceneMaterialShaderTypeFn    GetSceneMaterialShaderType    = nullptr;
-
-    DsonDocument_GetSceneMaterialChannelCountFn       GetSceneMaterialChannelCount       = nullptr;
-    DsonDocument_GetSceneMaterialChannelIdFn          GetSceneMaterialChannelId          = nullptr;
-    DsonDocument_GetSceneMaterialChannelTypeFn        GetSceneMaterialChannelType        = nullptr;
-    DsonDocument_GetSceneMaterialChannelValueFn       GetSceneMaterialChannelValue       = nullptr;
-    DsonDocument_GetSceneMaterialChannelColorRFn      GetSceneMaterialChannelColorR      = nullptr;
-    DsonDocument_GetSceneMaterialChannelColorGFn      GetSceneMaterialChannelColorG      = nullptr;
-    DsonDocument_GetSceneMaterialChannelColorBFn      GetSceneMaterialChannelColorB      = nullptr;
-    DsonDocument_GetSceneMaterialChannelHasColorFn    GetSceneMaterialChannelHasColor    = nullptr;
-    DsonDocument_GetSceneMaterialChannelImageUrlFn    GetSceneMaterialChannelImageUrl    = nullptr;
-    DsonDocument_GetSceneMaterialChannelTexturePathFn GetSceneMaterialChannelTexturePath = nullptr;
+#define DSON_PARSER_DECLARE_MEMBER(Required, Ret, Member, ExportName, Params) \
+    Ret (*Member) Params = nullptr;
+    DSON_PARSER_API_LIST(DSON_PARSER_DECLARE_MEMBER)
+#undef DSON_PARSER_DECLARE_MEMBER
 
     bool IsValid() const
     {
-        return Create                    != nullptr
-            && Destroy                   != nullptr
-            && LoadFromString            != nullptr
-            && GetLastError              != nullptr
-            && GetAssetType              != nullptr
-            && GetAssetId                != nullptr
-            && GetSceneNodeCount         != nullptr
-            && GetSceneNodeGeometryCount != nullptr
-            && GetSceneNodeGeometryUrl   != nullptr
-            && GetNodeCount              != nullptr
-            && GetNodeName               != nullptr;
+        return true
+#define DSON_PARSER_CHECK_REQUIRED(Required, Ret, Member, ExportName, Params) \
+            && (Required == 0 || Member != nullptr)
+        DSON_PARSER_API_LIST(DSON_PARSER_CHECK_REQUIRED)
+#undef DSON_PARSER_CHECK_REQUIRED
+            ;
     }
 };
 
