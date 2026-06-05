@@ -20,6 +20,12 @@ Saved/
 Thumbs.db
 .DS_Store
 
+# clangd language server — generated locally, never commit.
+# (A committed .clangd *config* is fine; these are machine-specific outputs:
+#  compile_commands.json holds absolute D:/ paths, .cache/ is clangd's index.)
+compile_commands.json
+.cache/
+
 # -------------------------------------------------------
 # ThirdParty binaries — commit these (precompiled DsonParser)
 # -------------------------------------------------------
