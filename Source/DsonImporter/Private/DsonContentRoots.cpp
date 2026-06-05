@@ -41,6 +41,21 @@ static void AddExistingContentRootIfUnique(const FString& Path, TArray<FString>&
         OutPaths.Add(Path);
 }
 
+static FString MakeContentRelativePath(const FString& DsonUrl)
+{
+    FString Url = DsonUrl;
+
+    int32 HashIndex = INDEX_NONE;
+    if (Url.FindChar(TEXT('#'), HashIndex))
+        Url = Url.Left(HashIndex);
+
+    FString Decoded = FDsonContentRoots::UrlDecode(Url);
+    if (Decoded.StartsWith(TEXT("/")))
+        Decoded = Decoded.RightChop(1);
+
+    return Decoded;
+}
+
 TArray<FString> FDsonContentRoots::Detect()
 {
     // Probe every DAZ Studio registry key variant this plugin knows about.
@@ -103,22 +118,11 @@ FString FDsonContentRoots::ResolveUrl(const FString& DsonUrl, const TArray<FStri
 {
     // Normalizes a DAZ reference to "content-root-relative path", then tries each root.
     // Fragments identify sub-assets inside a file and are not part of the disk path.
-    FString Url = DsonUrl;
-
-    // Strip fragment (everything after #)
-    int32 HashIndex = INDEX_NONE;
-    if (Url.FindChar(TEXT('#'), HashIndex))
-        Url = Url.Left(HashIndex);
-
-    FString Decoded = UrlDecode(Url);
-
-    // Strip leading slash
-    if (Decoded.StartsWith(TEXT("/")))
-        Decoded = Decoded.RightChop(1);
+    const FString RelativePath = MakeContentRelativePath(DsonUrl);
 
     for (const FString& Root : ContentRoots)
     {
-        FString FullPath = FPaths::Combine(Root, Decoded);
+        FString FullPath = FPaths::Combine(Root, RelativePath);
         if (FPaths::FileExists(FullPath))
             return FullPath;
     }
