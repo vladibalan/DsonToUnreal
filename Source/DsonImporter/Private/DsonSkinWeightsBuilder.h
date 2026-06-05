@@ -27,4 +27,11 @@ private:
     static void BuildBoneIdMap(
         const USkeleton* Skeleton,
         TMap<FString, int32>& OutMap);
+
+    // Builds a DAZ skin-joint node-id to UE5 bone-index map for the selected skin modifier.
+    static void BuildDazNodeIdToBoneIndexMap(
+        uint64_t DsfHandle,
+        int32 SkinModIdx,
+        const USkeleton* Skeleton,
+        TMap<FString, int32>& OutMap);
 };

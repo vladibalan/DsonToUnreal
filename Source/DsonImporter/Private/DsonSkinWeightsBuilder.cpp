@@ -118,6 +118,42 @@ void FDsonSkinWeightsBuilder::BuildBoneIdMap(
     }
 }
 
+void FDsonSkinWeightsBuilder::BuildDazNodeIdToBoneIndexMap(
+    uint64_t DsfHandle,
+    int32 SkinModIdx,
+    const USkeleton* Skeleton,
+    TMap<FString, int32>& OutMap)
+{
+    TMap<FString, int32> BoneNameMap;
+    BuildBoneIdMap(Skeleton, BoneNameMap);
+
+    if (!GDsonParser.GetSkinJointCount || !GDsonParser.GetSkinJointNodeId)
+        return;
+
+    const int32 JointCount = GDsonParser.GetSkinJointCount(DsfHandle, SkinModIdx);
+    OutMap.Reserve(JointCount);
+
+    for (int32 j = 0; j < JointCount; ++j)
+    {
+        const char* RawNodeId = GDsonParser.GetSkinJointNodeId(DsfHandle, SkinModIdx, j);
+        if (!RawNodeId)
+            continue;
+
+        const FString NodeId = NormalizeDazNodeId(RawNodeId);
+
+        const int32* BoneIdxPtr = BoneNameMap.Find(NodeId);
+        if (!BoneIdxPtr)
+        {
+            UE_LOG(LogDsonImporter, Warning,
+                TEXT("DsonSkinWeightsBuilder: skin joint node id '%s' not found in skeleton, skipping"),
+                *NodeId);
+            continue;
+        }
+
+        OutMap.Add(NodeId, *BoneIdxPtr);
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Apply
 // ---------------------------------------------------------------------------
@@ -151,33 +187,8 @@ bool FDsonSkinWeightsBuilder::Apply(
     const int32 VertCount = MeshDesc->Vertices().Num();
 
     // Step 4 - Build DAZ node-id to UE5 bone-index lookup from the skeleton.
-    TMap<FString, int32> BoneNameMap;
-    BuildBoneIdMap(Skeleton, BoneNameMap);
-
     TMap<FString, int32> DazNodeIdToBoneIndex;
-    if (GDsonParser.GetSkinJointCount && GDsonParser.GetSkinJointNodeId)
-    {
-        const int32 JointCount = GDsonParser.GetSkinJointCount(DsfHandle, SkinModIdx);
-        for (int32 j = 0; j < JointCount; ++j)
-        {
-            const char* RawNodeId = GDsonParser.GetSkinJointNodeId(DsfHandle, SkinModIdx, j);
-            if (!RawNodeId)
-                continue;
-
-            const FString NodeId = NormalizeDazNodeId(RawNodeId);
-
-            const int32* BoneIdxPtr = BoneNameMap.Find(NodeId);
-            if (!BoneIdxPtr)
-            {
-                UE_LOG(LogDsonImporter, Warning,
-                    TEXT("DsonSkinWeightsBuilder: skin joint node id '%s' not found in skeleton, skipping"),
-                    *NodeId);
-                continue;
-            }
-
-            DazNodeIdToBoneIndex.Add(NodeId, *BoneIdxPtr);
-        }
-    }
+    BuildDazNodeIdToBoneIndexMap(DsfHandle, SkinModIdx, Skeleton, DazNodeIdToBoneIndex);
 
     // Step 5 - Get skin weight attribute
     FSkeletalMeshAttributes SkelAttribs(*MeshDesc);
