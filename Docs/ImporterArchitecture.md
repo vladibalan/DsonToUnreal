@@ -97,6 +97,13 @@ The plugin is an Unreal Editor module:
 - Function pointer typedefs and `FDsonParserAPI`.
 - Keep this synchronized with exports provided by the bundled parser DLL.
 
+`DsonParserAbiCheck.cpp`
+
+- Build-time tripwire only: emits one `static_assert` per `DSON_PARSER_API_LIST`
+  row asserting the bound signature is ABI-compatible with the vendored
+  `DsonParserAPI.h` prototype. No runtime code, no linkage. Compiles to nothing
+  if the vendored header is absent (`__has_include` guard).
+
 ## Common Change Areas
 
 - Parser export missing or new parser function: update `DsonParserFunctions.h` and `DsonImporter.cpp`.

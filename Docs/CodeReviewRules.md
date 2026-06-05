@@ -3,8 +3,9 @@
 Read this before reviewing or writing any code under
 `Source/DsonImporter/`. It encodes the recurring hazards in this plugin and the
 review focus the maintainer cares about: **DRY**, **modern-C++ practice at the
-codebase's compiler level**, and **a compact codebase with no lost
-functionality**. It is the standing checklist for code-review runs on this repo.
+codebase's compiler level**, **a compact codebase with no lost
+functionality**, and **agent-orientation docs kept in sync with the code**. It
+is the standing checklist for code-review runs on this repo.
 
 This plugin targets **Unreal Engine 5.4.4** and is an editor module
 (`DsonImporter`). It binds a third-party C ABI from `DsonParser.dll`. Those two
@@ -122,6 +123,28 @@ it matches surrounding code:
   method is a breaking change for the rest of the module — call it out explicitly,
   don't slip it into a "minor" edit.
 
+### R8 — Keep agent-orientation docs in sync with the change
+The orientation docs are how an LLM agent (or human) navigates this plugin under
+a limited context budget; stale orientation silently misroutes the next session,
+so treat doc updates as part of the change, not a follow-up. When a change alters
+the file layout, a component's responsibility, the routing an agent follows, or
+the available tooling, update the relevant doc **in the same change**:
+- **A source file is added, removed, renamed, or its responsibility changes** →
+  update the file map and component list in `Docs/ImporterArchitecture.md`
+  (Shape, Component Responsibilities, Common Change Areas) **and** the Read Order
+  + Task Routing table in `AGENTS.md`.
+- **A parser export or ABI detail changes** (see R2) → also keep the
+  `DsonParserFunctions.h` description in `Docs/ImporterArchitecture.md` accurate.
+- **New tooling, build/index step, or workflow** → document it where agents look
+  (`AGENTS.md`) so the next session does not rediscover it.
+- **A rule, helper, or convention referenced by name elsewhere changes** → fix
+  the references (e.g. an `R1–R7` enumeration becomes `R1–R8`).
+
+A doc edit is in scope even when the diff is "just code": stale orientation is a
+defect, the same as a stale code comment. Reviewer action: if a change adds,
+removes, or renames a file, or changes routing or tooling, and no orientation doc
+was touched, flag it and name the doc + section that needs the update.
+
 ## Quick checklist (state results after each change)
 
 - [ ] R1: every API call exists with its **UE 5.4** signature (no 5.5+ overloads).
@@ -135,3 +158,6 @@ it matches surrounding code:
 - [ ] R6: `static_cast` and `if constexpr` per codebase idiom.
 - [ ] R7: permissive parsing and failure-return/log-context contracts intact;
       breaking changes flagged.
+- [ ] R8: agent-orientation docs updated to match the change —
+      `Docs/ImporterArchitecture.md` (file map / components) and `AGENTS.md`
+      (Read Order, Task Routing, tooling); name-referenced enumerations fixed.
