@@ -221,6 +221,39 @@ static void ApplySceneMaterialChannel(
     }
 }
 
+static bool ReadFirstSceneMaterialGroupName(
+    uint64_t DsonHandle,
+    int32 SceneMatIdx,
+    FString& OutGroupName)
+{
+    const int32 GroupCount = GDsonParser.GetSceneMaterialGroupCount
+        ? GDsonParser.GetSceneMaterialGroupCount(DsonHandle, SceneMatIdx) : 0;
+
+    const char* NameRaw = (GroupCount > 0 && GDsonParser.GetSceneMaterialGroupName)
+        ? GDsonParser.GetSceneMaterialGroupName(DsonHandle, SceneMatIdx, 0) : nullptr;
+
+    if (GroupCount == 0 || !NameRaw)
+        return false;
+
+    OutGroupName = S(NameRaw);
+    return true;
+}
+
+static void CaptureFirstUvSetUrl(uint64_t DsonHandle, int32 SceneMatIdx, FString& InOutUvSetUrl)
+{
+    if (!InOutUvSetUrl.IsEmpty() || !GDsonParser.GetSceneMaterialUVSetId)
+        return;
+
+    if (const char* UvSetRaw = GDsonParser.GetSceneMaterialUVSetId(DsonHandle, SceneMatIdx))
+    {
+        const FString Candidate = UTF8_TO_TCHAR(UvSetRaw);
+        if (!Candidate.IsEmpty())
+        {
+            InOutUvSetUrl = Candidate;
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Construction
 // ---------------------------------------------------------------------------
@@ -411,25 +444,11 @@ void FDsonMaterialBuilder::BuildAllSceneMaterials(
         if (!MIC)
             continue;
 
-        const int32 GroupCount = GDsonParser.GetSceneMaterialGroupCount
-            ? GDsonParser.GetSceneMaterialGroupCount(H, i) : 0;
+        FString GroupName;
+        const bool bHasGroupName = ReadFirstSceneMaterialGroupName(H, i, GroupName);
+        CaptureFirstUvSetUrl(H, i, OutUvSetUrl);
 
-        const char* NameRaw = (GroupCount > 0 && GDsonParser.GetSceneMaterialGroupName)
-            ? GDsonParser.GetSceneMaterialGroupName(H, i, 0) : nullptr;
-
-        if (OutUvSetUrl.IsEmpty() && GDsonParser.GetSceneMaterialUVSetId)
-        {
-            if (const char* UvSetRaw = GDsonParser.GetSceneMaterialUVSetId(H, i))
-            {
-                const FString Candidate = UTF8_TO_TCHAR(UvSetRaw);
-                if (!Candidate.IsEmpty())
-                {
-                    OutUvSetUrl = Candidate;
-                }
-            }
-        }
-
-        if (GroupCount == 0 || !NameRaw)
+        if (!bHasGroupName)
         {
             FString SceneId = S(GDsonParser.GetSceneMaterialId
                 ? GDsonParser.GetSceneMaterialId(H, i) : nullptr);
@@ -437,8 +456,6 @@ void FDsonMaterialBuilder::BuildAllSceneMaterials(
                 TEXT("[mat] scene material '%s' has no mappable group - MIC built but not wired"), *SceneId);
             continue;
         }
-
-        const FString GroupName = UTF8_TO_TCHAR(NameRaw);
 
         if (OutByGroup.Contains(GroupName))
         {
