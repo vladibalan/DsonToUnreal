@@ -35,6 +35,44 @@
 
 #define LOCTEXT_NAMESPACE "SDsonImportWindow"
 
+static FString FindFirstResolvedDependencyPath(const TArray<FDsonDependency>& Dependencies)
+{
+    for (const FDsonDependency& Dep : Dependencies)
+    {
+        if (Dep.bResolved)
+            return Dep.ResolvedPath;
+    }
+
+    return TEXT("");
+}
+
+static TArray<FString> GetMissingDependencyFileNames(const TArray<FDsonDependency>& Dependencies)
+{
+    TArray<FString> Missing;
+    for (const FDsonDependency& Dep : Dependencies)
+    {
+        if (!Dep.bResolved)
+            Missing.Add(FPaths::GetCleanFilename(Dep.Url));
+    }
+
+    return Missing;
+}
+
+static void ShowImportNotification(
+    const TCHAR* Message,
+    SNotificationItem::ECompletionState CompletionState,
+    float ExpireDuration)
+{
+    FNotificationInfo Info(FText::FromString(FString(Message)));
+    Info.ExpireDuration = ExpireDuration;
+    Info.bUseLargeFont = false;
+
+    TSharedPtr<SNotificationItem> Notification =
+        FSlateNotificationManager::Get().AddNotification(Info);
+    if (Notification.IsValid())
+        Notification->SetCompletionState(CompletionState);
+}
+
 void SDsonImportWindow::Construct(const FArguments& InArgs)
 {
     // Build the modal UI and cache DAZ content roots once for this dialog session.
@@ -247,19 +285,7 @@ FReply SDsonImportWindow::OnBrowseClicked()
 
 FReply SDsonImportWindow::OnImportClicked()
 {
-    PendingSettings.DsonFilePath = SelectedFilePath;
-    PendingSettings.Generation = ValidationResult.Generation;
-    PendingSettings.ResolvedFigureDsfPath.Empty();
-
-    for (const FDsonDependency& Dep : ValidationResult.Dependencies)
-    {
-        if (Dep.bResolved)
-        {
-            PendingSettings.ResolvedFigureDsfPath = Dep.ResolvedPath;
-            break;
-        }
-    }
-    PendingSettings.bDumpMaterialDiagnostics = bDumpMaterialDiagnostics;
+    RefreshPendingSettingsFromValidation();
 
     const FDsonImportResult ImportResult = FDsonImportPipeline::Run(PendingSettings, ContentRoots);
     if (ImportResult.bAbortedBeforeAssetBuild)
@@ -286,13 +312,10 @@ FReply SDsonImportWindow::OnImportClicked()
                 TEXT("Skeletal mesh import failed. Check the Output Log for details."));
         }
 
-        FNotificationInfo Info(FText::FromString(TEXT("Skeleton imported successfully")));
-        Info.ExpireDuration = 4.0f;
-        Info.bUseLargeFont  = false;
-        TSharedPtr<SNotificationItem> Notification =
-            FSlateNotificationManager::Get().AddNotification(Info);
-        if (Notification.IsValid())
-            Notification->SetCompletionState(SNotificationItem::CS_Success);
+        ShowImportNotification(
+            TEXT("Skeleton imported successfully"),
+            SNotificationItem::CS_Success,
+            4.0f);
 
         FContentBrowserModule& CBModule =
             FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
@@ -306,29 +329,29 @@ FReply SDsonImportWindow::OnImportClicked()
         UE_LOG(LogDsonImporter, Error,
             TEXT("Skeleton import failed. Check the Output Log for details."));
 
-        FNotificationInfo Info(FText::FromString(TEXT("Skeleton import failed - see Output Log")));
-        Info.ExpireDuration = 6.0f;
-        Info.bUseLargeFont  = false;
-        TSharedPtr<SNotificationItem> Notification =
-            FSlateNotificationManager::Get().AddNotification(Info);
-        if (Notification.IsValid())
-            Notification->SetCompletionState(SNotificationItem::CS_Fail);
+        ShowImportNotification(
+            TEXT("Skeleton import failed - see Output Log"),
+            SNotificationItem::CS_Fail,
+            6.0f);
     }
 
-    TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow(AsShared());
-    if (Window.IsValid())
-        Window->RequestDestroyWindow();
+    CloseOwningWindow();
 
     return FReply::Handled();
 }
 
 FReply SDsonImportWindow::OnCancelClicked()
 {
+    CloseOwningWindow();
+
+    return FReply::Handled();
+}
+
+void SDsonImportWindow::CloseOwningWindow()
+{
     TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow(AsShared());
     if (Window.IsValid())
         Window->RequestDestroyWindow();
-
-    return FReply::Handled();
 }
 
 void SDsonImportWindow::RunValidation(const FString& FilePath)
@@ -339,18 +362,7 @@ void SDsonImportWindow::RunValidation(const FString& FilePath)
 
     if (ValidationResult.bIsValid)
     {
-        PendingSettings.DsonFilePath = FilePath;
-        PendingSettings.Generation = ValidationResult.Generation;
-        PendingSettings.ResolvedFigureDsfPath.Empty();
-        for (const FDsonDependency& Dep : ValidationResult.Dependencies)
-        {
-            if (Dep.bResolved)
-            {
-                PendingSettings.ResolvedFigureDsfPath = Dep.ResolvedPath;
-                break;
-            }
-        }
-        PendingSettings.bDumpMaterialDiagnostics = bDumpMaterialDiagnostics;
+        RefreshPendingSettingsFromValidation();
     }
 }
 
@@ -360,6 +372,15 @@ void SDsonImportWindow::SetSelectedFilePathAndValidate(const FString& FilePath)
     FPaths::NormalizeFilename(AbsPath);
     SelectedFilePath = AbsPath;
     RunValidation(SelectedFilePath);
+}
+
+void SDsonImportWindow::RefreshPendingSettingsFromValidation()
+{
+    PendingSettings.DsonFilePath = SelectedFilePath;
+    PendingSettings.Generation = ValidationResult.Generation;
+    PendingSettings.ResolvedFigureDsfPath =
+        FindFirstResolvedDependencyPath(ValidationResult.Dependencies);
+    PendingSettings.bDumpMaterialDiagnostics = bDumpMaterialDiagnostics;
 }
 
 EVisibility SDsonImportWindow::GetValidationSuccessVisibility() const
@@ -431,10 +452,9 @@ FText SDsonImportWindow::GetDependencyStatusText() const
     }
 
     TArray<FString> Missing;
-    for (const FDsonDependency& Dep : ValidationResult.Dependencies)
+    for (const FString& FileName : GetMissingDependencyFileNames(ValidationResult.Dependencies))
     {
-        if (!Dep.bResolved)
-            Missing.Add(FPaths::GetCleanFilename(Dep.Url) + TEXT(" - not found"));
+        Missing.Add(FileName + TEXT(" - not found"));
     }
     return FText::FromString(TEXT("Missing dependencies:\n") + FString::Join(Missing, TEXT("\n")));
 }
@@ -445,10 +465,9 @@ FText SDsonImportWindow::GetUnresolvedDependencyText() const
         return FText::GetEmpty();
 
     FString Lines;
-    for (const FDsonDependency& Dep : ValidationResult.Dependencies)
+    for (const FString& FileName : GetMissingDependencyFileNames(ValidationResult.Dependencies))
     {
-        if (!Dep.bResolved)
-            Lines += FString::Printf(TEXT("Missing: %s\n"), *FPaths::GetCleanFilename(Dep.Url));
+        Lines += FString::Printf(TEXT("Missing: %s\n"), *FileName);
     }
 
     if (!ContentRoots.IsEmpty())

@@ -28,12 +28,18 @@ private:
     // Closes the modal window without touching import state or assets.
     FReply OnCancelClicked();
 
+    // Requests destruction of the modal window that owns this widget.
+    void CloseOwningWindow();
+
     // Validation
     // Calls FDsonValidator and updates PendingSettings only when the selected file is valid.
     void RunValidation(const FString& FilePath);
 
     // Normalizes a user-entered or browser-selected path, stores it, then validates it.
     void SetSelectedFilePathAndValidate(const FString& FilePath);
+
+    // Rebuilds import settings from the latest valid validation result.
+    void RefreshPendingSettingsFromValidation();
 
     // Slate attribute helpers
     EVisibility GetValidationSuccessVisibility() const;
