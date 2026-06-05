@@ -71,10 +71,7 @@ void SDsonImportWindow::Construct(const FArguments& InArgs)
                 .HintText(LOCTEXT("FileHint", "path/to/file.duf"))
                 .OnTextCommitted_Lambda([this](const FText& NewText, ETextCommit::Type)
                 {
-                    FString AbsPath = FPaths::ConvertRelativePathToFull(NewText.ToString());
-                    FPaths::NormalizeFilename(AbsPath);
-                    SelectedFilePath = AbsPath;
-                    RunValidation(SelectedFilePath);
+                    SetSelectedFilePathAndValidate(NewText.ToString());
                 })
             ]
 
@@ -242,10 +239,7 @@ FReply SDsonImportWindow::OnBrowseClicked()
 
     if (bOpened && OutFiles.Num() > 0)
     {
-        FString AbsPath = FPaths::ConvertRelativePathToFull(OutFiles[0]);
-        FPaths::NormalizeFilename(AbsPath);
-        SelectedFilePath = AbsPath;
-        RunValidation(SelectedFilePath);
+        SetSelectedFilePathAndValidate(OutFiles[0]);
     }
 
     return FReply::Handled();
@@ -358,6 +352,14 @@ void SDsonImportWindow::RunValidation(const FString& FilePath)
         }
         PendingSettings.bDumpMaterialDiagnostics = bDumpMaterialDiagnostics;
     }
+}
+
+void SDsonImportWindow::SetSelectedFilePathAndValidate(const FString& FilePath)
+{
+    FString AbsPath = FPaths::ConvertRelativePathToFull(FilePath);
+    FPaths::NormalizeFilename(AbsPath);
+    SelectedFilePath = AbsPath;
+    RunValidation(SelectedFilePath);
 }
 
 EVisibility SDsonImportWindow::GetValidationSuccessVisibility() const

@@ -32,6 +32,9 @@ private:
     // Calls FDsonValidator and updates PendingSettings only when the selected file is valid.
     void RunValidation(const FString& FilePath);
 
+    // Normalizes a user-entered or browser-selected path, stores it, then validates it.
+    void SetSelectedFilePathAndValidate(const FString& FilePath);
+
     // Slate attribute helpers
     EVisibility GetValidationSuccessVisibility() const;
     EVisibility GetValidationErrorVisibility() const;
