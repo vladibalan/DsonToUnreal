@@ -49,6 +49,46 @@ static bool IsColorChannel(const FString& ChannelId)
     return ColorIds.Contains(ChannelId);
 }
 
+struct FSceneMaterialChannelDiagnostic
+{
+    FString Id;
+    FString Type;
+    double Value = 0.0;
+    bool bHasColor = false;
+    double ColorR = 0.0;
+    double ColorG = 0.0;
+    double ColorB = 0.0;
+    FString ImageUrl;
+    FString TexturePath;
+};
+
+static FSceneMaterialChannelDiagnostic ReadSceneMaterialChannelDiagnostic(
+    uint64_t DsonHandle,
+    int32 SceneMatIdx,
+    int32 ChannelIdx)
+{
+    FSceneMaterialChannelDiagnostic Channel;
+    Channel.Id = S(GDsonParser.GetSceneMaterialChannelId
+        ? GDsonParser.GetSceneMaterialChannelId(DsonHandle, SceneMatIdx, ChannelIdx) : nullptr);
+    Channel.Type = S(GDsonParser.GetSceneMaterialChannelType
+        ? GDsonParser.GetSceneMaterialChannelType(DsonHandle, SceneMatIdx, ChannelIdx) : nullptr);
+    Channel.Value = GDsonParser.GetSceneMaterialChannelValue
+        ? GDsonParser.GetSceneMaterialChannelValue(DsonHandle, SceneMatIdx, ChannelIdx) : 0.0;
+    Channel.bHasColor = GDsonParser.GetSceneMaterialChannelHasColor
+        ? GDsonParser.GetSceneMaterialChannelHasColor(DsonHandle, SceneMatIdx, ChannelIdx) : false;
+    Channel.ColorR = GDsonParser.GetSceneMaterialChannelColorR
+        ? GDsonParser.GetSceneMaterialChannelColorR(DsonHandle, SceneMatIdx, ChannelIdx) : 0.0;
+    Channel.ColorG = GDsonParser.GetSceneMaterialChannelColorG
+        ? GDsonParser.GetSceneMaterialChannelColorG(DsonHandle, SceneMatIdx, ChannelIdx) : 0.0;
+    Channel.ColorB = GDsonParser.GetSceneMaterialChannelColorB
+        ? GDsonParser.GetSceneMaterialChannelColorB(DsonHandle, SceneMatIdx, ChannelIdx) : 0.0;
+    Channel.ImageUrl = S(GDsonParser.GetSceneMaterialChannelImageUrl
+        ? GDsonParser.GetSceneMaterialChannelImageUrl(DsonHandle, SceneMatIdx, ChannelIdx) : nullptr);
+    Channel.TexturePath = S(GDsonParser.GetSceneMaterialChannelTexturePath
+        ? GDsonParser.GetSceneMaterialChannelTexturePath(DsonHandle, SceneMatIdx, ChannelIdx) : nullptr);
+    return Channel;
+}
+
 static TArray<FString> ReadLibraryMaterialGroups(uint64_t DsonHandle, int32 MaterialIdx)
 {
     TArray<FString> Groups;
@@ -176,29 +216,23 @@ static void DumpOneFile(const FString& FilePath, const FDsonImportSettings& Sett
         UE_LOG(LogDsonImporter, Log, TEXT("    Channels (%d):"), ChCount);
         for (int32 c = 0; c < ChCount; ++c)
         {
-            FString ChId    = S(GDsonParser.GetSceneMaterialChannelId   ? GDsonParser.GetSceneMaterialChannelId(H, i, c)   : nullptr);
-            FString ChType  = S(GDsonParser.GetSceneMaterialChannelType ? GDsonParser.GetSceneMaterialChannelType(H, i, c) : nullptr);
-            const double Val     = GDsonParser.GetSceneMaterialChannelValue    ? GDsonParser.GetSceneMaterialChannelValue(H, i, c)    : 0.0;
-            const bool bHasColor = GDsonParser.GetSceneMaterialChannelHasColor ? GDsonParser.GetSceneMaterialChannelHasColor(H, i, c) : false;
-            const double CR      = GDsonParser.GetSceneMaterialChannelColorR   ? GDsonParser.GetSceneMaterialChannelColorR(H, i, c)   : 0.0;
-            const double CG      = GDsonParser.GetSceneMaterialChannelColorG   ? GDsonParser.GetSceneMaterialChannelColorG(H, i, c)   : 0.0;
-            const double CB      = GDsonParser.GetSceneMaterialChannelColorB   ? GDsonParser.GetSceneMaterialChannelColorB(H, i, c)   : 0.0;
-            FString ImgUrl  = S(GDsonParser.GetSceneMaterialChannelImageUrl    ? GDsonParser.GetSceneMaterialChannelImageUrl(H, i, c)    : nullptr);
-            FString TexPath = S(GDsonParser.GetSceneMaterialChannelTexturePath ? GDsonParser.GetSceneMaterialChannelTexturePath(H, i, c) : nullptr);
+            const FSceneMaterialChannelDiagnostic Channel =
+                ReadSceneMaterialChannelDiagnostic(H, i, c);
 
-            UE_LOG(LogDsonImporter, Log, TEXT("      [%d] id=\"%s\" type=\"%s\""), c, *ChId, *ChType);
-            UE_LOG(LogDsonImporter, Log, TEXT("        value=%f"), Val);
+            UE_LOG(LogDsonImporter, Log, TEXT("      [%d] id=\"%s\" type=\"%s\""), c, *Channel.Id, *Channel.Type);
+            UE_LOG(LogDsonImporter, Log, TEXT("        value=%f"), Channel.Value);
             UE_LOG(LogDsonImporter, Log, TEXT("        hasColor=%s  rgb=(%f, %f, %f)"),
-                bHasColor ? TEXT("true") : TEXT("false"), CR, CG, CB);
-            UE_LOG(LogDsonImporter, Log, TEXT("        imageUrl=\"%s\""), *ImgUrl);
-            UE_LOG(LogDsonImporter, Log, TEXT("        texturePath=\"%s\""), *TexPath);
-            if (!ImgUrl.IsEmpty())
+                Channel.bHasColor ? TEXT("true") : TEXT("false"),
+                Channel.ColorR, Channel.ColorG, Channel.ColorB);
+            UE_LOG(LogDsonImporter, Log, TEXT("        imageUrl=\"%s\""), *Channel.ImageUrl);
+            UE_LOG(LogDsonImporter, Log, TEXT("        texturePath=\"%s\""), *Channel.TexturePath);
+            if (!Channel.ImageUrl.IsEmpty())
             {
-                const bool bSRGB = IsColorChannel(ChId);
-                UTexture2D* Tex = Importer.ImportOrFind(ImgUrl, bSRGB);
+                const bool bSRGB = IsColorChannel(Channel.Id);
+                UTexture2D* Tex = Importer.ImportOrFind(Channel.ImageUrl, bSRGB);
                 UE_LOG(LogDsonImporter, Log,
                     TEXT("    [import] %s -> %s (sRGB=%d) %s"),
-                    *ImgUrl,
+                    *Channel.ImageUrl,
                     Tex ? *Tex->GetPathName() : TEXT("<failed>"),
                     (int32)bSRGB,
                     Tex ? TEXT("OK") : TEXT("FAIL"));
