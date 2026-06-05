@@ -29,7 +29,7 @@ static FString GenString(EGenesisGeneration Gen)
 
 // Converts a nullable const char* (already retrieved from the parser) to FString.
 // The caller must not make further parser calls between obtaining the raw pointer
-// and passing it here — see the "immediate conversion" rule in the hard rules.
+// and passing it here - see the "immediate conversion" rule in the hard rules.
 static FString S(const char* Raw)
 {
     return Raw ? FString(UTF8_TO_TCHAR(Raw)) : TEXT("");
@@ -47,6 +47,40 @@ static bool IsColorChannel(const FString& ChannelId)
         TEXT("Makeup Base Color"),
     };
     return ColorIds.Contains(ChannelId);
+}
+
+static TArray<FString> ReadLibraryMaterialGroups(uint64_t DsonHandle, int32 MaterialIdx)
+{
+    TArray<FString> Groups;
+
+    const int32 GroupCount = GDsonParser.GetMaterialGroupCount
+        ? GDsonParser.GetMaterialGroupCount(DsonHandle, MaterialIdx) : 0;
+    Groups.Reserve(GroupCount);
+
+    for (int32 g = 0; g < GroupCount; ++g)
+    {
+        Groups.Add(S(GDsonParser.GetMaterialGroupName
+            ? GDsonParser.GetMaterialGroupName(DsonHandle, MaterialIdx, g) : nullptr));
+    }
+
+    return Groups;
+}
+
+static TArray<FString> ReadSceneMaterialGroups(uint64_t DsonHandle, int32 SceneMatIdx)
+{
+    TArray<FString> Groups;
+
+    const int32 GroupCount = GDsonParser.GetSceneMaterialGroupCount
+        ? GDsonParser.GetSceneMaterialGroupCount(DsonHandle, SceneMatIdx) : 0;
+    Groups.Reserve(GroupCount);
+
+    for (int32 g = 0; g < GroupCount; ++g)
+    {
+        Groups.Add(S(GDsonParser.GetSceneMaterialGroupName
+            ? GDsonParser.GetSceneMaterialGroupName(DsonHandle, SceneMatIdx, g) : nullptr));
+    }
+
+    return Groups;
 }
 
 // ---------------------------------------------------------------------------
@@ -80,7 +114,7 @@ static void DumpOneFile(const FString& FilePath, const FDsonImportSettings& Sett
     UE_LOG(LogDsonImporter, Log, TEXT("Asset type: %s"), *AssetTypeStr);
     UE_LOG(LogDsonImporter, Log, TEXT("Generation: %s"), *GenString(Settings.Generation));
 
-    // ── Library Materials (compact: one line per channel) ────────────────────
+    // Library Materials - compact: one line per channel.
     const int32 MatCount = GDsonParser.GetMaterialCount ? GDsonParser.GetMaterialCount(H) : 0;
     UE_LOG(LogDsonImporter, Log, TEXT(""));
     UE_LOG(LogDsonImporter, Log, TEXT("--- Library Materials (%d) ---"), MatCount);
@@ -99,14 +133,7 @@ static void DumpOneFile(const FString& FilePath, const FDsonImportSettings& Sett
         UE_LOG(LogDsonImporter, Log, TEXT("    type=\"%s\"  shader_type=\"%s\""), *MatType, *ShaderType);
         UE_LOG(LogDsonImporter, Log, TEXT("    geometry=\"%s\"  uv_set=\"%s\""), *GeomId, *UVSetId);
 
-        const int32 GroupCount = GDsonParser.GetMaterialGroupCount
-            ? GDsonParser.GetMaterialGroupCount(H, i) : 0;
-        TArray<FString> Groups;
-        for (int32 g = 0; g < GroupCount; ++g)
-        {
-            Groups.Add(S(GDsonParser.GetMaterialGroupName
-                ? GDsonParser.GetMaterialGroupName(H, i, g) : nullptr));
-        }
+        const TArray<FString> Groups = ReadLibraryMaterialGroups(H, i);
         UE_LOG(LogDsonImporter, Log, TEXT("    groups: [%s]"), *FString::Join(Groups, TEXT(", ")));
 
         const int32 ChCount = GDsonParser.GetMaterialChannelCount
@@ -120,7 +147,7 @@ static void DumpOneFile(const FString& FilePath, const FDsonImportSettings& Sett
         }
     }
 
-    // ── Scene Materials (full: per-field breakdown per channel) ──────────────
+    // Scene Materials - full per-field breakdown per channel.
     const int32 SceneMatCount = GDsonParser.GetSceneMaterialCount
         ? GDsonParser.GetSceneMaterialCount(H) : 0;
     UE_LOG(LogDsonImporter, Log, TEXT(""));
@@ -140,14 +167,7 @@ static void DumpOneFile(const FString& FilePath, const FDsonImportSettings& Sett
         UE_LOG(LogDsonImporter, Log, TEXT("    type=\"%s\"  shader_type=\"%s\""), *SceneType, *SceneShader);
         UE_LOG(LogDsonImporter, Log, TEXT("    geometry=\"%s\"  uv_set=\"%s\""), *SceneGeomId, *SceneUVSetId);
 
-        const int32 SGCount = GDsonParser.GetSceneMaterialGroupCount
-            ? GDsonParser.GetSceneMaterialGroupCount(H, i) : 0;
-        TArray<FString> SGroups;
-        for (int32 g = 0; g < SGCount; ++g)
-        {
-            SGroups.Add(S(GDsonParser.GetSceneMaterialGroupName
-                ? GDsonParser.GetSceneMaterialGroupName(H, i, g) : nullptr));
-        }
+        const TArray<FString> SGroups = ReadSceneMaterialGroups(H, i);
         UE_LOG(LogDsonImporter, Log, TEXT("    groups: [%s]"), *FString::Join(SGroups, TEXT(", ")));
         UE_LOG(LogDsonImporter, Log, TEXT("    url=\"%s\""), *SceneUrl);
 
@@ -197,7 +217,7 @@ void FDsonMaterialDiagnostic::Dump(const FDsonImportSettings& Settings,
 {
     if (!GDsonParser.IsValid())
     {
-        UE_LOG(LogDsonImporter, Warning, TEXT("[MatDiag] Parser not ready — skipping diagnostic"));
+        UE_LOG(LogDsonImporter, Warning, TEXT("[MatDiag] Parser not ready - skipping diagnostic"));
         return;
     }
 
