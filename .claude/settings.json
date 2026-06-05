@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \".claude/hooks/dson-review-guard.ps1\"",
+            "timeout": 15,
+            "statusMessage": "Checking DsonToUnreal review rules (R1-R7)..."
+          }
+        ]
+      }
+    ]
+  }
+}

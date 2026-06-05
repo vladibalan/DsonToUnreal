@@ -10,7 +10,9 @@ Use this document for audit, review, debugging, and diagnostic requests. The goa
 4. Inspect only the relevant functions.
 5. Report findings with file/line references and the observed risk.
 
-For code-review style audits, lead with findings. Do not summarize first.
+For code-review style audits, lead with findings. Do not summarize first. Use
+`Docs/CodeReviewRules.md` as the checklist — it encodes this repo's DRY, UE 5.4.4
+compatibility, parser-ABI, RAII, and compactness rules (R1–R7).
 
 ## Evidence Sources
 

@@ -22,9 +22,37 @@ For discovery, prefer this order:
 
 1. `Docs/ImporterArchitecture.md`
 2. For audit, review, debugging, or diagnostic requests: `Docs/AuditGuide.md`
+   - For code-review runs (DRY / modern-C++ / compactness) **and before editing
+     source**, see "Before editing source" below — it governs authoring, not just review.
 3. The relevant `.h` file for the component you need.
 4. The top comment and section headings in the matching `.cpp`.
 5. The full `.cpp` only after identifying the task area.
+
+## Before editing source
+
+These rules govern *authoring*, not just review. Before you edit any file under
+`Source/DsonImporter/`:
+
+1. **If you have not read [`Docs/CodeReviewRules.md`](Docs/CodeReviewRules.md) this
+   session, read it now.** It is the standing checklist (R1–R7) covering the
+   hazards that are easy to introduce and expensive to catch later: UE 5.4.4 API
+   compatibility (R1), the single-source-of-truth parser ABI in
+   `DsonParserFunctions.h` (R2), RAII handles + immediate parser-string copy (R3),
+   the shared DRY helpers and the correctness-critical coordinate flip (R4),
+   compactness without losing functionality (R5), the C++20 idiom (R6), and the
+   permissive-parser / return-value / breaking-change contracts (R7). **Write code
+   that already complies with R1–R7 rather than fixing it on review.**
+2. **After each edit, self-audit the diff against that doc's Quick Checklist and
+   state the result.** Name the rules you checked and confirm the diff satisfies
+   them, or flag what doesn't — do not say "looks fine".
+
+This applies even to small or comment-only edits; the parser-ABI (R2),
+RAII/string-lifetime (R3), and breaking-change (R7) rules are most often violated
+by "minor" tweaks. (A `PreToolUse` hook in `.claude/settings.json` also surfaces
+this checklist on each plugin-source edit, but treat that as a backstop — the
+self-audit is your responsibility, and only an end-of-change review over the whole
+diff catches cross-file issues like a duplicated helper or an export drifting from
+the X-macro list.)
 
 ## Task Routing
 
