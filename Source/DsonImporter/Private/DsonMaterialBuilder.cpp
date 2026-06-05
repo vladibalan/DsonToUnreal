@@ -370,6 +370,21 @@ UMaterial* FDsonMaterialBuilder::LoadMasterForShader(EDazShaderKind Kind)
     return Master;
 }
 
+void FDsonMaterialBuilder::RecordShaderKind(EDazShaderKind Kind)
+{
+    switch (Kind)
+    {
+        case EDazShaderKind::IrayUber: ++IrayUberCount; break;
+        case EDazShaderKind::PBRSkin:  ++PBRSkinCount;  break;
+        case EDazShaderKind::Default:  ++DefaultCount;  break;
+    }
+}
+
+void FDsonMaterialBuilder::RecordFailure()
+{
+    ++FailureCount;
+}
+
 // ---------------------------------------------------------------------------
 // BuildSceneMaterial
 // ---------------------------------------------------------------------------
@@ -386,13 +401,7 @@ UMaterialInstanceConstant* FDsonMaterialBuilder::BuildSceneMaterial(
     // Step 1 - read id / url / shader_type; detect shader; increment per-shader counter
     const FSceneMaterialMetadata Metadata = ReadSceneMaterialMetadata(H, SceneMatIdx);
     const EDazShaderKind Kind = DetectShader(Metadata.Url, Metadata.ShaderType);
-
-    switch (Kind)
-    {
-        case EDazShaderKind::IrayUber: ++IrayUberCount; break;
-        case EDazShaderKind::PBRSkin:  ++PBRSkinCount;  break;
-        case EDazShaderKind::Default:  ++DefaultCount;  break;
-    }
+    RecordShaderKind(Kind);
 
     // Step 2 - load master; do NOT substitute a different master on failure
     UMaterial* Master = LoadMasterForShader(Kind);
@@ -401,7 +410,7 @@ UMaterialInstanceConstant* FDsonMaterialBuilder::BuildSceneMaterial(
         UE_LOG(LogDsonImporter, Error,
             TEXT("DsonMaterialBuilder: aborting build for scene material '%s' - master load failed"),
             *Metadata.MatId);
-        ++FailureCount;
+        RecordFailure();
         return nullptr;
     }
 
@@ -410,7 +419,7 @@ UMaterialInstanceConstant* FDsonMaterialBuilder::BuildSceneMaterial(
         CreateMaterialInstanceAsset(Metadata.MatId, OutputFolder);
     if (!AssetContext.IsValid())
     {
-        ++FailureCount;
+        RecordFailure();
         return nullptr;
     }
     UMaterialInstanceConstant* MIC = AssetContext.MIC;
@@ -432,7 +441,7 @@ UMaterialInstanceConstant* FDsonMaterialBuilder::BuildSceneMaterial(
     if (!FDsonAssetUtils::SaveAssetPackage(
             AssetContext.Package, MIC, AssetContext.PackagePath, TEXT("DsonMaterialBuilder")))
     {
-        ++FailureCount;
+        RecordFailure();
         return nullptr;
     }
 

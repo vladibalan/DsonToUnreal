@@ -1,7 +1,7 @@
 #pragma once
 #include "CoreMinimal.h"
 
-// Matches typedef void* DsonDocumentHandle in DsonParserFunctions.h — identical typedef, safe to repeat.
+// Matches typedef void* DsonDocumentHandle in DsonParserFunctions.h - identical typedef, safe to repeat.
 typedef void* DsonDocumentHandle;
 
 class UMaterialInstanceConstant;
@@ -54,6 +54,9 @@ private:
     // Loads and caches the content master material for the selected shader kind.
     // Parameter names on these assets must match MaterialMastersV1.md and mapping tables.
     UMaterial*     LoadMasterForShader(EDazShaderKind Kind);
+
+    void RecordShaderKind(EDazShaderKind Kind);
+    void RecordFailure();
 
     TArray<FString>           ContentRoots;
     FDsonTextureImporter&     TextureImporter;
