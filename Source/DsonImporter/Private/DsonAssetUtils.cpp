@@ -5,6 +5,25 @@
 #include "UObject/Package.h"
 #include "UObject/SavePackage.h"
 
+const FString& FDsonAssetUtils::ImportRootPath()
+{
+    static const FString RootPath = TEXT("/Game/DazImports");
+    return RootPath;
+}
+
+FDsonAssetPath FDsonAssetUtils::MakeImportAssetPath(const FString& BaseName, const TCHAR* Suffix)
+{
+    FDsonAssetPath AssetPath;
+    AssetPath.AssetName = BaseName + FString(Suffix);
+    AssetPath.PackagePath = ImportRootPath() / AssetPath.AssetName;
+    return AssetPath;
+}
+
+FString FDsonAssetUtils::MakeImportSubfolderPath(const TCHAR* SubfolderName, const FString& BaseName)
+{
+    return ImportRootPath() / FString(SubfolderName) / BaseName;
+}
+
 UPackage* FDsonAssetUtils::CreateLoadedPackage(const FString& PackagePath, const TCHAR* LogPrefix)
 {
     UPackage* Package = CreatePackage(*PackagePath);
@@ -55,4 +74,3 @@ bool FDsonAssetUtils::SaveAssetPackage(
     FAssetRegistryModule::GetRegistry().AssetCreated(Asset);
     return true;
 }
-

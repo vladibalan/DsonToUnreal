@@ -27,6 +27,32 @@ DEFINE_LOG_CATEGORY(LogDsonImporter);
 
 FDsonParserAPI GDsonParser;
 
+namespace
+{
+    void OpenDsonImportWindow()
+    {
+        TSharedRef<SWindow> ImportWindow = SNew(SWindow)
+            .Title(LOCTEXT("ImportWindowTitle", "Import DAZ Genesis Character"))
+            .SizingRule(ESizingRule::FixedSize)
+            .ClientSize(FVector2D(620.f, 480.f))
+            .SupportsMaximize(false)
+            .SupportsMinimize(false);
+
+        TSharedRef<SDsonImportWindow> ImportWidget = SNew(SDsonImportWindow);
+        ImportWindow->SetContent(ImportWidget);
+
+        TSharedPtr<SWindow> ParentWindow;
+        if (FModuleManager::Get().IsModuleLoaded("MainFrame"))
+        {
+            IMainFrameModule& MainFrame =
+                FModuleManager::GetModuleChecked<IMainFrameModule>("MainFrame");
+            ParentWindow = MainFrame.GetParentWindow();
+        }
+
+        FSlateApplication::Get().AddModalWindow(ImportWindow, ParentWindow);
+    }
+}
+
 void FDsonImporterModule::StartupModule()
 {
     const FString PluginBaseDir = IPluginManager::Get()
@@ -234,28 +260,7 @@ void FDsonImporterModule::RegisterMenus()
         LOCTEXT("ImportGenesisCharacterTooltip",
             "Import a DAZ Genesis character from a .duf or .dsf file"),
         FSlateIcon(),
-        FUIAction(FExecuteAction::CreateLambda([]()
-        {
-            TSharedRef<SWindow> ImportWindow = SNew(SWindow)
-                .Title(LOCTEXT("ImportWindowTitle", "Import DAZ Genesis Character"))
-                .SizingRule(ESizingRule::FixedSize)
-                .ClientSize(FVector2D(620.f, 480.f))
-                .SupportsMaximize(false)
-                .SupportsMinimize(false);
-
-            TSharedRef<SDsonImportWindow> ImportWidget = SNew(SDsonImportWindow);
-            ImportWindow->SetContent(ImportWidget);
-
-            TSharedPtr<SWindow> ParentWindow;
-            if (FModuleManager::Get().IsModuleLoaded("MainFrame"))
-            {
-                IMainFrameModule& MainFrame =
-                    FModuleManager::GetModuleChecked<IMainFrameModule>("MainFrame");
-                ParentWindow = MainFrame.GetParentWindow();
-            }
-
-            FSlateApplication::Get().AddModalWindow(ImportWindow, ParentWindow);
-        }))
+        FUIAction(FExecuteAction::CreateStatic(&OpenDsonImportWindow))
     );
 }
 

@@ -45,7 +45,7 @@ struct FMaterialInstanceAssetContext
 {
     UPackage* Package = nullptr;
     UMaterialInstanceConstant* MIC = nullptr;
-    FString PackagePath;
+    FDsonAssetPath AssetPath;
 
     bool IsValid() const { return Package && MIC; }
 };
@@ -164,21 +164,21 @@ static FMaterialInstanceAssetContext CreateMaterialInstanceAsset(
     FMaterialInstanceAssetContext AssetContext;
 
     const FString SanitizedId = ObjectTools::SanitizeObjectName(MatId);
-    const FString AssetName = TEXT("MI_") + SanitizedId;
-    AssetContext.PackagePath = OutputFolder / AssetName;
+    AssetContext.AssetPath.AssetName = TEXT("MI_") + SanitizedId;
+    AssetContext.AssetPath.PackagePath = OutputFolder / AssetContext.AssetPath.AssetName;
 
     AssetContext.Package = FDsonAssetUtils::CreateLoadedPackage(
-        AssetContext.PackagePath, TEXT("DsonMaterialBuilder"));
+        AssetContext.AssetPath.PackagePath, TEXT("DsonMaterialBuilder"));
     if (!AssetContext.Package)
         return AssetContext;
 
     AssetContext.MIC = NewObject<UMaterialInstanceConstant>(
-        AssetContext.Package, *AssetName, RF_Public | RF_Standalone);
+        AssetContext.Package, *AssetContext.AssetPath.AssetName, RF_Public | RF_Standalone);
     if (!AssetContext.MIC)
     {
         UE_LOG(LogDsonImporter, Error,
             TEXT("DsonMaterialBuilder: NewObject<UMaterialInstanceConstant> failed for '%s'"),
-            *AssetContext.PackagePath);
+            *AssetContext.AssetPath.PackagePath);
     }
 
     return AssetContext;
@@ -439,7 +439,7 @@ UMaterialInstanceConstant* FDsonMaterialBuilder::BuildSceneMaterial(
 
     // Step 7 - save (mirrors DsonTextureImporter exactly)
     if (!FDsonAssetUtils::SaveAssetPackage(
-            AssetContext.Package, MIC, AssetContext.PackagePath, TEXT("DsonMaterialBuilder")))
+            AssetContext.Package, MIC, AssetContext.AssetPath.PackagePath, TEXT("DsonMaterialBuilder")))
     {
         RecordFailure();
         return nullptr;

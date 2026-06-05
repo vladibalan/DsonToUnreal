@@ -42,6 +42,24 @@ static FString SanitizePackageSubdir(const FString& RelDir)
     return FString::Join(SanitizedParts, TEXT("/"));
 }
 
+static FString StripDsonUrlFragment(const FString& Url)
+{
+    int32 HashIndex = INDEX_NONE;
+    return Url.FindChar(TEXT('#'), HashIndex)
+        ? Url.Left(HashIndex)
+        : Url;
+}
+
+static FString NormalizeDirectoryPrefix(const FString& Directory)
+{
+    FString Normalized = Directory;
+    FPaths::NormalizeFilename(Normalized);
+    if (!Normalized.EndsWith(TEXT("/")))
+        Normalized += TEXT("/");
+
+    return Normalized;
+}
+
 static FTextureAssetPath BuildTextureAssetPath(const FString& RelSubpath)
 {
     FTextureAssetPath AssetPath;
@@ -52,10 +70,10 @@ static FTextureAssetPath BuildTextureAssetPath(const FString& RelSubpath)
 
     AssetPath.AssetName = TEXT("T_") + ObjectTools::SanitizeObjectName(BaseFilename);
     AssetPath.Extension = FPaths::GetExtension(RelSubpath);
-    AssetPath.PackagePath = TEXT("/Game/DazImports/Textures/");
+    AssetPath.PackagePath = FDsonAssetUtils::ImportRootPath() / FString(TEXT("Textures"));
     if (!SanitizedDir.IsEmpty())
-        AssetPath.PackagePath += SanitizedDir + TEXT("/");
-    AssetPath.PackagePath += AssetPath.AssetName;
+        AssetPath.PackagePath = AssetPath.PackagePath / SanitizedDir;
+    AssetPath.PackagePath = AssetPath.PackagePath / AssetPath.AssetName;
 
     return AssetPath;
 }
@@ -83,10 +101,7 @@ FString FDsonTextureImporter::DeriveRelativeSubpath(
     const FString& ImageUrl, const FString& ResolvedAbsPath) const
 {
     // Strip fragment after '#', matching the behaviour of FDsonContentRoots::ResolveUrl
-    FString Url = ImageUrl;
-    int32 HashIndex = INDEX_NONE;
-    if (Url.FindChar(TEXT('#'), HashIndex))
-        Url = Url.Left(HashIndex);
+    const FString Url = StripDsonUrlFragment(ImageUrl);
 
     if (Url.StartsWith(TEXT("/")))
     {
@@ -100,11 +115,7 @@ FString FDsonTextureImporter::DeriveRelativeSubpath(
 
     for (const FString& Root : ContentRoots)
     {
-        FString NormalizedRoot = Root;
-        FPaths::NormalizeFilename(NormalizedRoot);
-        if (!NormalizedRoot.EndsWith(TEXT("/")))
-            NormalizedRoot += TEXT("/");
-
+        const FString NormalizedRoot = NormalizeDirectoryPrefix(Root);
         if (NormalizedAbs.StartsWith(NormalizedRoot, ESearchCase::IgnoreCase))
             return NormalizedAbs.RightChop(NormalizedRoot.Len());
     }

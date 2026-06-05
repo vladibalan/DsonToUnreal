@@ -78,17 +78,32 @@ void FDsonLoadedDocument::Reset()
     Handle = nullptr;
 }
 
+void FDsonLoadedDocument::LogFailure(
+    const TCHAR* LogPrefix,
+    const FString& Message,
+    bool bWarnOnly) const
+{
+    if (bWarnOnly)
+    {
+        UE_LOG(LogDsonImporter, Warning, TEXT("%s: %s"), LogPrefix, *Message);
+    }
+    else
+    {
+        UE_LOG(LogDsonImporter, Error, TEXT("%s: %s"), LogPrefix, *Message);
+    }
+}
+
 void FDsonLoadedDocument::LogReadFailure(const TCHAR* LogPrefix, const FString& Path, bool bWarnOnly) const
 {
     if (bWarnOnly)
     {
-        UE_LOG(LogDsonImporter, Warning,
-            TEXT("%s: failed to read or empty file '%s'"), LogPrefix, *Path);
+        LogFailure(LogPrefix, FString::Printf(
+            TEXT("failed to read or empty file '%s'"), *Path), bWarnOnly);
     }
     else
     {
-        UE_LOG(LogDsonImporter, Error,
-            TEXT("%s: failed to read file '%s'"), LogPrefix, *Path);
+        LogFailure(LogPrefix, FString::Printf(
+            TEXT("failed to read file '%s'"), *Path), bWarnOnly);
     }
 }
 
@@ -96,13 +111,12 @@ void FDsonLoadedDocument::LogCreateFailure(const TCHAR* LogPrefix, const FString
 {
     if (bWarnOnly)
     {
-        UE_LOG(LogDsonImporter, Warning,
-            TEXT("%s: GDsonParser.Create() returned null for '%s'"), LogPrefix, *Path);
+        LogFailure(LogPrefix, FString::Printf(
+            TEXT("GDsonParser.Create() returned null for '%s'"), *Path), bWarnOnly);
     }
     else
     {
-        UE_LOG(LogDsonImporter, Error,
-            TEXT("%s: GDsonParser.Create() returned null"), LogPrefix);
+        LogFailure(LogPrefix, TEXT("GDsonParser.Create() returned null"), bWarnOnly);
     }
 }
 
@@ -114,14 +128,12 @@ void FDsonLoadedDocument::LogLoadFailure(
 {
     if (bWarnOnly)
     {
-        UE_LOG(LogDsonImporter, Warning,
-            TEXT("%s: LoadFromString failed for '%s': %s"),
-            LogPrefix, *Path, *ErrorText);
+        LogFailure(LogPrefix, FString::Printf(
+            TEXT("LoadFromString failed for '%s': %s"), *Path, *ErrorText), bWarnOnly);
     }
     else
     {
-        UE_LOG(LogDsonImporter, Error,
-            TEXT("%s: LoadFromString failed for '%s': %s"),
-            LogPrefix, *Path, *ErrorText);
+        LogFailure(LogPrefix, FString::Printf(
+            TEXT("LoadFromString failed for '%s': %s"), *Path, *ErrorText), bWarnOnly);
     }
 }

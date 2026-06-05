@@ -377,24 +377,27 @@ USkeleton* FDsonSkeletonBuilder::CreateSkeletonAsset(
 {
     // Saves the reference skeleton as /Game/DazImports/<AssetName>_Skeleton.
     // UE 5.4 requires the transient mesh merge path to populate USkeleton bones.
-    const FString SkeletonName = AssetName + TEXT("_Skeleton");
-    const FString PackagePath  = TEXT("/Game/DazImports/") + SkeletonName;
+    const FDsonAssetPath AssetPath = FDsonAssetUtils::MakeImportAssetPath(AssetName, TEXT("_Skeleton"));
 
-    UPackage* Package = FDsonAssetUtils::CreateLoadedPackage(PackagePath, TEXT("DsonSkeletonBuilder"));
+    UPackage* Package = FDsonAssetUtils::CreateLoadedPackage(
+        AssetPath.PackagePath, TEXT("DsonSkeletonBuilder"));
     if (!Package)
         return nullptr;
 
-    USkeleton* Skeleton = NewObject<USkeleton>(Package, *SkeletonName, RF_Public | RF_Standalone);
+    USkeleton* Skeleton = NewObject<USkeleton>(
+        Package, *AssetPath.AssetName, RF_Public | RF_Standalone);
     if (!Skeleton)
     {
         UE_LOG(LogDsonImporter, Error,
-            TEXT("DsonSkeletonBuilder: failed to create USkeleton object in '%s'"), *PackagePath);
+            TEXT("DsonSkeletonBuilder: failed to create USkeleton object in '%s'"),
+            *AssetPath.PackagePath);
         return nullptr;
     }
 
     MergeReferenceSkeletonIntoSkeleton(Skeleton, RefSkeleton);
 
-    return FDsonAssetUtils::SaveAssetPackage(Package, Skeleton, PackagePath, TEXT("DsonSkeletonBuilder"))
+    return FDsonAssetUtils::SaveAssetPackage(
+            Package, Skeleton, AssetPath.PackagePath, TEXT("DsonSkeletonBuilder"))
         ? Skeleton
         : nullptr;
 }

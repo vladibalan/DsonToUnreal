@@ -1,4 +1,5 @@
 #include "DsonImportPipeline.h"
+#include "DsonAssetUtils.h"
 #include "DsonContentRoots.h"
 #include "DsonImporter.h"
 #include "DsonMaterialBuilder.h"
@@ -11,6 +12,18 @@
 #include "Materials/MaterialInstanceConstant.h"
 #include "Misc/Paths.h"
 #include "ObjectTools.h"
+
+static const TCHAR* kDefaultFallbackMaterialObjectPath =
+    TEXT("/DsonToUnreal/Materials/M_DazDefault.M_DazDefault");
+static const TCHAR* kDefaultFallbackMaterialPackagePath =
+    TEXT("/DsonToUnreal/Materials/M_DazDefault");
+
+static FString MakeMaterialOutputFolder(const FString& DsonFilePath)
+{
+    return FDsonAssetUtils::MakeImportSubfolderPath(
+        TEXT("Materials"),
+        ObjectTools::SanitizeObjectName(FPaths::GetBaseFilename(DsonFilePath)));
+}
 
 static FString ResolveUvSetDsfPath(const FString& UvSetUrl, const TArray<FString>& ContentRoots)
 {
@@ -58,6 +71,20 @@ static void LogMaterialBuildSummary(
     UE_LOG(LogDsonImporter, Log, TEXT("  Mapped:    %d groups"), MaterialsByGroup.Num());
 }
 
+static UMaterial* LoadDefaultFallbackMaterial()
+{
+    UMaterial* DefaultMaterial = LoadObject<UMaterial>(
+        nullptr, kDefaultFallbackMaterialObjectPath);
+    if (!DefaultMaterial)
+    {
+        UE_LOG(LogDsonImporter, Error,
+            TEXT("Failed to load M_DazDefault master at %s - aborting import"),
+            kDefaultFallbackMaterialPackagePath);
+    }
+
+    return DefaultMaterial;
+}
+
 FDsonImportResult FDsonImportPipeline::Run(
     const FDsonImportSettings& Settings,
     const TArray<FString>& ContentRoots)
@@ -67,8 +94,7 @@ FDsonImportResult FDsonImportPipeline::Run(
 
     FDsonTextureImporter Importer(ContentRoots);
     FDsonMaterialBuilder Builder(ContentRoots, Importer);
-    const FString MaterialOutputFolder = TEXT("/Game/DazImports/Materials/") +
-        ObjectTools::SanitizeObjectName(FPaths::GetBaseFilename(Settings.DsonFilePath));
+    const FString MaterialOutputFolder = MakeMaterialOutputFolder(Settings.DsonFilePath);
 
     TMap<FString, UMaterialInstanceConstant*> MaterialsByGroup;
     FString UvSetUrl;
@@ -85,12 +111,9 @@ FDsonImportResult FDsonImportPipeline::Run(
         FDsonMaterialDiagnostic::Dump(Settings, Importer, MaterialOutputFolder);
     }
 
-    UMaterial* DefaultMaterial = LoadObject<UMaterial>(
-        nullptr, TEXT("/DsonToUnreal/Materials/M_DazDefault.M_DazDefault"));
+    UMaterial* DefaultMaterial = LoadDefaultFallbackMaterial();
     if (!DefaultMaterial)
     {
-        UE_LOG(LogDsonImporter, Error,
-            TEXT("Failed to load M_DazDefault master at /DsonToUnreal/Materials/M_DazDefault - aborting import"));
         Result.bAbortedBeforeAssetBuild = true;
         return Result;
     }

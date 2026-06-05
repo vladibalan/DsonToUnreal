@@ -28,6 +28,7 @@ public:
 
 private:
     bool LoadFromFile(const FString& Path, const TCHAR* LogPrefix, bool bWarnOnly);
+    void LogFailure(const TCHAR* LogPrefix, const FString& Message, bool bWarnOnly) const;
     void LogReadFailure(const TCHAR* LogPrefix, const FString& Path, bool bWarnOnly) const;
     void LogCreateFailure(const TCHAR* LogPrefix, const FString& Path, bool bWarnOnly) const;
     void LogLoadFailure(const TCHAR* LogPrefix, const FString& Path, const FString& ErrorText, bool bWarnOnly) const;

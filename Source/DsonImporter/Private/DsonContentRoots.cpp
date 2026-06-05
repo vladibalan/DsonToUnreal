@@ -41,15 +41,17 @@ static void AddExistingContentRootIfUnique(const FString& Path, TArray<FString>&
         OutPaths.Add(Path);
 }
 
+static FString StripDsonUrlFragment(const FString& Url)
+{
+    int32 HashIndex = INDEX_NONE;
+    return Url.FindChar(TEXT('#'), HashIndex)
+        ? Url.Left(HashIndex)
+        : Url;
+}
+
 static FString MakeContentRelativePath(const FString& DsonUrl)
 {
-    FString Url = DsonUrl;
-
-    int32 HashIndex = INDEX_NONE;
-    if (Url.FindChar(TEXT('#'), HashIndex))
-        Url = Url.Left(HashIndex);
-
-    FString Decoded = FDsonContentRoots::UrlDecode(Url);
+    FString Decoded = FDsonContentRoots::UrlDecode(StripDsonUrlFragment(DsonUrl));
     if (Decoded.StartsWith(TEXT("/")))
         Decoded = Decoded.RightChop(1);
 
@@ -61,9 +63,16 @@ TArray<FString> FDsonContentRoots::Detect()
     // Probe every DAZ Studio registry key variant this plugin knows about.
     // The returned list is intentionally de-duplicated in ReadRegistryKey.
     TArray<FString> Result;
-    ReadRegistryKey(TEXT("Software\\DAZ\\Studio4"), Result);
-    ReadRegistryKey(TEXT("Software\\DAZ\\Studio4_64"), Result);
-    ReadRegistryKey(TEXT("Software\\DAZ\\Studio4 Beta"), Result);
+    static const TCHAR* RegistryKeys[] = {
+        TEXT("Software\\DAZ\\Studio4"),
+        TEXT("Software\\DAZ\\Studio4_64"),
+        TEXT("Software\\DAZ\\Studio4 Beta"),
+    };
+
+    for (const TCHAR* RegistryKey : RegistryKeys)
+    {
+        ReadRegistryKey(RegistryKey, Result);
+    }
 
     if (Result.IsEmpty())
     {

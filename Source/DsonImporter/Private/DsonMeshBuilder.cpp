@@ -89,7 +89,7 @@ namespace
     {
         UPackage* Package = nullptr;
         USkeletalMesh* Mesh = nullptr;
-        FString PackagePath;
+        FDsonAssetPath AssetPath;
 
         bool IsValid() const { return Package && Mesh; }
     };
@@ -233,21 +233,21 @@ namespace
     static FDsonMeshAssetContext CreateSkeletalMeshAsset(const FDsonImportSettings& Settings)
     {
         FDsonMeshAssetContext AssetContext;
-        const FString MeshName = FPaths::GetBaseFilename(Settings.ResolvedFigureDsfPath) + TEXT("_SkeletalMesh");
-        AssetContext.PackagePath = TEXT("/Game/DazImports/") + MeshName;
+        AssetContext.AssetPath = FDsonAssetUtils::MakeImportAssetPath(
+            FPaths::GetBaseFilename(Settings.ResolvedFigureDsfPath), TEXT("_SkeletalMesh"));
 
         AssetContext.Package = FDsonAssetUtils::CreateLoadedPackage(
-            AssetContext.PackagePath, TEXT("DsonMeshBuilder"));
+            AssetContext.AssetPath.PackagePath, TEXT("DsonMeshBuilder"));
         if (!AssetContext.Package)
             return AssetContext;
 
         AssetContext.Mesh = NewObject<USkeletalMesh>(
-            AssetContext.Package, *MeshName, RF_Public | RF_Standalone);
+            AssetContext.Package, *AssetContext.AssetPath.AssetName, RF_Public | RF_Standalone);
         if (!AssetContext.Mesh)
         {
             UE_LOG(LogDsonImporter, Error,
                 TEXT("DsonMeshBuilder: failed to create USkeletalMesh in '%s'"),
-                *AssetContext.PackagePath);
+                *AssetContext.AssetPath.PackagePath);
         }
 
         return AssetContext;
@@ -795,7 +795,7 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
 
     // Step 9 - Save.
     return FDsonAssetUtils::SaveAssetPackage(
-            AssetContext.Package, Mesh, AssetContext.PackagePath, TEXT("DsonMeshBuilder"))
+            AssetContext.Package, Mesh, AssetContext.AssetPath.PackagePath, TEXT("DsonMeshBuilder"))
         ? Mesh
         : nullptr;
 }
