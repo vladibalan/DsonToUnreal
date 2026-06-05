@@ -12,6 +12,52 @@
 #include "Misc/Paths.h"
 #include "ObjectTools.h"
 
+static FString ResolveUvSetDsfPath(const FString& UvSetUrl, const TArray<FString>& ContentRoots)
+{
+    if (UvSetUrl.IsEmpty())
+    {
+        UE_LOG(LogDsonImporter, Warning, TEXT("[uv] no UV set URL found in scene materials"));
+        return TEXT("");
+    }
+
+    const FString UvSetAbsPath = FDsonContentRoots::ResolveUrl(UvSetUrl, ContentRoots);
+    if (UvSetAbsPath.IsEmpty())
+    {
+        UE_LOG(LogDsonImporter, Warning, TEXT("[uv] failed to resolve UV set URL: %s"), *UvSetUrl);
+    }
+    else
+    {
+        UE_LOG(LogDsonImporter, Log, TEXT("[uv] resolved UV set DSF: %s"), *UvSetAbsPath);
+    }
+
+    return UvSetAbsPath;
+}
+
+static void LogTextureImportSummary(const FDsonTextureImporter& Importer)
+{
+    UE_LOG(LogDsonImporter, Log, TEXT("=== DsonTextureImporter summary ==="));
+    UE_LOG(LogDsonImporter, Log, TEXT("  Imported:   %d"), Importer.GetImportedCount());
+    UE_LOG(LogDsonImporter, Log, TEXT("  Cache hits: %d"), Importer.GetCacheHitCount());
+    UE_LOG(LogDsonImporter, Log, TEXT("  Failures:   %d"), Importer.GetFailureCount());
+    for (const FString& Url : Importer.GetFailedUrls())
+    {
+        UE_LOG(LogDsonImporter, Warning, TEXT("    failed: %s"), *Url);
+    }
+}
+
+static void LogMaterialBuildSummary(
+    const FDsonMaterialBuilder& Builder,
+    const TMap<FString, UMaterialInstanceConstant*>& MaterialsByGroup)
+{
+    UE_LOG(LogDsonImporter, Log, TEXT("=== DsonMaterialBuilder summary ==="));
+    UE_LOG(LogDsonImporter, Log, TEXT("  Built:     %d"), Builder.GetBuiltCount());
+    UE_LOG(LogDsonImporter, Log, TEXT("  Failures:  %d"), Builder.GetFailureCount());
+    UE_LOG(LogDsonImporter, Log, TEXT("  Iray Uber: %d"), Builder.GetIrayUberCount());
+    UE_LOG(LogDsonImporter, Log, TEXT("  PBRSkin:   %d"), Builder.GetPBRSkinCount());
+    UE_LOG(LogDsonImporter, Log, TEXT("  Default:   %d"), Builder.GetDefaultCount());
+    UE_LOG(LogDsonImporter, Log, TEXT("  Mapped:    %d groups"), MaterialsByGroup.Num());
+}
+
 FDsonImportResult FDsonImportPipeline::Run(
     const FDsonImportSettings& Settings,
     const TArray<FString>& ContentRoots)
@@ -29,39 +75,10 @@ FDsonImportResult FDsonImportPipeline::Run(
     Builder.BuildAllSceneMaterials(Settings.DsonFilePath, MaterialOutputFolder,
         MaterialsByGroup, UvSetUrl);
 
-    FString UvSetAbsPath;
-    if (!UvSetUrl.IsEmpty())
-    {
-        UvSetAbsPath = FDsonContentRoots::ResolveUrl(UvSetUrl, ContentRoots);
-        if (UvSetAbsPath.IsEmpty())
-        {
-            UE_LOG(LogDsonImporter, Warning, TEXT("[uv] failed to resolve UV set URL: %s"), *UvSetUrl);
-        }
-        else
-        {
-            UE_LOG(LogDsonImporter, Log, TEXT("[uv] resolved UV set DSF: %s"), *UvSetAbsPath);
-        }
-    }
-    else
-    {
-        UE_LOG(LogDsonImporter, Warning, TEXT("[uv] no UV set URL found in scene materials"));
-    }
+    const FString UvSetAbsPath = ResolveUvSetDsfPath(UvSetUrl, ContentRoots);
 
-    UE_LOG(LogDsonImporter, Log, TEXT("=== DsonTextureImporter summary ==="));
-    UE_LOG(LogDsonImporter, Log, TEXT("  Imported:   %d"), Importer.GetImportedCount());
-    UE_LOG(LogDsonImporter, Log, TEXT("  Cache hits: %d"), Importer.GetCacheHitCount());
-    UE_LOG(LogDsonImporter, Log, TEXT("  Failures:   %d"), Importer.GetFailureCount());
-    for (const FString& Url : Importer.GetFailedUrls())
-    {
-        UE_LOG(LogDsonImporter, Warning, TEXT("    failed: %s"), *Url);
-    }
-    UE_LOG(LogDsonImporter, Log, TEXT("=== DsonMaterialBuilder summary ==="));
-    UE_LOG(LogDsonImporter, Log, TEXT("  Built:     %d"), Builder.GetBuiltCount());
-    UE_LOG(LogDsonImporter, Log, TEXT("  Failures:  %d"), Builder.GetFailureCount());
-    UE_LOG(LogDsonImporter, Log, TEXT("  Iray Uber: %d"), Builder.GetIrayUberCount());
-    UE_LOG(LogDsonImporter, Log, TEXT("  PBRSkin:   %d"), Builder.GetPBRSkinCount());
-    UE_LOG(LogDsonImporter, Log, TEXT("  Default:   %d"), Builder.GetDefaultCount());
-    UE_LOG(LogDsonImporter, Log, TEXT("  Mapped:    %d groups"), MaterialsByGroup.Num());
+    LogTextureImportSummary(Importer);
+    LogMaterialBuildSummary(Builder, MaterialsByGroup);
 
     if (Settings.bDumpMaterialDiagnostics)
     {
