@@ -46,6 +46,23 @@ _Last updated: 2026-06-05._
 "v1" means materials look acceptable on the tested figures; the items under
 **Deferred to v2** are knowingly out of scope for now.
 
+## Figure / generation support
+
+Figure support is gated by **shader**, not geometry: mesh + skeleton + skin
+import is generation-agnostic, but a figure only renders correctly if its DAZ
+shader has a matching master + channel mapping.
+
+| Generation | Geometry / skeleton / skin | Materials | Status |
+|---|---|---|---|
+| Genesis 8 / 8.1 | ✅ | IrayUber → `M_DazIrayUber` | ✅ Supported, verified |
+| Genesis 9 (Laura) | ✅ | PBRSkin → `M_DazPBRSkin` | ✅ Supported, verified |
+| Genesis 3 | ✅ imports | non-IrayUber shader, no mapping → falls back to `M_DazDefault` | ⚠️ Not supported in v1 (materials wrong) |
+
+Genesis 3 geometry, skeleton, and skin weights import correctly, but G3 surfaces
+use a different DAZ shader (not IrayUber) with no master/mapping yet, so its
+materials fall back to the matte `M_DazDefault` and look wrong. Proper G3 material
+support is a v2 item (see Deferred).
+
 ## Deferred to v2 (material follow-ups)
 
 Source of record: `MaterialMastersV1.md` "Open follow-ups", confirmed in the 6.y
@@ -57,6 +74,9 @@ close-out.
 - PBRSkin makeup, transmission, SSS-direction / sub-surface-enable mappings.
 - Full dual-lobe specular implementation (v1 approximates with a single lobe).
 - Clear-coat split masters (top-coat is approximated in v1).
+- **Genesis 3 material support** — identify G3's surface shader and add a master +
+  channel mapping for it. G3 geometry/skeleton/skin already import; only the
+  material mapping is missing (currently falls back to `M_DazDefault`).
 - **True multi-tile UDIM** — one material/section whose UVs span multiple tiles
   needing *different* textures (VT/atlas territory). This is **not** the
   per-section integer `UVTileOffset` that was built and reverted: under UE Wrap

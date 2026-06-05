@@ -47,25 +47,25 @@ bool FDsonLoadedDocument::LoadFromFile(const FString& Path, const TCHAR* LogPref
         return false;
     };
 
-    FString FileContent;
-    if (!FFileHelper::LoadFileToString(FileContent, *Path) || FileContent.IsEmpty())
+    TArray<uint8> FileBytes;
+    if (!FFileHelper::LoadFileToArray(FileBytes, *Path) || FileBytes.IsEmpty())
         return Fail(FString::Printf(TEXT("failed to read or empty file '%s'"), *Path));
-
-    FTCHARToUTF8 Utf8(*FileContent);
 
     Handle = GDsonParser.Create ? GDsonParser.Create() : nullptr;
     if (!Handle)
         return Fail(FString::Printf(TEXT("GDsonParser.Create() returned null for '%s'"), *Path));
 
-    const int32 Result = GDsonParser.LoadFromString
-        ? GDsonParser.LoadFromString(Handle, Utf8.Get())
+    // DAZ DSON may be gzip-compressed; LoadFromBuffer auto-detects/inflates,
+    // while reading as a string corrupts compressed bytes.
+    const int32 Result = GDsonParser.LoadFromBuffer
+        ? GDsonParser.LoadFromBuffer(Handle, reinterpret_cast<const char*>(FileBytes.GetData()), FileBytes.Num())
         : -1;
     if (Result != 0)
     {
         const char* ErrRaw = GDsonParser.GetLastError ? GDsonParser.GetLastError() : nullptr;
         const FString ErrorText = ErrRaw ? UTF8_TO_TCHAR(ErrRaw) : TEXT("unknown error");
         Reset();
-        return Fail(FString::Printf(TEXT("LoadFromString failed for '%s': %s"), *Path, *ErrorText));
+        return Fail(FString::Printf(TEXT("LoadFromBuffer failed for '%s': %s"), *Path, *ErrorText));
     }
 
     return true;

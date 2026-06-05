@@ -27,6 +27,7 @@ typedef void* DsonDocumentHandle;
     X(1, DsonDocumentHandle, Create,                    DsonDocument_Create,                    ()) \
     X(1, void,               Destroy,                   DsonDocument_Destroy,                   (DsonDocumentHandle)) \
     X(1, int,                LoadFromString,            DsonDocument_LoadFromString,            (DsonDocumentHandle, const char*)) \
+    X(1, int,                LoadFromBuffer,            DsonDocument_LoadFromBuffer,            (DsonDocumentHandle, const char*, int)) \
     X(1, const char*,        GetLastError,              DsonParser_GetLastError,                ()) \
     X(1, const char*,        GetAssetType,              DsonDocument_GetAssetType,              (DsonDocumentHandle)) \
     X(1, const char*,        GetAssetId,                DsonDocument_GetAssetId,                (DsonDocumentHandle)) \

@@ -41,6 +41,11 @@ DSONPARSER_API int DsonDocument_LoadFromFile(DsonDocumentHandle handle, const ch
 // Call DsonParser_GetLastError() for error detail on failure.
 DSONPARSER_API int DsonDocument_LoadFromString(DsonDocumentHandle handle, const char* jsonString);
 
+// Returns 0 on success, non-zero on failure.
+// Accepts plain JSON bytes or gzip-wrapped JSON bytes with an explicit length.
+// Call DsonParser_GetLastError() for error detail on failure.
+DSONPARSER_API int DsonDocument_LoadFromBuffer(DsonDocumentHandle handle, const char* data, int length);
+
 // Get file version
 DSONPARSER_API const char* DsonDocument_GetFileVersion(DsonDocumentHandle handle);
 
