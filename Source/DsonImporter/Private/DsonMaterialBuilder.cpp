@@ -50,6 +50,13 @@ struct FMaterialInstanceAssetContext
     bool IsValid() const { return Package && MIC; }
 };
 
+struct FSceneMaterialMetadata
+{
+    FString MatId;
+    FString Url;
+    FString ShaderType;
+};
+
 // ---------------------------------------------------------------------------
 // Mapping tables - initialized once, returned by const reference
 // ---------------------------------------------------------------------------
@@ -136,6 +143,18 @@ static FString S(const char* Raw)
 {
     // Parser string pointers are transient; convert immediately before another parser call.
     return Raw ? FString(UTF8_TO_TCHAR(Raw)) : TEXT("");
+}
+
+static FSceneMaterialMetadata ReadSceneMaterialMetadata(uint64_t DsonHandle, int32 SceneMatIdx)
+{
+    FSceneMaterialMetadata Metadata;
+    Metadata.MatId = S(GDsonParser.GetSceneMaterialId
+        ? GDsonParser.GetSceneMaterialId(DsonHandle, SceneMatIdx) : nullptr);
+    Metadata.Url = S(GDsonParser.GetSceneMaterialUrl
+        ? GDsonParser.GetSceneMaterialUrl(DsonHandle, SceneMatIdx) : nullptr);
+    Metadata.ShaderType = S(GDsonParser.GetSceneMaterialShaderType
+        ? GDsonParser.GetSceneMaterialShaderType(DsonHandle, SceneMatIdx) : nullptr);
+    return Metadata;
 }
 
 static FMaterialInstanceAssetContext CreateMaterialInstanceAsset(
@@ -342,14 +361,8 @@ UMaterialInstanceConstant* FDsonMaterialBuilder::BuildSceneMaterial(
     const uint64_t H = reinterpret_cast<uint64_t>(Doc);
 
     // Step 1 - read id / url / shader_type; detect shader; increment per-shader counter
-    FString MatId = S(GDsonParser.GetSceneMaterialId
-        ? GDsonParser.GetSceneMaterialId(H, SceneMatIdx) : nullptr);
-    FString Url = S(GDsonParser.GetSceneMaterialUrl
-        ? GDsonParser.GetSceneMaterialUrl(H, SceneMatIdx) : nullptr);
-    FString ShaderType = S(GDsonParser.GetSceneMaterialShaderType
-        ? GDsonParser.GetSceneMaterialShaderType(H, SceneMatIdx) : nullptr);
-
-    const EDazShaderKind Kind = DetectShader(Url, ShaderType);
+    const FSceneMaterialMetadata Metadata = ReadSceneMaterialMetadata(H, SceneMatIdx);
+    const EDazShaderKind Kind = DetectShader(Metadata.Url, Metadata.ShaderType);
 
     switch (Kind)
     {
@@ -364,14 +377,14 @@ UMaterialInstanceConstant* FDsonMaterialBuilder::BuildSceneMaterial(
     {
         UE_LOG(LogDsonImporter, Error,
             TEXT("DsonMaterialBuilder: aborting build for scene material '%s' - master load failed"),
-            *MatId);
+            *Metadata.MatId);
         ++FailureCount;
         return nullptr;
     }
 
     // Step 3 - create and fully load MIC package
     const FMaterialInstanceAssetContext AssetContext =
-        CreateMaterialInstanceAsset(MatId, OutputFolder);
+        CreateMaterialInstanceAsset(Metadata.MatId, OutputFolder);
     if (!AssetContext.IsValid())
     {
         ++FailureCount;
