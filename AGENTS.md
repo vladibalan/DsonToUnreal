@@ -25,7 +25,9 @@ For discovery, prefer this order:
    - For code-review runs (DRY / modern-C++ / compactness) **and before editing
      source**, see "Before editing source" below — it governs authoring, not just review.
 3. The relevant `.h` file for the component you need.
-4. The top comment and section headings in the matching `.cpp`.
+4. The component's entry in `Docs/ImporterArchitecture.md` ("Component
+   Responsibilities") and the purpose-comment at the top of the matching `.h` —
+   the `.cpp` files carry no top orientation comment, so don't look for one there.
 5. The full `.cpp` only after identifying the task area.
 
 ## Before editing source
