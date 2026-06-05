@@ -69,6 +69,12 @@ static FDsonDependency BuildDependency(const FString& Url, const TArray<FString>
     return Dep;
 }
 
+static bool IsImportableAssetType(EDsonAssetType AssetType)
+{
+    return AssetType != EDsonAssetType::Unsupported
+        && AssetType != EDsonAssetType::Unknown;
+}
+
 FDsonValidationResult FDsonValidator::Validate(
     const FString& FilePath,
     const TArray<FString>& ContentRoots)
@@ -155,8 +161,7 @@ FDsonValidationResult FDsonValidator::Validate(
 
     Result.AssetType = ParseAssetType(AssetTypeStr ? AssetTypeStr : "");
 
-    if (Result.AssetType == EDsonAssetType::Unsupported ||
-        Result.AssetType == EDsonAssetType::Unknown)
+    if (!IsImportableAssetType(Result.AssetType))
     {
         Result.ErrorMessage = FString::Printf(
             TEXT("Unsupported asset type: '%s'. Expected 'figure' or 'character'."),
