@@ -14,6 +14,33 @@
  * Read this file for path resolution failures, registry probing, and URL decoding.
  */
 
+static bool ContainsPathIgnoreCase(const TArray<FString>& Paths, const FString& Candidate)
+{
+    for (const FString& Existing : Paths)
+    {
+        if (Existing.Equals(Candidate, ESearchCase::IgnoreCase))
+            return true;
+    }
+
+    return false;
+}
+
+static void AddExistingContentRootIfUnique(const FString& Path, TArray<FString>& OutPaths)
+{
+    if (!FPaths::DirectoryExists(Path))
+    {
+        UE_LOG(LogDsonImporter, Verbose,
+            TEXT("DsonContentRoots: registry path not found on disk: %s"), *Path);
+        return;
+    }
+
+    UE_LOG(LogDsonImporter, Verbose,
+        TEXT("DsonContentRoots: found content root: %s"), *Path);
+
+    if (!ContainsPathIgnoreCase(OutPaths, Path))
+        OutPaths.Add(Path);
+}
+
 TArray<FString> FDsonContentRoots::Detect()
 {
     // Probe every DAZ Studio registry key variant this plugin knows about.
@@ -63,28 +90,7 @@ void FDsonContentRoots::ReadRegistryKey(const FString& KeyPath, TArray<FString>&
         if (Type == REG_SZ || Type == REG_EXPAND_SZ)
         {
             FString Path(ValueData);
-            if (FPaths::DirectoryExists(Path))
-            {
-                UE_LOG(LogDsonImporter, Verbose,
-                    TEXT("DsonContentRoots: found content root: %s"), *Path);
-
-                bool bDuplicate = false;
-                for (const FString& Existing : OutPaths)
-                {
-                    if (Existing.Equals(Path, ESearchCase::IgnoreCase))
-                    {
-                        bDuplicate = true;
-                        break;
-                    }
-                }
-                if (!bDuplicate)
-                    OutPaths.Add(Path);
-            }
-            else
-            {
-                UE_LOG(LogDsonImporter, Verbose,
-                    TEXT("DsonContentRoots: registry path not found on disk: %s"), *Path);
-            }
+            AddExistingContentRootIfUnique(Path, OutPaths);
         }
     }
 
