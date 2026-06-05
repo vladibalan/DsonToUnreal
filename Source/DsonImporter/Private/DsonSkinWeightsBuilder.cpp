@@ -35,6 +35,32 @@ static TArray<UE::AnimationCore::FBoneWeight> MakeRootBoneFallbackWeights()
     return Weights;
 }
 
+struct FVertexInfluenceRecord
+{
+    FString NodeId;
+    double Weight = 0.0;
+};
+
+static bool ReadCappedVertexInfluence(
+    uint64_t DsfHandle,
+    int32 SkinModIdx,
+    int32 VertexIdx,
+    int32 InfluenceIdx,
+    FVertexInfluenceRecord& OutInfluence)
+{
+    const char* BoneNodeIdRaw = nullptr;
+    double Weight = 0.0;
+
+    if (!GDsonParser.GetVertexBoneInfluenceCapped ||
+        !GDsonParser.GetVertexBoneInfluenceCapped(
+            DsfHandle, SkinModIdx, VertexIdx, InfluenceIdx, 8, &BoneNodeIdRaw, &Weight))
+        return false;
+
+    OutInfluence.NodeId = NormalizeDazNodeId(BoneNodeIdRaw);
+    OutInfluence.Weight = Weight;
+    return true;
+}
+
 // ---------------------------------------------------------------------------
 // FindSkinModifierIndex
 // ---------------------------------------------------------------------------
@@ -183,32 +209,26 @@ bool FDsonSkinWeightsBuilder::Apply(
 
         for (int32 k = 0; k < InfluenceCount; ++k)
         {
-            const char* BoneNodeIdRaw = nullptr;
-            double Weight              = 0.0;
-
-            if (!GDsonParser.GetVertexBoneInfluenceCapped ||
-                !GDsonParser.GetVertexBoneInfluenceCapped(
-                    DsfHandle, SkinModIdx, i, k, 8, &BoneNodeIdRaw, &Weight))
+            FVertexInfluenceRecord Influence;
+            if (!ReadCappedVertexInfluence(DsfHandle, SkinModIdx, i, k, Influence))
                 break;
 
-            const FString NodeId = NormalizeDazNodeId(BoneNodeIdRaw);
-
-            const int32* BoneIdxPtr = DazNodeIdToBoneIndex.Find(NodeId);
+            const int32* BoneIdxPtr = DazNodeIdToBoneIndex.Find(Influence.NodeId);
             if (!BoneIdxPtr)
             {
-                if (!WarnedNodeIds.Contains(NodeId))
+                if (!WarnedNodeIds.Contains(Influence.NodeId))
                 {
-                    WarnedNodeIds.Add(NodeId);
+                    WarnedNodeIds.Add(Influence.NodeId);
                     UE_LOG(LogDsonImporter, Warning,
                         TEXT("DsonSkinWeightsBuilder: unknown bone node id '%s', skipping influence"),
-                        *NodeId);
+                        *Influence.NodeId);
                 }
                 continue;
             }
 
             Influences.Add(FBoneWeight(
                 static_cast<FBoneIndexType>(*BoneIdxPtr),
-                static_cast<float>(Weight)));
+                static_cast<float>(Influence.Weight)));
         }
 
         // d. All influences had unknown node ids - fall back to root bone
