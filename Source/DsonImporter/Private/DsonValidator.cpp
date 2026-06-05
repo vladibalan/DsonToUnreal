@@ -45,6 +45,30 @@ static FString MakeDependencyDedupKey(const FString& Url)
     return UrlKey;
 }
 
+static FDsonDependency BuildDependency(const FString& Url, const TArray<FString>& ContentRoots)
+{
+    FDsonDependency Dep;
+    Dep.Url = Url;
+    UE_LOG(LogDsonImporter, Verbose,
+        TEXT("DsonValidator: dependency URL: %s"), *Dep.Url);
+
+    Dep.ResolvedPath = FDsonContentRoots::ResolveUrl(Url, ContentRoots);
+    Dep.bResolved = !Dep.ResolvedPath.IsEmpty();
+
+    if (Dep.bResolved)
+    {
+        UE_LOG(LogDsonImporter, Verbose,
+            TEXT("DsonValidator: resolved to: %s"), *Dep.ResolvedPath);
+    }
+    else
+    {
+        UE_LOG(LogDsonImporter, Warning,
+            TEXT("DsonValidator: UNRESOLVED dependency: %s"), *Dep.Url);
+    }
+
+    return Dep;
+}
+
 FDsonValidationResult FDsonValidator::Validate(
     const FString& FilePath,
     const TArray<FString>& ContentRoots)
@@ -231,26 +255,7 @@ void FDsonValidator::ResolveDependencies(
                 continue;
             SeenUrls.Add(UrlKey);
 
-            FDsonDependency Dep;
-            Dep.Url = UrlStr;
-            UE_LOG(LogDsonImporter, Verbose,
-                TEXT("DsonValidator: dependency URL: %s"), *Dep.Url);
-
-            Dep.ResolvedPath = FDsonContentRoots::ResolveUrl(UrlStr, ContentRoots);
-            Dep.bResolved = !Dep.ResolvedPath.IsEmpty();
-
-            if (Dep.bResolved)
-            {
-                UE_LOG(LogDsonImporter, Verbose,
-                    TEXT("DsonValidator: resolved to: %s"), *Dep.ResolvedPath);
-            }
-            else
-            {
-                UE_LOG(LogDsonImporter, Warning,
-                    TEXT("DsonValidator: UNRESOLVED dependency: %s"), *Dep.Url);
-            }
-
-            OutDependencies.Add(Dep);
+            OutDependencies.Add(BuildDependency(UrlStr, ContentRoots));
         }
     }
 }
