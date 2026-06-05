@@ -69,6 +69,12 @@ FDsonTextureImporter::FDsonTextureImporter(const TArray<FString>& InContentRoots
 {
 }
 
+void FDsonTextureImporter::RecordFailure(const FString& ImageUrl)
+{
+    ++FailureCount;
+    FailedUrls.Add(ImageUrl);
+}
+
 // ---------------------------------------------------------------------------
 // DeriveRelativeSubpath
 // ---------------------------------------------------------------------------
@@ -120,8 +126,7 @@ UTexture2D* FDsonTextureImporter::ImportOrFind(const FString& ImageUrl, bool bSR
         UE_LOG(LogDsonImporter, Warning,
             TEXT("DsonTextureImporter: could not resolve '%s' in %d content root(s)"),
             *ImageUrl, ContentRoots.Num());
-        ++FailureCount;
-        FailedUrls.Add(ImageUrl);
+        RecordFailure(ImageUrl);
         return nullptr;
     }
 
@@ -170,8 +175,7 @@ UTexture2D* FDsonTextureImporter::ImportOrFind(const FString& ImageUrl, bool bSR
     {
         UE_LOG(LogDsonImporter, Error,
             TEXT("DsonTextureImporter: failed to read file '%s'"), *ResolvedPath);
-        ++FailureCount;
-        FailedUrls.Add(ImageUrl);
+        RecordFailure(ImageUrl);
         return nullptr;
     }
 
@@ -179,8 +183,7 @@ UTexture2D* FDsonTextureImporter::ImportOrFind(const FString& ImageUrl, bool bSR
     UPackage* Package = FDsonAssetUtils::CreateLoadedPackage(AssetPath.PackagePath, TEXT("DsonTextureImporter"));
     if (!Package)
     {
-        ++FailureCount;
-        FailedUrls.Add(ImageUrl);
+        RecordFailure(ImageUrl);
         return nullptr;
     }
 
@@ -209,8 +212,7 @@ UTexture2D* FDsonTextureImporter::ImportOrFind(const FString& ImageUrl, bool bSR
     {
         UE_LOG(LogDsonImporter, Error,
             TEXT("DsonTextureImporter: FactoryCreateBinary failed for '%s'"), *ResolvedPath);
-        ++FailureCount;
-        FailedUrls.Add(ImageUrl);
+        RecordFailure(ImageUrl);
         return nullptr;
     }
 
@@ -220,8 +222,7 @@ UTexture2D* FDsonTextureImporter::ImportOrFind(const FString& ImageUrl, bool bSR
 
     if (!FDsonAssetUtils::SaveAssetPackage(Package, Texture, AssetPath.PackagePath, TEXT("DsonTextureImporter")))
     {
-        ++FailureCount;
-        FailedUrls.Add(ImageUrl);
+        RecordFailure(ImageUrl);
         return nullptr;
     }
 

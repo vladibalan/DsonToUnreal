@@ -26,6 +26,9 @@ private:
     // For bare filenames, strips the matched content root prefix from ResolvedAbsPath.
     FString DeriveRelativeSubpath(const FString& ImageUrl, const FString& ResolvedAbsPath) const;
 
+    // Records a failed import attempt after the caller has logged the specific reason.
+    void RecordFailure(const FString& ImageUrl);
+
     TArray<FString>                     ContentRoots;
     TMap<FString, TObjectPtr<UTexture2D>> Cache;   // key: resolved absolute path
     int32                               ImportedCount = 0;
