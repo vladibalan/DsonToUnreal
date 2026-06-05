@@ -29,6 +29,24 @@ namespace
         FTransform Transform;
     };
 
+    double ReadDazUnitScale(uint64_t DsfHandle)
+    {
+        double UnitScale = GDsonParser.GetUnitScale
+            ? GDsonParser.GetUnitScale(DsfHandle) : 1.0 / 100.0;
+        if (UnitScale == 0.0)
+            UnitScale = 1.0 / 100.0; // DAZ default: 1 DAZ unit = 1 cm
+        return UnitScale;
+    }
+
+    FString NormalizeDazParentId(const char* ParentRaw)
+    {
+        FString ParentId = ParentRaw ? UTF8_TO_TCHAR(ParentRaw) : TEXT("");
+        // DAZ parent refs are URL fragment ids like "#hip"; strip the leading '#'.
+        if (ParentId.StartsWith(TEXT("#")))
+            ParentId.RemoveAt(0, 1, false);
+        return ParentId;
+    }
+
     void SortBonesParentsFirst(TArray<FBoneEntry>& Bones)
     {
         // Topological sort: parent before child (UE5 requires parent index < child index).
@@ -176,9 +194,7 @@ void FDsonSkeletonBuilder::BuildReferenceSkeletonFromDsf(uint64_t DsfHandle, FRe
 {
     // Collect bone nodes, sort parents before children, then add parent-relative transforms.
     // This method bridges parser node order and UE's strict reference skeleton ordering.
-    double UnitScale = GDsonParser.GetUnitScale ? GDsonParser.GetUnitScale(DsfHandle) : 1.0 / 100.0;
-    if (UnitScale == 0.0)
-        UnitScale = 1.0 / 100.0; // DAZ default: 1 DAZ unit = 1 cm
+    const double UnitScale = ReadDazUnitScale(DsfHandle);
 
     const int32 NodeCount = GDsonParser.GetNodeCount ? GDsonParser.GetNodeCount(DsfHandle) : 0;
 
@@ -199,13 +215,7 @@ void FDsonSkeletonBuilder::BuildReferenceSkeletonFromDsf(uint64_t DsfHandle, FRe
 
         Entry.Id       = IdRaw ? UTF8_TO_TCHAR(IdRaw) : FString::Printf(TEXT("Bone_%d"), i);
         Entry.Name     = Entry.Id;
-        {
-            FString RawParent = PrRaw ? UTF8_TO_TCHAR(PrRaw) : TEXT("");
-            // DAZ parent refs are URL fragment ids like "#hip"; strip the leading '#'.
-            if (RawParent.StartsWith(TEXT("#")))
-                RawParent.RemoveAt(0, 1, false);
-            Entry.ParentId = MoveTemp(RawParent);
-        }
+        Entry.ParentId = NormalizeDazParentId(PrRaw);
         Entry.Transform = MakeBoneTransform(DsfHandle, i, UnitScale);
     }
 
