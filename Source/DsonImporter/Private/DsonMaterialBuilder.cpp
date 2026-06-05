@@ -240,6 +240,29 @@ static void ApplySceneMaterialChannel(
     }
 }
 
+static void ApplyMappedSceneMaterialChannels(
+    uint64_t DsonHandle,
+    int32 SceneMatIdx,
+    const TMap<FString, FDazParamBinding>& Mapping,
+    UMaterialInstanceConstant* MIC,
+    FDsonTextureImporter& TextureImporter)
+{
+    const int32 ChCount = GDsonParser.GetSceneMaterialChannelCount
+        ? GDsonParser.GetSceneMaterialChannelCount(DsonHandle, SceneMatIdx) : 0;
+
+    for (int32 c = 0; c < ChCount; ++c)
+    {
+        const FString ChId = S(GDsonParser.GetSceneMaterialChannelId
+            ? GDsonParser.GetSceneMaterialChannelId(DsonHandle, SceneMatIdx, c) : nullptr);
+
+        const FDazParamBinding* Binding = Mapping.Find(ChId);
+        if (!Binding)
+            continue;
+
+        ApplySceneMaterialChannel(DsonHandle, SceneMatIdx, c, *Binding, MIC, TextureImporter);
+    }
+}
+
 static bool ReadFirstSceneMaterialGroupName(
     uint64_t DsonHandle,
     int32 SceneMatIdx,
@@ -399,20 +422,7 @@ UMaterialInstanceConstant* FDsonMaterialBuilder::BuildSceneMaterial(
     // Default shader has no defined mapping so no parameter overrides are applied.
     if (const TMap<FString, FDazParamBinding>* Mapping = GetMappingForShader(Kind))
     {
-        const int32 ChCount = GDsonParser.GetSceneMaterialChannelCount
-            ? GDsonParser.GetSceneMaterialChannelCount(H, SceneMatIdx) : 0;
-
-        for (int32 c = 0; c < ChCount; ++c)
-        {
-            FString ChId = S(GDsonParser.GetSceneMaterialChannelId
-                ? GDsonParser.GetSceneMaterialChannelId(H, SceneMatIdx, c) : nullptr);
-
-            const FDazParamBinding* Binding = Mapping->Find(ChId);
-            if (!Binding)
-                continue;
-
-            ApplySceneMaterialChannel(H, SceneMatIdx, c, *Binding, MIC, TextureImporter);
-        }
+        ApplyMappedSceneMaterialChannels(H, SceneMatIdx, *Mapping, MIC, TextureImporter);
     }
 
     // Step 6 - finalise parameter override arrays before save
