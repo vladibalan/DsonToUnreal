@@ -211,7 +211,7 @@ namespace
         if (bFallback)
         {
             UE_LOG(LogDsonImporter, Warning,
-                TEXT("[wire] no MIC for group \"%s\" — using M_DazDefault"), *GroupName);
+                TEXT("[wire] no MIC for group \"%s\" - using M_DazDefault"), *GroupName);
             UE_LOG(LogDsonImporter, Log,
                 TEXT("[wire] section %d -> %s -> M_DazDefault (no MIC for group \"%s\")"),
                 SlotIdx, *GroupName, *GroupName);
@@ -441,7 +441,7 @@ namespace
         if (!Skeleton->MergeAllBonesToBoneTree(Mesh))
         {
             UE_LOG(LogDsonImporter, Warning,
-                TEXT("DsonMeshBuilder: MergeAllBonesToBoneTree failed — skeleton may be mismatched"));
+                TEXT("DsonMeshBuilder: MergeAllBonesToBoneTree failed - skeleton may be mismatched"));
         }
         Mesh->SetSkeleton(Skeleton);
 
@@ -721,56 +721,56 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
     UMaterial* DefaultMaterial,
     const FString& UvSetDsfPath)
 {
-    // Step 1 — Find the first geometry in the DSF
+    // Step 1 - Find the first geometry in the DSF.
     // Main geometry conversion path. It assumes geometry index 0 is the base mesh and
     // that material group names will match keys produced by FDsonMaterialBuilder.
     if (!HasBaseGeometry(DsfHandle, Settings.ResolvedFigureDsfPath))
         return nullptr;
     // geomIndex = 0: base mesh only
 
-    // Step 2 — Read vertices
+    // Step 2 - Read vertices.
     const TArray<FVector3f> Positions = ReadVertexPositions(DsfHandle);
 
     const int32 FaceCount = ReadFaceCount(DsfHandle);
 
-    // Step 3 — Read UV values and expand sparse DAZ overrides into face-corner indices
+    // Step 3 - Read UV values and expand sparse DAZ overrides into face-corner indices.
     FDsonUvData UvData = ReadUvData(DsfHandle, UvSetDsfPath, FaceCount);
     const TArray<FVector2f>& UVs = UvData.UVs;
     const TArray<int32>& UVPolyVertIndices = UvData.UVPolyVertIndices;
 
-    // Step 4 — Read material group names
+    // Step 4 - Read material group names.
     const TArray<FString> MaterialGroupNames = ReadMaterialGroupNames(DsfHandle);
 
-    // Step 5 — Read faces and triangulate
+    // Step 5 - Read faces and triangulate.
     const TArray<FDsonTriangle> Triangles = ReadTriangles(DsfHandle, FaceCount, UVPolyVertIndices);
 
-    // Step 6 — Create USkeletalMesh asset
+    // Step 6 - Create USkeletalMesh asset.
     const FDsonMeshAssetContext AssetContext = CreateSkeletalMeshAsset(Settings);
     if (!AssetContext.IsValid())
         return nullptr;
     USkeletalMesh* Mesh = AssetContext.Mesh;
 
-    // Step 7 — Build FMeshDescription for LOD 0 directly and commit it
+    // Step 7 - Build FMeshDescription for LOD 0 directly and commit it.
 
-    // 7a — Populate mesh material slots (must exist before polygon groups reference them)
+    // 7a - Populate mesh material slots (must exist before polygon groups reference them).
     PopulateMeshMaterialSlots(Mesh, MaterialGroupNames, MaterialsByGroup, DefaultMaterial);
 
-    // 7b — LODInfo and LODModels[0] must exist before Create/CommitMeshDescription
+    // 7b - LODInfo and LODModels[0] must exist before Create/CommitMeshDescription.
     FSkeletalMeshLODModel& LODModel = PrepareSkeletalMeshLod0(Mesh);
 
-    // 7c — Create the MeshDescription and register all skeletal mesh attributes
+    // 7c - Create the MeshDescription and register all skeletal mesh attributes.
     FMeshDescription* MeshDesc = Mesh->CreateMeshDescription(0);
     check(MeshDesc);
     FSkeletalMeshAttributes SkelAttribs(*MeshDesc);
     SkelAttribs.Register();
 
-    // 7d — Populate bone attributes from the reference skeleton
+    // 7d - Populate bone attributes from the reference skeleton.
     PopulateMeshDescriptionBones(SkelAttribs, Skeleton);
 
-    // 7e — Vertex positions and skin weights (one root-bone influence per vertex)
+    // 7e - Vertex positions and skin weights (one root-bone influence per vertex).
     const TArray<FVertexID> VertexIDs = PopulateMeshDescriptionVertices(*MeshDesc, SkelAttribs, Positions);
 
-    // 7f — UV channels, polygon groups, vertex instances, and triangles
+    // 7f - UV channels, polygon groups, vertex instances, and triangles.
     PopulateMeshDescriptionTriangles(*MeshDesc, SkelAttribs, Mesh, VertexIDs, Triangles, UVs);
 
     // Apply real skin weights from the DSF skin modifier (replaces placeholder)
@@ -782,7 +782,7 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
         // Non-fatal: continue with placeholder weights
     }
 
-    // 7g — Commit to bulk storage (replaces deprecated SaveLODImportedData)
+    // 7g - Commit to bulk storage (replaces deprecated SaveLODImportedData).
     if (!Mesh->CommitMeshDescription(0))
     {
         UE_LOG(LogDsonImporter, Error,
@@ -791,27 +791,27 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
         return nullptr;
     }
 
-    // Step 8 — Build the USkeletalMesh from the committed MeshDescription
+    // Step 8 - Build the USkeletalMesh from the committed MeshDescription.
 
-    // 8a — Prepare asset
+    // 8a - Prepare asset.
     Mesh->PreEditChange(nullptr);
     Mesh->InvalidateDeriveDataCacheGUID();
 
-    // 8b — Populate Mesh->GetRefSkeleton(); BuildSkeletalMesh reads this, not MeshDescription bones.
+    // 8b - Populate Mesh->GetRefSkeleton(); BuildSkeletalMesh reads this, not MeshDescription bones.
     if (!PopulateMeshRefSkeleton(Mesh, Skeleton))
         return nullptr;
 
-    // 8c — Bounds, vertex-color state, tex-coord count, and build settings
+    // 8c - Bounds, vertex-color state, tex-coord count, and build settings.
     FinalizeMeshBuildInputs(Mesh, LODModel, Positions);
 
-    // 8d — Invoke IMeshBuilderModule (requires LODInfo + MeshDescription)
+    // 8d - Invoke IMeshBuilderModule (requires LODInfo + MeshDescription).
     if (!BuildSkeletalMeshRenderData(Mesh, Settings.ResolvedFigureDsfPath))
         return nullptr;
 
-    // 8e — Post-build: inv-ref matrices, skeleton merge, then skeleton assignment
+    // 8e - Post-build: inv-ref matrices, skeleton merge, then skeleton assignment.
     FinalizeBuiltMeshSkeleton(Mesh, Skeleton);
 
-    // Step 9 — Save
+    // Step 9 - Save.
     return FDsonAssetUtils::SaveAssetPackage(
             AssetContext.Package, Mesh, AssetContext.PackagePath, TEXT("DsonMeshBuilder"))
         ? Mesh

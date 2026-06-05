@@ -35,6 +35,16 @@ FString FDsonValidationResult::GetGenerationString() const
     }
 }
 
+static FString MakeDependencyDedupKey(const FString& Url)
+{
+    FString UrlKey = Url;
+    int32 HashIdx = INDEX_NONE;
+    if (UrlKey.FindChar(TEXT('#'), HashIdx))
+        UrlKey = UrlKey.Left(HashIdx);
+
+    return UrlKey;
+}
+
 FDsonValidationResult FDsonValidator::Validate(
     const FString& FilePath,
     const TArray<FString>& ContentRoots)
@@ -53,7 +63,7 @@ FDsonValidationResult FDsonValidator::Validate(
     {
         Result.ErrorMessage = TEXT("File does not exist");
         UE_LOG(LogDsonImporter, Warning,
-            TEXT("DsonValidator: rejected — %s"), *Result.ErrorMessage);
+            TEXT("DsonValidator: rejected - %s"), *Result.ErrorMessage);
         return Result;
     }
 
@@ -63,17 +73,17 @@ FDsonValidationResult FDsonValidator::Validate(
     DsonDocumentHandle DocHandle = GDsonParser.Create();
     UE_LOG(LogDsonImporter, Verbose,
         TEXT("DsonValidator: document handle %s"),
-        DocHandle ? TEXT("created successfully") : TEXT("FAILED — null handle"));
+        DocHandle ? TEXT("created successfully") : TEXT("FAILED - null handle"));
 
     if (!DocHandle)
     {
         Result.ErrorMessage = FString::Printf(TEXT("Failed to load file: %s"), *FilePath);
         UE_LOG(LogDsonImporter, Warning,
-            TEXT("DsonValidator: rejected — %s"), *Result.ErrorMessage);
+            TEXT("DsonValidator: rejected - %s"), *Result.ErrorMessage);
         return Result;
     }
 
-    // Read the file using UE5's native file API — handles all path encoding correctly
+    // Read the file using UE5's native file API - handles all path encoding correctly.
     FString JsonContent;
     if (!FFileHelper::LoadFileToString(JsonContent, *FilePath))
     {
@@ -99,7 +109,7 @@ FDsonValidationResult FDsonValidator::Validate(
         const char* LastError = GDsonParser.GetLastError();
         const FString ErrorDetail = (LastError && LastError[0] != '\0')
             ? UTF8_TO_TCHAR(LastError)
-            : TEXT("no error detail available — check that the file is a valid DSON/JSON file and is not corrupted");
+            : TEXT("no error detail available - check that the file is a valid DSON/JSON file and is not corrupted");
 
         Result.ErrorMessage = FString::Printf(
             TEXT("Failed to load DSON file: %s\nFile: %s"),
@@ -107,7 +117,7 @@ FDsonValidationResult FDsonValidator::Validate(
             *FilePath);
 
         UE_LOG(LogDsonImporter, Warning,
-            TEXT("DsonValidator: LoadFromString failed — %s — file: %s"),
+            TEXT("DsonValidator: LoadFromString failed - %s - file: %s"),
             *ErrorDetail, *FilePath);
 
         GDsonParser.Destroy(DocHandle);
@@ -129,7 +139,7 @@ FDsonValidationResult FDsonValidator::Validate(
             AssetTypeStr ? UTF8_TO_TCHAR(AssetTypeStr) : TEXT("(none)"));
         GDsonParser.Destroy(DocHandle);
         UE_LOG(LogDsonImporter, Warning,
-            TEXT("DsonValidator: rejected — %s"), *Result.ErrorMessage);
+            TEXT("DsonValidator: rejected - %s"), *Result.ErrorMessage);
         return Result;
     }
 
@@ -138,7 +148,7 @@ FDsonValidationResult FDsonValidator::Validate(
         TEXT("DsonValidator: asset id = '%s'"),
         AssetId ? UTF8_TO_TCHAR(AssetId) : TEXT("(null)"));
 
-    // Note: DsonDocument_GetAssetName does not exist in the C API —
+    // Note: DsonDocument_GetAssetName does not exist in the C API.
     // generation is detected from the asset ID alone.
     Result.Generation = DetectGeneration(AssetId ? AssetId : "");
     UE_LOG(LogDsonImporter, Log,
@@ -170,7 +180,7 @@ EGenesisGeneration FDsonValidator::DetectGeneration(const char* AssetId)
     if (!AssetId || AssetId[0] == '\0')
         return EGenesisGeneration::Unknown;
 
-    // URL-decode before checking — DAZ asset ids use %20 for spaces (e.g. Genesis%209)
+    // URL-decode before checking - DAZ asset ids use %20 for spaces (e.g. Genesis%209).
     const FString Id = FDsonContentRoots::UrlDecode(UTF8_TO_TCHAR(AssetId));
 
     if (Id.Contains(TEXT("Genesis9"),   ESearchCase::IgnoreCase) ||
@@ -194,7 +204,7 @@ void FDsonValidator::ResolveDependencies(
     const TArray<FString>& ContentRoots,
     TArray<FDsonDependency>& OutDependencies)
 {
-    // Figure files are self-contained — geometry lives in the file itself
+    // Figure files are self-contained; geometry lives in the file itself.
     // Character DUFs point at external figure/geometry DSFs. Dependencies are de-duped by
     // disk file URL before fragment because multiple references can target one DSF file.
     if (AssetType == EDsonAssetType::Figure)
@@ -215,12 +225,8 @@ void FDsonValidator::ResolveDependencies(
 
             const FString UrlStr = UTF8_TO_TCHAR(RawUrl);
 
-            // Use the path portion (before #) as the deduplication key
-            FString UrlKey = UrlStr;
-            int32 HashIdx = INDEX_NONE;
-            if (UrlKey.FindChar(TEXT('#'), HashIdx))
-                UrlKey = UrlKey.Left(HashIdx);
-
+            // Use the path portion (before #) as the deduplication key.
+            const FString UrlKey = MakeDependencyDedupKey(UrlStr);
             if (SeenUrls.Contains(UrlKey))
                 continue;
             SeenUrls.Add(UrlKey);

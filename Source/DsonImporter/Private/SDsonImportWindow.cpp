@@ -47,7 +47,7 @@ void SDsonImportWindow::Construct(const FArguments& InArgs)
     [
         SNew(SVerticalBox)
 
-        // ── File picker ──────────────────────────────────────────────────────
+        // File picker.
         + SVerticalBox::Slot()
         .AutoHeight()
         .Padding(8.f, 8.f, 8.f, 4.f)
@@ -94,7 +94,7 @@ void SDsonImportWindow::Construct(const FArguments& InArgs)
             SNew(SSeparator)
         ]
 
-        // ── No DAZ Studio warning ─────────────────────────────────────────────
+        // No DAZ Studio warning.
         + SVerticalBox::Slot()
         .AutoHeight()
         .Padding(8.f, 6.f)
@@ -108,7 +108,7 @@ void SDsonImportWindow::Construct(const FArguments& InArgs)
             .AutoWrapText(true)
         ]
 
-        // ── Validation: success ───────────────────────────────────────────────
+        // Validation success.
         + SVerticalBox::Slot()
         .AutoHeight()
         .Padding(8.f, 6.f, 8.f, 2.f)
@@ -135,7 +135,7 @@ void SDsonImportWindow::Construct(const FArguments& InArgs)
             .AutoWrapText(true)
         ]
 
-        // ── Unresolved dependency detail ──────────────────────────────────────
+        // Unresolved dependency detail.
         + SVerticalBox::Slot()
         .AutoHeight()
         .Padding(8.f, 0.f, 8.f, 6.f)
@@ -153,7 +153,7 @@ void SDsonImportWindow::Construct(const FArguments& InArgs)
             .AutoWrapText(true)
         ]
 
-        // ── Validation: error ─────────────────────────────────────────────────
+        // Validation error.
         + SVerticalBox::Slot()
         .AutoHeight()
         .Padding(8.f, 6.f)
@@ -171,7 +171,7 @@ void SDsonImportWindow::Construct(const FArguments& InArgs)
             SNew(SSeparator)
         ]
 
-        // ── Diagnostics checkbox ──────────────────────────────────────────────
+        // Diagnostics checkbox.
         + SVerticalBox::Slot()
         .AutoHeight()
         .Padding(8.f, 4.f)
@@ -194,7 +194,7 @@ void SDsonImportWindow::Construct(const FArguments& InArgs)
             ]
         ]
 
-        // ── Buttons ───────────────────────────────────────────────────────────
+        // Buttons.
         + SVerticalBox::Slot()
         .AutoHeight()
         .HAlign(HAlign_Right)
@@ -432,7 +432,7 @@ FText SDsonImportWindow::GetDependencyStatusText() const
     for (const FDsonDependency& Dep : ValidationResult.Dependencies)
     {
         if (!Dep.bResolved)
-            Missing.Add(FPaths::GetCleanFilename(Dep.Url) + TEXT(" — not found"));
+            Missing.Add(FPaths::GetCleanFilename(Dep.Url) + TEXT(" - not found"));
     }
     return FText::FromString(TEXT("Missing dependencies:\n") + FString::Join(Missing, TEXT("\n")));
 }

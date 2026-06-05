@@ -64,14 +64,14 @@ typedef int32_t     (*DsonDocument_GetModifierCountFn)(uint64_t handle);
 typedef int32_t     (*DsonDocument_GetModifierSkinVertexCountFn)(uint64_t handle, int32_t modifierIndex);
 typedef int32_t     (*DsonDocument_GetModifierSkinJointCountFn)(uint64_t handle, int32_t modifierIndex);
 
-// Skin weights — joint-based access
+// Skin weights - joint-based access
 typedef int32_t     (*DsonDocument_GetSkinJointCountFn)(uint64_t handle, int32_t modifierIndex);
 typedef const char* (*DsonDocument_GetSkinJointNodeIdFn)(uint64_t handle, int32_t modifierIndex, int32_t jointIndex);
 typedef int32_t     (*DsonDocument_GetSkinJointWeightCountFn)(uint64_t handle, int32_t modifierIndex, int32_t jointIndex);
 typedef int32_t     (*DsonDocument_GetSkinJointWeightVertexIndexFn)(uint64_t handle, int32_t modifierIndex, int32_t jointIndex, int32_t weightIndex);
 typedef double      (*DsonDocument_GetSkinJointWeightFn)(uint64_t handle, int32_t modifierIndex, int32_t jointIndex, int32_t weightIndex);
 
-// Skin weights — per-vertex access (capped and normalized)
+// Skin weights - per-vertex access (capped and normalized)
 typedef int32_t     (*DsonDocument_GetVertexInfluenceCountFn)(uint64_t handle, int32_t modifierIndex, int32_t vertexIndex, int32_t maxInfluences);
 typedef bool        (*DsonDocument_GetVertexBoneInfluenceFn)(uint64_t handle, int32_t modifierIndex, int32_t vertexIndex, int32_t influenceIndex, const char** boneNodeId, double* weight);
 typedef bool        (*DsonDocument_GetVertexBoneInfluenceCappedFn)(uint64_t handle, int32_t modifierIndex, int32_t vertexIndex, int32_t influenceIndex, int32_t maxInfluences, const char** boneNodeId, double* weight);

@@ -187,7 +187,7 @@ void FDsonImporterModule::StartupModule()
     if (!GDsonParser.IsValid())
     {
         UE_LOG(LogDsonImporter, Error,
-            TEXT("DsonParser: required exports missing — plugin will not function"));
+            TEXT("DsonParser: required exports missing - plugin will not function"));
         return;
     }
 
