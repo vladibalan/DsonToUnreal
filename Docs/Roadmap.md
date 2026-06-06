@@ -114,9 +114,13 @@ and all G9/PBRSkin figures did **not**.
 (height)** map *in-shader*, using screen/texture-space UV derivatives. Those
 derivatives are discontinuous across UV-island boundaries, and DAZ skin zones are
 exactly those islands → a hard normal seam at every zone edge. Confirmed by A/B:
-`UseBumpMap = 0` removes the seams. Base figures ship no/flat bump (path inert);
-PBRSkin has no bump path at all — which is why only bump-bearing IrayUber
-characters seam.
+`UseBumpMap = 0` removes the seams. The seam *amplitude* scales with bump strength ×
+map contrast/frequency, so it has a **visibility threshold** — presence of a bump
+map is not the trigger, magnitude is. The G8.1 base female **does** ship a bump map,
+but its mild, low-contrast bump stayed below that threshold (and looked nearly
+identical before/after the offline bake), whereas detailed character bumps (Jordina)
+cross it and seam. PBRSkin has no bump path at all — which is why only strong-bump
+IrayUber surfaces seamed.
 
 **Decision: bake bump→normal offline (Option A), not an in-shader graph fix
 (Option B).** Selection criteria, in order: (1) game-runtime performance,
@@ -148,7 +152,9 @@ master's in-shader bump parameters.
 - Height-range nuance (DAZ bump min/max mm) is approximated by the strength scalar
   in v1.5.
 
-**Status:** decided 2026-06-06; implementation pending (Implementer + user build/verify).
+**Status:** ✅ done 2026-06-06 — build succeeded; multiple IrayUber figures (incl.
+"Jordina Full Character") seam-free, bump detail preserved; G8.1 base female and a
+G9/Laura figure import unchanged.
 
 ## Known latent issues (not blocking)
 
