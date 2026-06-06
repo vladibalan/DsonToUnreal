@@ -152,6 +152,10 @@ close-out.
   other files; the importer now discovers those `?value` leaf files, but does not
   evaluate their dialed contribution. A real composed shape affects many more
   verts. See `Docs/FormulaMorphsV2.md`.
+- **DAZ formula and asset reference URLs can be scheme-qualified.** Formula
+  outputs commonly arrive as `<AssetId>:/data/...#Id?value`; `ResolveUrl` strips
+  the leading `Scheme:`, `#fragment`, and leading `/` to form the
+  content-relative disk path.
 - **Establish the visual symptom against the real asset before chasing
   mechanism.** The multi-UDIM thread burned many turns on a Laura mis-sampling
   bug that never existed — she rendered correctly throughout.

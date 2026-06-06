@@ -15,8 +15,9 @@ public:
 
     /**
      * Resolves a DSON URL reference to an absolute file path.
-     * DSON URLs are URL-encoded paths relative to a content root,
-     * e.g. "/data/Daz%203D/Genesis%209/Base/Genesis9.dsf"
+     * DSON URLs are URL-encoded paths relative to a content root and may include
+     * a DAZ asset scheme, e.g. "/data/Daz%203D/Genesis%209/Base/Genesis9.dsf"
+     * or "Genesis9:/data/Daz%203D/Genesis%209/Base/Genesis9.dsf#Figure".
      * Searches all provided content roots and returns the first match.
      * Returns empty string if not found.
      */

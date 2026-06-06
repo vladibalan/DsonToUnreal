@@ -44,7 +44,9 @@ static void AddExistingContentRootIfUnique(const FString& Path, TArray<FString>&
 
 static FString MakeContentRelativePath(const FString& DsonUrl)
 {
-    FString Decoded = FDsonContentRoots::UrlDecode(DsonImportUtils::StripUrlFragment(DsonUrl));
+    const FString PathUrl = DsonImportUtils::StripUrlScheme(
+        DsonImportUtils::StripUrlFragment(DsonUrl));
+    FString Decoded = FDsonContentRoots::UrlDecode(PathUrl);
     if (Decoded.StartsWith(TEXT("/")))
         Decoded = Decoded.RightChop(1);
 

@@ -13,6 +13,42 @@
  */
 namespace DsonImportUtils
 {
+    inline bool IsUrlSchemeStart(TCHAR C)
+    {
+        return (C >= TEXT('A') && C <= TEXT('Z')) || (C >= TEXT('a') && C <= TEXT('z'));
+    }
+
+    inline bool IsUrlSchemeChar(TCHAR C)
+    {
+        return IsUrlSchemeStart(C) || (C >= TEXT('0') && C <= TEXT('9'))
+            || C == TEXT('+') || C == TEXT('.') || C == TEXT('-');
+    }
+
+    // Strip a leading RFC-style "scheme:" only when ':' appears before the first '/'.
+    // DAZ formula outputs use "<AssetId>:/data/...#Modifier?value"; disk resolution
+    // needs the content-root-relative "/data/..." portion.
+    inline FString StripUrlScheme(const FString& Url)
+    {
+        int32 ColonIndex = INDEX_NONE;
+        if (!Url.FindChar(TEXT(':'), ColonIndex) || ColonIndex <= 0)
+            return Url;
+
+        int32 SlashIndex = INDEX_NONE;
+        if (Url.FindChar(TEXT('/'), SlashIndex) && SlashIndex < ColonIndex)
+            return Url;
+
+        if (!IsUrlSchemeStart(Url[0]))
+            return Url;
+
+        for (int32 i = 1; i < ColonIndex; ++i)
+        {
+            if (!IsUrlSchemeChar(Url[i]))
+                return Url;
+        }
+
+        return Url.Mid(ColonIndex + 1);
+    }
+
     // Strip everything from the first '#' onward. DSON URLs use a trailing '#fragment'
     // to identify a sub-asset inside a file; the fragment is never part of the disk path.
     inline FString StripUrlFragment(const FString& Url)
