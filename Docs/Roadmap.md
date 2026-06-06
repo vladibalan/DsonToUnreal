@@ -266,6 +266,3 @@ at weight 0. Next is the evaluator/compose feature in
 [`Docs/FormulaMorphsV2.md`](FormulaMorphsV2.md): channel `current_value`,
 `min`/`max`/`clamped`, and a fragment-to-leaf bridge are still needed before the
 importer can bake or emit a combined dialed character shape.
-
-Also outstanding: **post-Phase 7 hardening** — build-verify the MeshDescription
-morph attribute path for the existing delta-bearing morphs.
