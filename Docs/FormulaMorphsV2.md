@@ -1,11 +1,13 @@
 # Formula-Driven Character Morphs — Importer v2 Handoff
 
-**Status:** deferred / not implemented. This is the design handoff for finishing
-morph-target import so DAZ *character* morphs (e.g. "Laura") import correctly.
-Phase 7 v1 imports only **delta-bearing** morphs; this doc covers the missing
-**formula-driven control** morphs. It exists so the next session does not have to
-re-derive the DSON structure from gzipped files — the structural facts below were
-verified directly (Jun 2026).
+**Status:** parser formula API **built** (read/RPN storage exposed); importer
+implementation **blocked** on a small set of additional parser accessors (see
+"Parser surface — built vs still needed" below). This is the design handoff for
+finishing morph-target import so DAZ *character* morphs (e.g. "Laura") import
+correctly. Phase 7 v1 imports only **delta-bearing** morphs; this doc covers the
+missing **formula-driven control** morphs. It exists so the next session does not
+have to re-derive the DSON structure from gzipped files — the structural facts
+below were verified directly (Jun 2026).
 
 See also: the parser side (`E:/Work/Code/DsonTest2/DsonParser_Roadmap.md`, v2
 "Formula use cases") owns the authoritative DSON formula structure and the parser
@@ -36,13 +38,78 @@ Laura for Genesis 9.duf  → scene.modifiers:
   (files under …/data/Daz 3D/Genesis 9/Base/Morphs/Daz 3D/Base Characters 9/)
 ```
 
-## Prerequisite (parser v2)
+## Parser surface — built vs still needed (verified Jun 2026)
 
-The parser must expose per-morph formulas. Planned API (see parser roadmap items
-1–3): `GetMorphFormulaCount`, `GetMorphFormulaOutput`, and per-operation
-`...OperationCount/Op/Val/Url`. The parser stays single-document — it does **not**
-recurse external files or evaluate. Bind these as new optional rows in
-`DsonParserFunctions.h` (R2), same `uint64_t/int32_t` style.
+The parser now exposes per-modifier formulas (RPN storage only, no evaluation,
+single-document). The accessors were keyed on **two index spaces** — raw
+`modifier_library` index and `scene.modifiers` index — because control morphs
+have no `morph`/`deltas` block and so never appear in the filtered morph list:
+
+```
+// raw modifier_library index, and an identical set on scene.modifiers index:
+GetModifierFormulaCount / Output / Stage
+GetModifierFormulaOperationCount / Op / Val / Url
+GetSceneModifierFormula{Count,Output,Stage,OperationCount,Op,Val,Url}
+```
+
+Those, plus the existing `GetModifierCount/Id/Name/Type`,
+`GetMorph{Count,Name,Label,GeometryId,Delta*}`, and
+`GetSceneModifier{Count,Url}`, are enough to *traverse and evaluate* the tree —
+**except for three gaps the importer cannot work around cleanly:**
+
+1. **No channel `current_value` (the dial).** The algorithm seeds evaluation from
+   the scene modifier's `current_value`, and a correct RPN evaluator must resolve
+   `push(url)` operations that reference *another* channel's `?value`. Neither is
+   readable today. Defaulting every seed/push to 1.0 silently mis-evaluates any
+   formula that pushes a non-unit channel value (common in auto-follow / corrective
+   chains), so this is a correctness blocker, not a convenience.
+2. **No channel domain (`min`/`max`/`clamped`).** Without it the evaluator cannot
+   honor DAZ clamping while propagating values down the tree.
+3. **No id bridge from a formula output to its delta-bearing leaf.** Formula
+   `output` URLs name a modifier by `id` (`#fragment`), but leaf *deltas* are only
+   reachable through the **filtered morph index**, keyed by name/label — there is
+   no `GetMorphId`, so output→leaf correlation relies on the unverified assumption
+   that `GetMorphName == id`.
+
+### Parser request (hand to the DsonParser repo before importer work resumes)
+
+All are pure stored-field reads — they keep the parser single-document and
+non-evaluating, and follow its family return-value contract (count→0, double→0.0,
+string→"", bool→false). Bind each as a new **optional** row in
+`DsonParserFunctions.h` (R2) once the DLL exports them.
+
+**Required (correctness blockers):**
+- `double GetSceneModifierChannelValue(handle, sceneModifierIndex)` — the
+  `channel.current_value` of the `.duf` control instance (the dial). Fall back to
+  `channel.value`, then 0.0.
+- `double GetModifierChannelValue(handle, modifierIndex)` — same for a library
+  modifier's channel; used to resolve `push(url)` operands and intermediate/leaf
+  default values.
+- `const char* GetMorphId(handle, morphIndex)` — the morph modifier's `id` (the
+  token used as the `#fragment` in formula output URLs), so the importer maps a
+  formula output to its leaf delta morph unambiguously. *(Alternative if simpler
+  parser-side: expose morph deltas keyed by raw `modifier_library` index.)*
+
+**Recommended (for a clamp-correct evaluator; importer stays permissive if absent):**
+- `double GetModifierChannelMin(handle, modifierIndex)`
+- `double GetModifierChannelMax(handle, modifierIndex)`
+- `bool   GetModifierChannelClamped(handle, modifierIndex)`
+  *(and/or the `SceneModifier` equivalents).*
+
+**Confirm only (no change if already true):**
+- `Get{Modifier,SceneModifier}FormulaOutput` returns the **full** output URL
+  including the `?property` suffix verbatim (e.g.
+  `…/Head.dsf#Laura_head_bs_Head?value`), so the importer can keep only `?value`
+  outputs and drop rigging outputs (`?center_point/x`, rotation).
+- Operation `op` strings are the literal DAZ tokens (`push`, `mult`, `div`,
+  `add`, `sub`, `pow`, `spline_tcb`), and for a `push` exactly one of `Val`/`Url`
+  is populated (the other returns its family-empty value) so a constant-push is
+  distinguishable from a url-push.
+
+### Known importer-side binding gap (not a parser change)
+`DsonDocument_GetSceneModifierId` is declared in the vendored header but **not**
+bound in `DsonParserFunctions.h`. The implementation session must add that row to
+key seed dials by scene-modifier id.
 
 ## Importer algorithm
 

@@ -22,6 +22,8 @@
 // - Morph indexes address a filtered list of modifiers where type == "morph";
 //   they are not raw modifier_library indexes.
 // - Skin APIs use raw modifier_library indexes for skin_binding modifiers.
+// - Formula APIs are exposed for both raw modifier_library indexes and
+//   scene.modifiers indexes; they store RPN data only and do not evaluate it.
 
 #ifdef __cplusplus
 extern "C" {
@@ -88,6 +90,13 @@ DSONPARSER_API const char* DsonDocument_GetSceneNodeGeometryUrl(DsonDocumentHand
 DSONPARSER_API int DsonDocument_GetSceneModifierCount(DsonDocumentHandle handle);
 DSONPARSER_API const char* DsonDocument_GetSceneModifierId(DsonDocumentHandle handle, int index);
 DSONPARSER_API const char* DsonDocument_GetSceneModifierUrl(DsonDocumentHandle handle, int index);
+DSONPARSER_API int         DsonDocument_GetSceneModifierFormulaCount(DsonDocumentHandle handle, int sceneModifierIndex);
+DSONPARSER_API const char* DsonDocument_GetSceneModifierFormulaOutput(DsonDocumentHandle handle, int sceneModifierIndex, int formulaIndex);
+DSONPARSER_API const char* DsonDocument_GetSceneModifierFormulaStage(DsonDocumentHandle handle, int sceneModifierIndex, int formulaIndex);
+DSONPARSER_API int         DsonDocument_GetSceneModifierFormulaOperationCount(DsonDocumentHandle handle, int sceneModifierIndex, int formulaIndex);
+DSONPARSER_API const char* DsonDocument_GetSceneModifierFormulaOperationOp(DsonDocumentHandle handle, int sceneModifierIndex, int formulaIndex, int opIndex);
+DSONPARSER_API double      DsonDocument_GetSceneModifierFormulaOperationVal(DsonDocumentHandle handle, int sceneModifierIndex, int formulaIndex, int opIndex);
+DSONPARSER_API const char* DsonDocument_GetSceneModifierFormulaOperationUrl(DsonDocumentHandle handle, int sceneModifierIndex, int formulaIndex, int opIndex);
 
 DSONPARSER_API int DsonDocument_GetSceneMaterialCount(DsonDocumentHandle handle);
 DSONPARSER_API const char* DsonDocument_GetSceneMaterialId(DsonDocumentHandle handle, int index);
@@ -141,6 +150,13 @@ DSONPARSER_API const char* DsonDocument_GetSceneMaterialGroupName(DsonDocumentHa
 DSONPARSER_API const char* DsonDocument_GetModifierId(DsonDocumentHandle handle, int index);
 DSONPARSER_API const char* DsonDocument_GetModifierName(DsonDocumentHandle handle, int index);
 DSONPARSER_API const char* DsonDocument_GetModifierType(DsonDocumentHandle handle, int index);
+DSONPARSER_API int         DsonDocument_GetModifierFormulaCount(DsonDocumentHandle handle, int modifierIndex);
+DSONPARSER_API const char* DsonDocument_GetModifierFormulaOutput(DsonDocumentHandle handle, int modifierIndex, int formulaIndex);
+DSONPARSER_API const char* DsonDocument_GetModifierFormulaStage(DsonDocumentHandle handle, int modifierIndex, int formulaIndex);
+DSONPARSER_API int         DsonDocument_GetModifierFormulaOperationCount(DsonDocumentHandle handle, int modifierIndex, int formulaIndex);
+DSONPARSER_API const char* DsonDocument_GetModifierFormulaOperationOp(DsonDocumentHandle handle, int modifierIndex, int formulaIndex, int opIndex);
+DSONPARSER_API double      DsonDocument_GetModifierFormulaOperationVal(DsonDocumentHandle handle, int modifierIndex, int formulaIndex, int opIndex);
+DSONPARSER_API const char* DsonDocument_GetModifierFormulaOperationUrl(DsonDocumentHandle handle, int modifierIndex, int formulaIndex, int opIndex);
 // Skin binding info for a modifier (0 if the modifier has no skin payload)
 DSONPARSER_API int DsonDocument_GetModifierSkinVertexCount(DsonDocumentHandle handle, int index);
 DSONPARSER_API int DsonDocument_GetModifierSkinJointCount(DsonDocumentHandle handle, int index);

@@ -93,13 +93,25 @@ close-out.
 - **Scene dial current values are not baked into the imported character shape.**
   Phase 7 creates rest-state morph targets; applying a DUF's dialed character
   expression/body shape remains a later animation/control-rig or bake step.
-- **Formula-driven character/control morphs are not imported.** DAZ `_figure_ctrl_`
-  characters such as Laura carry no direct deltas; they drive leaf morphs through
-  multi-level `formulas`, which require formula evaluation beyond the parser's
-  documented v1 boundary. Phase 7 imports only delta-bearing morphs: correctives,
-  expressions, and directly stored shaping morphs. **Design handoff (DSON evidence
-  + importer algorithm): [`Docs/FormulaMorphsV2.md`](FormulaMorphsV2.md); parser
-  side: `DsonParser_Roadmap.md` v2 "Formula use cases".**
+- **Formula-driven character/control morphs are not imported.** This is *why a
+  lot of morph targets disappear when importing `Laura for Genesis 9.duf`*: a DAZ
+  `_figure_ctrl_` character is a **control morph** — a dial channel with **no
+  `deltas` of its own**, only `formulas` that drive *other* morphs' `?value`
+  channels. Those children are often controls too, forming a multi-level tree that
+  bottoms out at delta-bearing leaf morphs in **separate `.dsf` files**. The
+  `.duf` lists only the top control; the leaves appear only inside formulas. v1
+  discovers morphs from `scene.modifiers` URLs and imports any with deltas, so for
+  Laura it keeps the navel HD corrective (72 deltas) but drops her entire face/body
+  identity, which is `Σ(leaf_deltas × evaluated_value)` over a formula tree v1
+  never traverses. The character therefore imports as the base Genesis 9 shape.
+- **Status (2026-06-06):** parser-side formula storage/RPN API is **built** (per-
+  modifier formula accessors on both modifier-library and scene-modifier index
+  spaces). Importer implementation is **blocked** on three additional parser
+  accessors — channel `current_value` (the dial / `push(url)` operands), channel
+  `min`/`max`/`clamped`, and a `GetMorphId` output→leaf bridge — without which the
+  evaluator cannot be made correct. Full analysis and the exact parser request:
+  **[`Docs/FormulaMorphsV2.md`](FormulaMorphsV2.md)** ("Parser surface — built vs
+  still needed"); parser side: `DsonParser_Roadmap.md` v2 "Formula use cases".
 
 ## Known latent issues (not blocking)
 
@@ -178,6 +190,12 @@ close-out.
 
 ## Next up
 
-**Post-Phase 7 hardening.** Build-verify the MeshDescription morph attribute path,
-then decide whether scene dial current values should be applied as a character
-shape bake or left to runtime controls.
+**Phase 7 v2 — formula-driven character morphs.** Blocked on the parser request in
+[`Docs/FormulaMorphsV2.md`](FormulaMorphsV2.md) (channel `current_value`,
+`min`/`max`/`clamped`, `GetMorphId`). Once those exports land in `DsonParser.dll`,
+implement the formula traversal/eval/compose in `DsonMorphBuilder` per that doc.
+Compose target (bake vs combined morph target) is still an open product decision —
+resolve it at implementation time; the parser additions are needed for either.
+
+Also outstanding: **post-Phase 7 hardening** — build-verify the MeshDescription
+morph attribute path for the existing delta-bearing morphs.
