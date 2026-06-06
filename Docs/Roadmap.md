@@ -182,6 +182,21 @@ close-out.
 - Coordinate conversion (load-bearing — see `CodeReviewRules.md` R4 /
   `DazPointToUe`, do not revert): `UE_X=DAZ_Z, UE_Y=−DAZ_X, UE_Z=DAZ_Y` (det −1);
   natural winding `(0,1,2)/(0,2,3)`; scale `ToCm = UnitScale = 1.0`.
+- **Laura 9 (`Base Characters 9`) is recipe-only — do not re-hunt for a "Laura"
+  morph.** Verified by walking her formula tree (56 files): the only `Laura_*`
+  modifiers (`Laura_figure_ctrl_Character`, `Laura_head_bs_Head`,
+  `Laura_body_bs_body`) are **pure controls with zero deltas**. All 43
+  delta-bearing leaves are **generic** Genesis 9 base morphs
+  (`BaseFeminine_head_bs_Head`, `BaseFeminine_body_bs_Body`, `body_bs_Proportion*`,
+  the `head_bs_Asymmetry*` family). Her identity is **formula weights, not a
+  sculpt**: every edge is `push(url:parent?value) · push(<const>) · mult` (e.g.
+  eyelashes ×0.5, head-size proportion ×0.0999999). Discovery-only import exposes
+  these 43 leaves at weight 0 (the *ingredients*); reconstructing "Laura" needs the
+  deferred evaluator (`effective_weight = root dial × Π push-constants`), which is
+  exactly why its parked accessors — channel `current_value` + operation
+  `Op/Val/Url` + the non-empty-`Url` push discriminator — are required. (General
+  case still holds: a premium character that ships a unique sculpt would have a
+  `<Name>_*` leaf *with* deltas, and the same walk would import it.)
 
 ## Next up
 
