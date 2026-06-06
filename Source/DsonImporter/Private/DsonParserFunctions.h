@@ -80,6 +80,8 @@ typedef void* DsonDocumentHandle;
     X(0, const char*, GetModifierName,           DsonDocument_GetModifierName,           (uint64_t, int32_t)) \
     X(0, const char*, GetModifierType,           DsonDocument_GetModifierType,           (uint64_t, int32_t)) \
     X(0, int32_t,     GetModifierCount,          DsonDocument_GetModifierCount,          (uint64_t)) \
+    X(0, int32_t,     GetModifierFormulaCount,   DsonDocument_GetModifierFormulaCount,   (uint64_t, int32_t)) \
+    X(0, const char*, GetModifierFormulaOutput,  DsonDocument_GetModifierFormulaOutput,  (uint64_t, int32_t, int32_t)) \
     X(0, int32_t,     GetModifierSkinVertexCount, DsonDocument_GetModifierSkinVertexCount, (uint64_t, int32_t)) \
     X(0, int32_t,     GetModifierSkinJointCount,  DsonDocument_GetModifierSkinJointCount,  (uint64_t, int32_t)) \
     \
@@ -94,8 +96,10 @@ typedef void* DsonDocumentHandle;
     X(0, bool,        GetVertexBoneInfluenceCapped,  DsonDocument_GetVertexBoneInfluenceCapped,  (uint64_t, int32_t, int32_t, int32_t, int32_t, const char**, double*)) \
     \
     /* Scene modifiers (external morph-file discovery: each url points at a morph .dsf) */ \
-    X(0, int32_t,     GetSceneModifierCount, DsonDocument_GetSceneModifierCount, (uint64_t)) \
-    X(0, const char*, GetSceneModifierUrl,   DsonDocument_GetSceneModifierUrl,   (uint64_t, int32_t)) \
+    X(0, int32_t,     GetSceneModifierCount,         DsonDocument_GetSceneModifierCount,         (uint64_t)) \
+    X(0, const char*, GetSceneModifierUrl,           DsonDocument_GetSceneModifierUrl,           (uint64_t, int32_t)) \
+    X(0, int32_t,     GetSceneModifierFormulaCount,  DsonDocument_GetSceneModifierFormulaCount,  (uint64_t, int32_t)) \
+    X(0, const char*, GetSceneModifierFormulaOutput, DsonDocument_GetSceneModifierFormulaOutput, (uint64_t, int32_t, int32_t)) \
     \
     /* Morph targets (morphIndex addresses the filtered list of type=="morph" modifiers) */ \
     X(0, int32_t,     GetMorphCount,                  DsonDocument_GetMorphCount,                  (uint64_t)) \

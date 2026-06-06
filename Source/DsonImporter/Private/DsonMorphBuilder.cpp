@@ -21,6 +21,12 @@ namespace
         int32 DuplicateNames = 0;
     };
 
+    struct FDsonMorphDiscoveryStats
+    {
+        int32 DirectExternalFiles = 0;
+        int32 FormulaExternalFiles = 0;
+    };
+
     static FString NormalizedPathKey(const FString& Path)
     {
         FString Normalized = FPaths::ConvertRelativePathToFull(Path);
@@ -37,9 +43,121 @@ namespace
             GDsonParser.GetMorphDeltaZ;
     }
 
-    static void CollectExternalMorphPaths(
+    static bool StripFormulaValueQuery(const FString& OutputUrl, FString& OutUrl)
+    {
+        int32 QueryIndex = INDEX_NONE;
+        if (!OutputUrl.FindChar(TEXT('?'), QueryIndex))
+            return false;
+
+        if (!OutputUrl.Mid(QueryIndex + 1).Equals(TEXT("value"), ESearchCase::CaseSensitive))
+            return false;
+
+        OutUrl = OutputUrl.Left(QueryIndex);
+        return !OutUrl.IsEmpty();
+    }
+
+    static bool EnqueueMorphFileUrl(
+        const FString& Url,
+        const TArray<FString>& Roots,
+        TSet<FString>& SeenPathKeys,
+        TArray<FString>& Worklist,
+        int32& OutNewFileCount)
+    {
+        if (Url.IsEmpty())
+            return false;
+
+        const FString ResolvedPath = FDsonContentRoots::ResolveUrl(Url, Roots);
+        if (ResolvedPath.IsEmpty())
+            return false;
+
+        const FString PathKey = NormalizedPathKey(ResolvedPath);
+        if (SeenPathKeys.Contains(PathKey))
+            return false;
+
+        SeenPathKeys.Add(PathKey);
+        Worklist.Add(ResolvedPath);
+        ++OutNewFileCount;
+        return true;
+    }
+
+    static void EnqueueFormulaOutput(
+        const FString& OutputUrl,
+        const TArray<FString>& Roots,
+        TSet<FString>& SeenPathKeys,
+        TArray<FString>& Worklist,
+        FDsonMorphDiscoveryStats& DiscoveryStats)
+    {
+        FString FileUrl;
+        if (!StripFormulaValueQuery(OutputUrl, FileUrl))
+            return;
+
+        EnqueueMorphFileUrl(
+            FileUrl,
+            Roots,
+            SeenPathKeys,
+            Worklist,
+            DiscoveryStats.FormulaExternalFiles);
+    }
+
+    static void EnqueueSceneModifierFormulaOutputs(
+        uint64_t SceneHandle,
+        int32 SceneModifierIndex,
+        const TArray<FString>& Roots,
+        TSet<FString>& SeenPathKeys,
+        TArray<FString>& Worklist,
+        FDsonMorphDiscoveryStats& DiscoveryStats)
+    {
+        if (!GDsonParser.GetSceneModifierFormulaCount ||
+            !GDsonParser.GetSceneModifierFormulaOutput)
+        {
+            return;
+        }
+
+        const int32 FormulaCount =
+            GDsonParser.GetSceneModifierFormulaCount(SceneHandle, SceneModifierIndex);
+        for (int32 FormulaIndex = 0; FormulaIndex < FormulaCount; ++FormulaIndex)
+        {
+            const FString OutputUrl = DsonImportUtils::FromUtf8(
+                GDsonParser.GetSceneModifierFormulaOutput(
+                    SceneHandle, SceneModifierIndex, FormulaIndex));
+            EnqueueFormulaOutput(OutputUrl, Roots, SeenPathKeys, Worklist, DiscoveryStats);
+        }
+    }
+
+    static void EnqueueModifierFormulaOutputs(
+        uint64_t DsonHandle,
+        const TArray<FString>& Roots,
+        TSet<FString>& SeenPathKeys,
+        TArray<FString>& Worklist,
+        FDsonMorphDiscoveryStats& DiscoveryStats)
+    {
+        if (!GDsonParser.GetModifierCount ||
+            !GDsonParser.GetModifierFormulaCount ||
+            !GDsonParser.GetModifierFormulaOutput)
+        {
+            return;
+        }
+
+        const int32 ModifierCount = GDsonParser.GetModifierCount(DsonHandle);
+        for (int32 ModifierIndex = 0; ModifierIndex < ModifierCount; ++ModifierIndex)
+        {
+            const int32 FormulaCount =
+                GDsonParser.GetModifierFormulaCount(DsonHandle, ModifierIndex);
+            for (int32 FormulaIndex = 0; FormulaIndex < FormulaCount; ++FormulaIndex)
+            {
+                const FString OutputUrl = DsonImportUtils::FromUtf8(
+                    GDsonParser.GetModifierFormulaOutput(
+                        DsonHandle, ModifierIndex, FormulaIndex));
+                EnqueueFormulaOutput(OutputUrl, Roots, SeenPathKeys, Worklist, DiscoveryStats);
+            }
+        }
+    }
+
+    static void LoadFormulaReachableMorphDocuments(
         const FDsonImportSettings& Settings,
-        TSet<FString>& OutPaths)
+        TArray<FDsonLoadedDocument>& ExternalDocuments,
+        TArray<uint64_t>& SourceHandles,
+        FDsonMorphDiscoveryStats& DiscoveryStats)
     {
         if (!GDsonParser.GetSceneModifierCount || !GDsonParser.GetSceneModifierUrl)
             return;
@@ -51,27 +169,36 @@ namespace
         const TArray<FString> Roots = FDsonContentRoots::Detect();
         const uint64_t SceneHandle = SceneDocument.GetHandle64();
         const int32 ModifierCount = GDsonParser.GetSceneModifierCount(SceneHandle);
-        const FString FigurePathKey = NormalizedPathKey(Settings.ResolvedFigureDsfPath);
         TSet<FString> SeenPathKeys;
-        SeenPathKeys.Add(FigurePathKey);
+        SeenPathKeys.Add(NormalizedPathKey(Settings.ResolvedFigureDsfPath));
+
+        TArray<FString> Worklist;
 
         for (int32 i = 0; i < ModifierCount; ++i)
         {
             const FString Url = DsonImportUtils::FromUtf8(
                 GDsonParser.GetSceneModifierUrl(SceneHandle, i));
-            if (Url.IsEmpty())
+
+            EnqueueMorphFileUrl(
+                Url,
+                Roots,
+                SeenPathKeys,
+                Worklist,
+                DiscoveryStats.DirectExternalFiles);
+            EnqueueSceneModifierFormulaOutputs(
+                SceneHandle, i, Roots, SeenPathKeys, Worklist, DiscoveryStats);
+        }
+
+        for (int32 WorklistIndex = 0; WorklistIndex < Worklist.Num(); ++WorklistIndex)
+        {
+            FDsonLoadedDocument Document;
+            if (!Document.LoadFromFileAsWarning(Worklist[WorklistIndex], TEXT("[morph] external")))
                 continue;
 
-            const FString ResolvedPath = FDsonContentRoots::ResolveUrl(Url, Roots);
-            if (ResolvedPath.IsEmpty())
-                continue;
-
-            const FString PathKey = NormalizedPathKey(ResolvedPath);
-            if (SeenPathKeys.Contains(PathKey))
-                continue;
-
-            SeenPathKeys.Add(PathKey);
-            OutPaths.Add(ResolvedPath);
+            SourceHandles.Add(Document.GetHandle64());
+            EnqueueModifierFormulaOutputs(
+                Document.GetHandle64(), Roots, SeenPathKeys, Worklist, DiscoveryStats);
+            ExternalDocuments.Add(MoveTemp(Document));
         }
     }
 
@@ -196,20 +323,10 @@ void FDsonMorphBuilder::Apply(
     TArray<uint64_t> SourceHandles;
     SourceHandles.Add(FigureDsfHandle);
 
-    TSet<FString> ExternalMorphPaths;
-    CollectExternalMorphPaths(Settings, ExternalMorphPaths);
-
     TArray<FDsonLoadedDocument> ExternalDocuments;
-    ExternalDocuments.Reserve(ExternalMorphPaths.Num());
-    for (const FString& Path : ExternalMorphPaths)
-    {
-        FDsonLoadedDocument Document;
-        if (!Document.LoadFromFileAsWarning(Path, TEXT("[morph] external")))
-            continue;
-
-        SourceHandles.Add(Document.GetHandle64());
-        ExternalDocuments.Add(MoveTemp(Document));
-    }
+    FDsonMorphDiscoveryStats DiscoveryStats;
+    LoadFormulaReachableMorphDocuments(
+        Settings, ExternalDocuments, SourceHandles, DiscoveryStats);
 
     TSet<FString> SeenMorphNames;
     FDsonMorphBuildStats Stats;
@@ -220,11 +337,13 @@ void FDsonMorphBuilder::Apply(
     }
 
     UE_LOG(LogDsonImporter, Log,
-        TEXT("[morph] sources=%d created=%d deltas=%d skipped-oob=%d dup-names=%d external-files=%d"),
+        TEXT("[morph] sources=%d created=%d deltas=%d skipped-oob=%d dup-names=%d external-files=%d direct-external=%d formula-external=%d"),
         SourceHandles.Num(),
         Stats.Created,
         Stats.Deltas,
         Stats.SkippedOob,
         Stats.DuplicateNames,
-        ExternalDocuments.Num());
+        ExternalDocuments.Num(),
+        DiscoveryStats.DirectExternalFiles,
+        DiscoveryStats.FormulaExternalFiles);
 }

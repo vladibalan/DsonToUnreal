@@ -1,19 +1,18 @@
-# Formula-Driven Character Morphs — Importer v2 Handoff
+# Formula-Driven Character Morphs — Future Evaluation Handoff
 
-**Status:** parser formula API **built** (read/RPN storage exposed); importer
-implementation **blocked** on a small set of additional parser accessors (see
-"Parser surface — built vs still needed" below). This is the design handoff for
-finishing morph-target import so DAZ *character* morphs (e.g. "Laura") import
-correctly. Phase 7 v1 imports only **delta-bearing** morphs; this doc covers the
-missing **formula-driven control** morphs. It exists so the next session does not
-have to re-derive the DSON structure from gzipped files — the structural facts
-below were verified directly (Jun 2026).
+**Status:** parser formula-output API **delivered** for discovery. The importer
+now follows scene and external modifier formula outputs whose query property is
+exactly `?value`, resolves those referenced files transitively, and imports every
+delta-bearing morph in each reached file as its own ordinary morph target at
+weight 0. It does **not** evaluate formulas, seed dial values, or compose a net
+character shape. This doc now records the future evaluator/compose feature, not
+the current discovery-only implementation.
 
 See also: the parser side (`E:/Work/Code/DsonTest2/DsonParser_Roadmap.md`, v2
 "Formula use cases") owns the authoritative DSON formula structure and the parser
 API plan. This doc is the **importer** consumer plan.
 
-## The problem (what v1 can't do)
+## The remaining problem (what discovery-only import can't do)
 
 A DAZ character is a **control morph**: a `channel` dial (0..1, label e.g.
 "Laura") with **no `morph`/`deltas` of its own**, only `formulas` that drive
@@ -22,40 +21,44 @@ controls — a multi-level tree that bottoms out at delta-bearing leaf morphs in
 **separate `.dsf` files**. The `.duf` lists only the top control (with
 `channel.current_value` = the dial); the children appear only inside formulas.
 
-v1 discovers morphs from `scene.modifiers` URLs and imports any with deltas. For
-Laura that yields the navel HD corrective (72 deltas) but **not** her face/body
-identity, because the identity is `Σ(leaf_deltas × evaluated_value)` across a
-formula tree v1 never traverses or evaluates.
+The importer discovers direct `scene.modifiers` URLs plus transitive `?value`
+formula-output files and imports any morphs with deltas. For Laura that exposes
+her leaf morph targets at rest, but it still does **not** evaluate the formula
+tree or compose `Σ(leaf_deltas × evaluated_value)` into a dialed Laura shape.
 
 Worked example (verified):
 ```
 Laura for Genesis 9.duf  → scene.modifiers:
-  body_bs_Navel_HD3            cv=1 → 72 deltas              [imports today]
+  body_bs_Navel_HD3            cv=1 → 72 deltas              [imports]
   SkinBinding                       → Genesis9.dsf (not a morph)
   Laura_figure_ctrl_Character  cv=1 → 0 deltas, 2 formulas:
-     ├─ …/Laura_head_bs_Head.dsf#Laura_head_bs_Head?value  (×dial) → 0 deltas, 44 formulas → leaves
-     └─ …/Laura_body_bs_body.dsf#Laura_body_bs_body?value  (×dial) → 0 deltas,  9 formulas → leaves
+     ├─ …/Laura_head_bs_Head.dsf#Laura_head_bs_Head?value  (×dial) → 0 deltas, 44 formulas → leaves [discovered/imported at 0]
+     └─ …/Laura_body_bs_body.dsf#Laura_body_bs_body?value  (×dial) → 0 deltas,  9 formulas → leaves [discovered/imported at 0]
   (files under …/data/Daz 3D/Genesis 9/Base/Morphs/Daz 3D/Base Characters 9/)
 ```
 
-## Parser surface — built vs still needed (verified Jun 2026)
+## Parser surface — delivered for discovery, still needed for evaluation (verified Jun 2026)
 
-The parser now exposes per-modifier formulas (RPN storage only, no evaluation,
-single-document). The accessors were keyed on **two index spaces** — raw
+The parser now exposes formula outputs in **two index spaces** — raw
 `modifier_library` index and `scene.modifiers` index — because control morphs
-have no `morph`/`deltas` block and so never appear in the filtered morph list:
+have no `morph`/`deltas` block and so never appear in the filtered morph list.
+The importer binds the output-count/output accessors as optional exports and uses
+them for discovery only:
 
 ```
-// raw modifier_library index, and an identical set on scene.modifiers index:
-GetModifierFormulaCount / Output / Stage
-GetModifierFormulaOperationCount / Op / Val / Url
-GetSceneModifierFormula{Count,Output,Stage,OperationCount,Op,Val,Url}
+GetModifierFormulaCount / Output
+GetSceneModifierFormulaCount / Output
 ```
 
-Those, plus the existing `GetModifierCount/Id/Name/Type`,
+The parser-side request for formula-output discovery is therefore **delivered**.
+For the future evaluator, the parser's stored RPN operations remain relevant:
+`Stage`, `OperationCount`, `Op`, `Val`, and `Url` on both formula index spaces.
+Do not bind those in the discovery-only importer.
+
+Those future operation accessors, plus the existing `GetModifierCount/Id/Name/Type`,
 `GetMorph{Count,Name,Label,GeometryId,Delta*}`, and
 `GetSceneModifier{Count,Url}`, are enough to *traverse and evaluate* the tree —
-**except for three gaps the importer cannot work around cleanly:**
+**except for three gaps the evaluator cannot work around cleanly:**
 
 1. **No channel `current_value` (the dial).** The algorithm seeds evaluation from
    the scene modifier's `current_value`, and a correct RPN evaluator must resolve
@@ -71,12 +74,14 @@ Those, plus the existing `GetModifierCount/Id/Name/Type`,
    no `GetMorphId`, so output→leaf correlation relies on the unverified assumption
    that `GetMorphName == id`.
 
-### Parser request (hand to the DsonParser repo before importer work resumes)
+### Future evaluator parser request
 
-All are pure stored-field reads — they keep the parser single-document and
-non-evaluating, and follow its family return-value contract (count→0, double→0.0,
-string→"", bool→false). Bind each as a new **optional** row in
-`DsonParserFunctions.h` (R2) once the DLL exports them.
+The discovery parser request is done. The following are still needed only when
+the importer grows formula evaluation/composition. All are pure stored-field
+reads — they keep the parser single-document and non-evaluating, and follow its
+family return-value contract (count→0, double→0.0, string→"", bool→false). Bind
+each as a new **optional** row in `DsonParserFunctions.h` (R2) once the evaluator
+feature starts and the DLL exports them.
 
 **Required (correctness blockers):**
 - `double GetSceneModifierChannelValue(handle, sceneModifierIndex)` — the
@@ -108,13 +113,12 @@ string→"", bool→false). Bind each as a new **optional** row in
 
 ### Known importer-side binding gap (not a parser change)
 `DsonDocument_GetSceneModifierId` is declared in the vendored header but **not**
-bound in `DsonParserFunctions.h`. The implementation session must add that row to
-key seed dials by scene-modifier id.
+bound in `DsonParserFunctions.h`. A future evaluator session should add that row
+if it needs to key seed dials by scene-modifier id.
 
-## Importer algorithm
+## Future evaluator algorithm
 
-Extend `DsonMorphBuilder` (it already loads external morph `.dsf` files and has
-the discovery/dedup scaffolding):
+Extend `DsonMorphBuilder` beyond the current discovery-only file walk:
 
 1. **Seed.** For each `scene.modifiers` entry, capture its `current_value` (the
    dial) keyed by the resolved morph `#fragment`/file. Default 1.0 if absent.
@@ -124,11 +128,11 @@ the discovery/dedup scaffolding):
      `Scheme:/path/File.dsf#ModifierId?property`. **Only follow `?value`
      outputs** (ignore bone/rigging targets like `?center_point/x` or rotation —
      those are pose-driven JCMs, the *other* formula consumer, out of scope here).
-   - Strip `?property` and `#fragment`, resolve the path via
-     `FDsonContentRoots::ResolveUrl`, load with `FDsonLoadedDocument` (dedupe by
-     normalized path; you already do this). Recurse into that file's morph: if it
-     has deltas → leaf; if it has formulas → recurse. Guard against cycles with a
-     visited-set of `file#fragment`.
+   - Strip `?property`, resolve the file path via `FDsonContentRoots::ResolveUrl`
+     (which ignores `#fragment` for disk lookup), load with `FDsonLoadedDocument`,
+     and keep the fragment separately for modifier identity. Recurse into that
+     file's morph: if it has deltas → leaf; if it has formulas → recurse. Guard
+     against cycles with a visited-set of `file#fragment`.
 3. **Evaluate the RPN** (`operations`: `push` const/url, `mult`, `div`, `add`,
    `sub`, `pow`, `spline_tcb`) to get each edge's multiplier, and propagate the
    driver value down the tree: `child_value = parent_value ⊗ formula_result`.
@@ -157,12 +161,15 @@ and the v1 MeshDescription pipeline), with (A) as an optional toggle later.
 
 ## Integration points
 - `DsonMorphBuilder.{h,cpp}` — formula traversal/eval + compose; reuse
-  `CollectExternalMorphPaths`/loader, name dedup, bounds checks.
+  the discovery loader, name dedup, bounds checks.
 - `DsonParserFunctions.h` — new formula export rows (R2).
 - `FDsonMeshBuilder::ReadVertexPositions` — only if option (A) baking is chosen.
 
 ## Edge cases / gotchas
 - Follow only `?value` morph outputs; skip rigging/pose outputs (JCM territory).
+- Current discovery strips the formula `?property` query, then passes the URL with
+  `#fragment` intact to `FDsonContentRoots::ResolveUrl`; that resolver strips the
+  fragment for disk lookup.
 - Leaf morphs are shared across characters — dedupe by `file#fragment`, not name.
 - Cycle/diamond protection in the graph walk (visited set).
 - Leaf delta vertex indices are base-figure indices — same bounds check as v1.
@@ -170,5 +177,5 @@ and the v1 MeshDescription pipeline), with (A) as an optional toggle later.
   evaluator; implement them or fail that edge permissively (skip + warn, R7).
 - Keep it permissive: a missing/odd formula skips that branch, never aborts import.
 
-When implemented, update `Docs/Roadmap.md` (move this from Deferred to Done) and
-`Docs/ImporterArchitecture.md` (DsonMorphBuilder responsibility), per R8/R9.
+When the future evaluator/composer is implemented, update `Docs/Roadmap.md` and
+`Docs/ImporterArchitecture.md` again per R8/R9.

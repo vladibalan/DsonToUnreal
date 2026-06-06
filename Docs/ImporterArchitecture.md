@@ -81,7 +81,8 @@ The plugin is an Unreal Editor module:
 
 `DsonMorphBuilder.*`
 
-- Reads morph modifiers from the base figure DSF and external morph DSFs referenced by the scene.
+- Reads morph modifiers from the base figure DSF and external morph DSFs referenced
+  directly by the scene or transitively through `?value` formula outputs.
 - Registers morph targets into the `MeshDescription` before `CommitMeshDescription`.
 - Converts DAZ position deltas through `DazPointToUe`; morph normals are recomputed by the engine.
 
@@ -107,6 +108,8 @@ The plugin is an Unreal Editor module:
 
 - Function pointer typedefs and `FDsonParserAPI`.
 - Keep this synchronized with exports provided by the bundled parser DLL, including morph-target accessors and scene-modifier URLs used to discover external morph files.
+  Formula-output accessors are optional and extend morph file discovery only; they
+  are not used to evaluate or compose formula-driven dial values.
 
 `DsonParserAbiCheck.cpp`
 
@@ -123,7 +126,7 @@ The plugin is an Unreal Editor module:
 - Bad bone hierarchy or transforms: start in `DsonSkeletonBuilder.*`.
 - Bad geometry, UVs, material slots, or mesh asset save: start in `DsonMeshBuilder.*`.
 - Bad skin weights: start in `DsonSkinWeightsBuilder.*`.
-- Missing or wrong morph targets: start in `DsonMorphBuilder.*`, then `DsonParserFunctions.h` for morph and scene-modifier exports.
+- Missing or wrong morph targets: start in `DsonMorphBuilder.*`, then `DsonParserFunctions.h` for morph, scene-modifier, and formula-output exports.
 - Bad shader detection or channel mapping: start in `DsonMaterialBuilder.*`, then `MaterialMastersV1.md`.
 - Missing or wrong textures: start in `DsonTextureImporter.*`.
 

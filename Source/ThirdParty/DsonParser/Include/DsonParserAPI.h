@@ -90,6 +90,10 @@ DSONPARSER_API const char* DsonDocument_GetSceneNodeGeometryUrl(DsonDocumentHand
 DSONPARSER_API int DsonDocument_GetSceneModifierCount(DsonDocumentHandle handle);
 DSONPARSER_API const char* DsonDocument_GetSceneModifierId(DsonDocumentHandle handle, int index);
 DSONPARSER_API const char* DsonDocument_GetSceneModifierUrl(DsonDocumentHandle handle, int index);
+DSONPARSER_API double      DsonDocument_GetSceneModifierChannelValue(DsonDocumentHandle handle, int sceneModifierIndex);
+DSONPARSER_API double      DsonDocument_GetSceneModifierChannelMin(DsonDocumentHandle handle, int sceneModifierIndex);
+DSONPARSER_API double      DsonDocument_GetSceneModifierChannelMax(DsonDocumentHandle handle, int sceneModifierIndex);
+DSONPARSER_API bool        DsonDocument_GetSceneModifierChannelClamped(DsonDocumentHandle handle, int sceneModifierIndex);
 DSONPARSER_API int         DsonDocument_GetSceneModifierFormulaCount(DsonDocumentHandle handle, int sceneModifierIndex);
 DSONPARSER_API const char* DsonDocument_GetSceneModifierFormulaOutput(DsonDocumentHandle handle, int sceneModifierIndex, int formulaIndex);
 DSONPARSER_API const char* DsonDocument_GetSceneModifierFormulaStage(DsonDocumentHandle handle, int sceneModifierIndex, int formulaIndex);
@@ -150,6 +154,10 @@ DSONPARSER_API const char* DsonDocument_GetSceneMaterialGroupName(DsonDocumentHa
 DSONPARSER_API const char* DsonDocument_GetModifierId(DsonDocumentHandle handle, int index);
 DSONPARSER_API const char* DsonDocument_GetModifierName(DsonDocumentHandle handle, int index);
 DSONPARSER_API const char* DsonDocument_GetModifierType(DsonDocumentHandle handle, int index);
+DSONPARSER_API double      DsonDocument_GetModifierChannelValue(DsonDocumentHandle handle, int modifierIndex);
+DSONPARSER_API double      DsonDocument_GetModifierChannelMin(DsonDocumentHandle handle, int modifierIndex);
+DSONPARSER_API double      DsonDocument_GetModifierChannelMax(DsonDocumentHandle handle, int modifierIndex);
+DSONPARSER_API bool        DsonDocument_GetModifierChannelClamped(DsonDocumentHandle handle, int modifierIndex);
 DSONPARSER_API int         DsonDocument_GetModifierFormulaCount(DsonDocumentHandle handle, int modifierIndex);
 DSONPARSER_API const char* DsonDocument_GetModifierFormulaOutput(DsonDocumentHandle handle, int modifierIndex, int formulaIndex);
 DSONPARSER_API const char* DsonDocument_GetModifierFormulaStage(DsonDocumentHandle handle, int modifierIndex, int formulaIndex);
@@ -279,6 +287,7 @@ DSONPARSER_API const char* DsonDocument_GetSceneMaterialChannelTexturePath(DsonD
 // ---- F. Morph Targets ----
 // morphIndex is an index into the filtered list of modifiers where type == "morph"
 DSONPARSER_API int         DsonDocument_GetMorphCount(DsonDocumentHandle handle);
+DSONPARSER_API const char* DsonDocument_GetMorphId(DsonDocumentHandle handle, int morphIndex);
 DSONPARSER_API const char* DsonDocument_GetMorphName(DsonDocumentHandle handle, int morphIndex);
 DSONPARSER_API const char* DsonDocument_GetMorphLabel(DsonDocumentHandle handle, int morphIndex);
 DSONPARSER_API int         DsonDocument_GetMorphDeltaCount(DsonDocumentHandle handle, int morphIndex);
