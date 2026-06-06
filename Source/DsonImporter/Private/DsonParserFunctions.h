@@ -93,6 +93,27 @@ typedef void* DsonDocumentHandle;
     X(0, bool,        GetVertexBoneInfluence,        DsonDocument_GetVertexBoneInfluence,        (uint64_t, int32_t, int32_t, int32_t, const char**, double*)) \
     X(0, bool,        GetVertexBoneInfluenceCapped,  DsonDocument_GetVertexBoneInfluenceCapped,  (uint64_t, int32_t, int32_t, int32_t, int32_t, const char**, double*)) \
     \
+    /* Scene modifiers (external morph-file discovery: each url points at a morph .dsf) */ \
+    X(0, int32_t,     GetSceneModifierCount, DsonDocument_GetSceneModifierCount, (uint64_t)) \
+    X(0, const char*, GetSceneModifierUrl,   DsonDocument_GetSceneModifierUrl,   (uint64_t, int32_t)) \
+    \
+    /* Morph targets (morphIndex addresses the filtered list of type=="morph" modifiers) */ \
+    X(0, int32_t,     GetMorphCount,                  DsonDocument_GetMorphCount,                  (uint64_t)) \
+    X(0, const char*, GetMorphName,                   DsonDocument_GetMorphName,                   (uint64_t, int32_t)) \
+    X(0, const char*, GetMorphLabel,                  DsonDocument_GetMorphLabel,                  (uint64_t, int32_t)) \
+    X(0, const char*, GetMorphGeometryId,             DsonDocument_GetMorphGeometryId,             (uint64_t, int32_t)) \
+    X(0, int32_t,     GetMorphDeltaCount,             DsonDocument_GetMorphDeltaCount,             (uint64_t, int32_t)) \
+    X(0, int32_t,     GetMorphDeltaVertexIndex,       DsonDocument_GetMorphDeltaVertexIndex,       (uint64_t, int32_t, int32_t)) \
+    X(0, double,      GetMorphDeltaX,                 DsonDocument_GetMorphDeltaX,                 (uint64_t, int32_t, int32_t)) \
+    X(0, double,      GetMorphDeltaY,                 DsonDocument_GetMorphDeltaY,                 (uint64_t, int32_t, int32_t)) \
+    X(0, double,      GetMorphDeltaZ,                 DsonDocument_GetMorphDeltaZ,                 (uint64_t, int32_t, int32_t)) \
+    /* Morph normal-delta exports are reserved; MeshDescription builds recompute morph normals. */ \
+    X(0, int32_t,     GetMorphNormalDeltaCount,       DsonDocument_GetMorphNormalDeltaCount,       (uint64_t, int32_t)) \
+    X(0, int32_t,     GetMorphNormalDeltaVertexIndex, DsonDocument_GetMorphNormalDeltaVertexIndex, (uint64_t, int32_t, int32_t)) \
+    X(0, double,      GetMorphNormalDeltaX,           DsonDocument_GetMorphNormalDeltaX,           (uint64_t, int32_t, int32_t)) \
+    X(0, double,      GetMorphNormalDeltaY,           DsonDocument_GetMorphNormalDeltaY,           (uint64_t, int32_t, int32_t)) \
+    X(0, double,      GetMorphNormalDeltaZ,           DsonDocument_GetMorphNormalDeltaZ,           (uint64_t, int32_t, int32_t)) \
+    \
     /* Library materials */ \
     X(0, int32_t,     GetMaterialCount,      DsonDocument_GetMaterialCount,      (uint64_t)) \
     X(0, const char*, GetMaterialId,         DsonDocument_GetMaterialId,         (uint64_t, int32_t)) \

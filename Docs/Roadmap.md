@@ -26,7 +26,7 @@ _Last updated: 2026-06-06._
 | 6 | Materials — per-section MIC wiring, 3 masters, texture import | ✅ Done (v1) |
 | 6.x | UV-set import (seams) | ✅ Done — verified G8.1 + Laura, zero fallbacks |
 | 6.y | Material polish (IrayUber washy fix; multi-UDIM resolved as not-needed) | ✅ Done |
-| 7 | Morph targets (`UMorphTarget` per morph) | ⬜ Not started — **next** |
+| 7 | Morph targets (`UMorphTarget` per morph) | ✅ Done — delta-bearing morphs via MeshDescription morph attributes (position deltas; normals engine-recomputed) |
 | 8 | Save to Content Browser (`/Game/DazImports/`) | ✅ Implemented per-phase, working |
 
 ## Phase 6 — what shipped (v1)
@@ -88,6 +88,17 @@ close-out.
   Current content does not need it (DAZ ships each skin zone as its own 0–1
   section).
 
+## Deferred to v2 (morph follow-ups)
+
+- **Scene dial current values are not baked into the imported character shape.**
+  Phase 7 creates rest-state morph targets; applying a DUF's dialed character
+  expression/body shape remains a later animation/control-rig or bake step.
+- **Formula-driven character/control morphs are not imported.** DAZ `_figure_ctrl_`
+  characters such as Laura carry no direct deltas; they drive leaf morphs through
+  multi-level `formulas`, which require formula evaluation beyond the parser's
+  documented v1 boundary. Phase 7 imports only delta-bearing morphs: correctives,
+  expressions, and directly stored shaping morphs.
+
 ## Known latent issues (not blocking)
 
 - **Layered (LIE) images use the base layer only.** Characters whose surfaces
@@ -148,8 +159,6 @@ close-out.
 
 ## Next up
 
-**Phase 7 — Morph targets.** One `UMorphTarget` per morph. Morph position deltas
-must go through the **same det−1 coordinate flip as vertices** (`DazPointToUe`) or
-morphs mirror relative to the mesh. Parser API is present (`GetMorphCount`,
-`GetMorphDeltaCount`, `GetMorphDeltaVertexIndex`, `GetMorphDeltaX/Y/Z`, plus
-normal deltas).
+**Post-Phase 7 hardening.** Build-verify the MeshDescription morph attribute path,
+then decide whether scene dial current values should be applied as a character
+shape bake or left to runtime controls.

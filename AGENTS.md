@@ -71,6 +71,7 @@ the X-macro list.)
 - Skeleton creation from figure DSF nodes: `Source/DsonImporter/Private/DsonSkeletonBuilder.*`
 - Skeletal mesh geometry, UVs, material slots: `Source/DsonImporter/Private/DsonMeshBuilder.*`
 - Skinning and bone influences: `Source/DsonImporter/Private/DsonSkinWeightsBuilder.*`
+- Morph target import: `Source/DsonImporter/Private/DsonMorphBuilder.*`
 - Scene material instance creation and shader/channel mapping: `Source/DsonImporter/Private/DsonMaterialBuilder.*`
 - Texture import, package naming, texture cache: `Source/DsonImporter/Private/DsonTextureImporter.*`
 - Verbose material channel dumps: `Source/DsonImporter/Private/DsonMaterialDiagnostic.*`

@@ -32,6 +32,7 @@ The plugin is an Unreal Editor module:
    - `FDsonMaterialBuilder` creates material instances from scene material channels.
    - `FDsonMeshBuilder` creates the skeletal mesh, UVs, polygon groups, and material slots.
    - `FDsonSkinWeightsBuilder` applies DSF skin influences before mesh commit.
+   - `FDsonMorphBuilder` registers MeshDescription morph attributes before mesh commit; `BuildSkeletalMesh` generates the `UMorphTarget`s.
 
 ## Component Responsibilities
 
@@ -78,6 +79,12 @@ The plugin is an Unreal Editor module:
 - Maps DSF joint/node names to UE skeleton bone indices.
 - Writes capped/normalized influences to mesh description skin-weight attributes.
 
+`DsonMorphBuilder.*`
+
+- Reads morph modifiers from the base figure DSF and external morph DSFs referenced by the scene.
+- Registers morph targets into the `MeshDescription` before `CommitMeshDescription`.
+- Converts DAZ position deltas through `DazPointToUe`; morph normals are recomputed by the engine.
+
 `DsonMaterialBuilder.*`
 
 - Detects DAZ shader kind from scene material metadata.
@@ -99,7 +106,7 @@ The plugin is an Unreal Editor module:
 `DsonParserFunctions.h`
 
 - Function pointer typedefs and `FDsonParserAPI`.
-- Keep this synchronized with exports provided by the bundled parser DLL.
+- Keep this synchronized with exports provided by the bundled parser DLL, including morph-target accessors and scene-modifier URLs used to discover external morph files.
 
 `DsonParserAbiCheck.cpp`
 
@@ -116,6 +123,7 @@ The plugin is an Unreal Editor module:
 - Bad bone hierarchy or transforms: start in `DsonSkeletonBuilder.*`.
 - Bad geometry, UVs, material slots, or mesh asset save: start in `DsonMeshBuilder.*`.
 - Bad skin weights: start in `DsonSkinWeightsBuilder.*`.
+- Missing or wrong morph targets: start in `DsonMorphBuilder.*`, then `DsonParserFunctions.h` for morph and scene-modifier exports.
 - Bad shader detection or channel mapping: start in `DsonMaterialBuilder.*`, then `MaterialMastersV1.md`.
 - Missing or wrong textures: start in `DsonTextureImporter.*`.
 

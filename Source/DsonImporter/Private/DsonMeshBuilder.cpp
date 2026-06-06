@@ -5,6 +5,7 @@
 #include "DsonImportUtils.h"
 #include "DsonLoadedDocument.h"
 #include "DsonSkinWeightsBuilder.h"
+#include "DsonMorphBuilder.h"
 
 #include "Engine/SkeletalMesh.h"
 #include "Engine/SkinnedAssetCommon.h"
@@ -694,6 +695,8 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
                  "mesh will use root-bone fallback for all vertices"));
         // Non-fatal: continue with placeholder weights
     }
+
+    FDsonMorphBuilder::Apply(Settings, DsfHandle, *MeshDesc, SkelAttribs, VertexIDs);
 
     // 7g - Commit to bulk storage (replaces deprecated SaveLODImportedData).
     if (!Mesh->CommitMeshDescription(0))
