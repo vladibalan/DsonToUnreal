@@ -13,7 +13,7 @@ This file tracks *status*. For *how the code is organized* see
 flip, winding, scale) are owned by `CodeReviewRules.md` R4 and the `DazPointToUe`
 helper — referenced here, not restated, so they cannot drift.
 
-_Last updated: 2026-06-05._
+_Last updated: 2026-06-06._
 
 ## Phase status
 
@@ -55,7 +55,7 @@ shader has a matching master + channel mapping.
 | Generation | Geometry / skeleton / skin | Materials | Status |
 |---|---|---|---|
 | Genesis 8 / 8.1 | ✅ | IrayUber → `M_DazIrayUber` | ✅ Supported, verified |
-| Genesis 9 (Laura) | ✅ | PBRSkin → `M_DazPBRSkin` | ✅ Supported, verified |
+| Genesis 9 (Laura, Nancy) | ✅ | PBRSkin → `M_DazPBRSkin` | ✅ Supported, verified (LIE/makeup chars = base skin only) |
 | Genesis 3 | ✅ imports | non-IrayUber shader, no mapping → falls back to `M_DazDefault` | ⚠️ Not supported in v1 (materials wrong) |
 
 Genesis 3 geometry, skeleton, and skin weights import correctly, but G3 surfaces
@@ -72,6 +72,10 @@ close-out.
 - Subsurface Profile pipeline (per-character `USubsurfaceProfile` instead of
   inline subsurface).
 - PBRSkin makeup, transmission, SSS-direction / sub-surface-enable mappings.
+- **Layered-image (LIE) compositing** — DAZ LIE images stack a base map plus
+  overlay layers (makeup, brows, etc.) with blend operations. v1 uses only the
+  base layer; overlays are not composited. Full support means compositing (or
+  baking) the layer stack to a texture.
 - Full dual-lobe specular implementation (v1 approximates with a single lobe).
 - Clear-coat split masters (top-coat is approximated in v1).
 - **Genesis 3 material support** — identify G3's surface shader and add a master +
@@ -86,6 +90,13 @@ close-out.
 
 ## Known latent issues (not blocking)
 
+- **Layered (LIE) images use the base layer only.** Characters whose surfaces
+  reference layered `image_library` entries by `#fragment` (e.g. G9 "Nancy")
+  import with the base skin map; makeup/brow/overlay layers are not composited.
+  Not a failure — the surface renders correct base skin. (This was the G9
+  white-head bug: the parser now percent-decodes the `#fragment` and parses the
+  `map` array to resolve `texture_path` to the base layer, and the material
+  builder uses `texture_path` when present, falling back to the raw image url.)
 - **sRGB cache conflict** in `DsonTextureImporter`: the cache is keyed by resolved
   path, so the same image requested with two different sRGB flags returns the
   first-cached one (first-write-wins). Not the cause of any observed rendering
