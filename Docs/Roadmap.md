@@ -145,8 +145,14 @@ master's in-shader bump parameters.
   material dial.
 - Adds baked normal textures (surfaces that already ship a normal map combine in
   place, adding none; bump-only surfaces add one).
-- The master's `BumpStrength`/`BumpMap`/`UseBumpMap` become **dead inputs** in v1.5
-  (left in place, never set); `MaterialMastersV1.md` bump wiring note updated to match.
+- The master's `BumpStrength`/`BumpMap`/`UseBumpMap` parameters and the
+  `NormalFromHeightmap` + `BlendAngleCorrectedNormals` nodes have been **removed
+  from `M_DazIrayUber`** — leaving them in cost ~4 extra texture samples per skin
+  pixel every frame even when gated off by a zero `UseBumpMap` (parameters do not
+  fold at compile time). The `NormalMap`-group lerp now drives the material's
+  `Normal` input directly. Visually neutral (the bump branch contributed flat-only
+  when gated off), purely a perf win. `MaterialMastersV1.md` `M_DazIrayUber` table
+  updated to match.
 - The bake must use the green-channel/handedness convention that matches the mesh's
   MikkTSpace tangents (verify visually on a known figure).
 - Height-range nuance (DAZ bump min/max mm) is approximated by the strength scalar
@@ -154,7 +160,8 @@ master's in-shader bump parameters.
 
 **Status:** ✅ done 2026-06-06 — build succeeded; multiple IrayUber figures (incl.
 "Jordina Full Character") seam-free, bump detail preserved; G8.1 base female and a
-G9/Laura figure import unchanged.
+G9/Laura figure import unchanged. `M_DazIrayUber` bump nodes/parameters removed by
+user 2026-06-06 (perf cleanup; no visual change).
 
 ## Known latent issues (not blocking)
 

@@ -40,9 +40,6 @@ Reference spec for the three `UMaterial` master assets that back the DsonToUnrea
 | Glossy | `GlossyWeight` | Scalar | 0 |
 | Glossy | `GlossyMap` | Texture2D | engine white |
 | Glossy | `UseGlossyMap` | Scalar | 0 |
-| Bump | `BumpStrength` | Scalar | 0 |
-| Bump | `BumpMap` | Texture2D | engine white |
-| Bump | `UseBumpMap` | Scalar | 0 |
 | Top Coat | `TopCoatWeight` | Scalar | 0 |
 | Top Coat | `TopCoatMap` | Texture2D | engine white |
 | Top Coat | `UseTopCoatMap` | Scalar | 0 |
@@ -56,13 +53,16 @@ Reference spec for the three `UMaterial` master assets that back the DsonToUnrea
 **Wiring notes:**
 - Route `TranslucencyColor` × `TranslucencyMap` into the Subsurface Color input. Translucency on non-skin surfaces simply stays at default and contributes nothing visible at reasonable subsurface scattering values.
 - `GlossyWeight` × `GlossyMap` feeds Specular (or Roughness inverse — pick whichever reads better against Iray reference; specular is more direct).
-- **Bump is no longer derived in-shader (v1.5).** The in-shader height→normal path
-  caused hard seams at DAZ material-zone UV islands (screen/texture-space derivative
-  discontinuity). Bump is now baked to a tangent-space normal map at import (scaled
-  by `Bump Strength`) and **combined** into the normal input; the
-  `BumpStrength`/`BumpMap`/`UseBumpMap` inputs remain on the master but are **inert**
-  (never set by the builder). See `Docs/Roadmap.md` → "IrayUber bump-map seam" for
-  the decision, justification, and consequences.
+- **No bump path on the master (v1.5).** The in-shader height→normal path caused
+  hard seams at DAZ material-zone UV islands (screen/texture-space derivative
+  discontinuity), and the `NormalFromHeightmap` + `BlendAngleCorrectedNormals` nodes
+  cost ~4 extra texture samples per skin pixel even when gated off by a zero
+  parameter (the shader compiler cannot fold a parameter to zero). Bump is now baked
+  to a tangent-space normal map at import (scaled by `Bump Strength`) and combined
+  into the surface's normal map offline; only the resulting normal feeds
+  `NormalMap`. The `BumpStrength` / `BumpMap` / `UseBumpMap` parameters and the
+  bump-blend nodes have been **removed from the master**. See `Docs/Roadmap.md` →
+  "IrayUber bump-map seam" for the decision, justification, and consequences.
 - `TopCoat*` parameters drive Clear Coat. Requires Clear Coat shading model — if combining with Subsurface isn't viable, drop Clear Coat for v1 and just let `TopCoatColor` tint specular.
 
 ---
