@@ -2,6 +2,26 @@
 
 `DsonToUnreal` imports DAZ Studio DSON/DSF/DUF Genesis assets into Unreal Engine 5.4.4. This plugin is an editor module named `DsonImporter`.
 
+## Operating model (two-agent workflow)
+
+This plugin is worked through two roles: a **Director** (takes your instructions,
+reads files, writes docs/instruction/config files, and authors prompts for the
+Implementer) and an **Implementer** (executes those prompts and edits source per
+the code-review rules). The user passes prompts between the two by hand. At
+session start the user states which role this session plays; if unstated, ask.
+
+**Both roles:** the user handles binary builds and git commits/pushes — never
+assume a build ran and never commit. If a needed file is missing from the
+project folder, ask the user to upload it rather than guessing its contents.
+
+> This plugin sits inside the `DsonHost` project next to the separate `DsonParser`
+> repo, which runs the same workflow. Roles and boundaries do **not** carry across
+> repos — when a session opens from the host root, confirm the role applies to
+> *this* plugin before doing role-specific work.
+
+**Read [`Docs/AgentWorkflow.md`](Docs/AgentWorkflow.md)** for the full role
+definitions, handoff sequence, and the Director's prompt template.
+
 ## Version Control
 
 **This plugin folder is its own git repository.** The surrounding host project
@@ -27,6 +47,8 @@ For discovery, prefer this order:
 2. For audit, review, debugging, or diagnostic requests: `Docs/AuditGuide.md`
    - For code-review runs (DRY / modern-C++ / compactness) **and before editing
      source**, see "Before editing source" below — it governs authoring, not just review.
+   - For the Director/Implementer role definitions, handoff sequence, and the
+     Director's prompt template: `Docs/AgentWorkflow.md`.
 3. The relevant `.h` file for the component you need.
 4. The component's entry in `Docs/ImporterArchitecture.md` ("Component
    Responsibilities") and the purpose-comment at the top of the matching `.h` —
