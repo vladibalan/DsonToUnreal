@@ -97,7 +97,9 @@ close-out.
   characters such as Laura carry no direct deltas; they drive leaf morphs through
   multi-level `formulas`, which require formula evaluation beyond the parser's
   documented v1 boundary. Phase 7 imports only delta-bearing morphs: correctives,
-  expressions, and directly stored shaping morphs.
+  expressions, and directly stored shaping morphs. **Design handoff (DSON evidence
+  + importer algorithm): [`Docs/FormulaMorphsV2.md`](FormulaMorphsV2.md); parser
+  side: `DsonParser_Roadmap.md` v2 "Formula use cases".**
 
 ## Known latent issues (not blocking)
 
@@ -130,6 +132,23 @@ close-out.
 
 ## Carry-forward lessons (hard-won; don't relearn)
 
+- **Morph targets must go through the MeshDescription, not post-build.** The
+  post-build path (`UMorphTarget::PopulateDeltas` + `RegisterMorphTarget` +
+  `InitMorphTargetsAndRebuildRenderData`) silently fails: that last call wraps
+  itself in `FScopedSkeletalMeshPostEditChange`, which re-derives the asset from
+  the MeshDescription on scope exit and discards the just-registered morphs
+  (log shows `created>0` but the Morph Target Previewer is empty). The working
+  path is `FSkeletalMeshAttributes::RegisterMorphTargetAttribute` +
+  `GetVertexMorphPositionDelta` **before** `CommitMeshDescription`; the build
+  generates the `UMorphTarget`s. Consequence: only **position** deltas survive
+  (`CreateFromMeshDescription` ignores MeshDescription normal deltas); morph
+  normals are engine-recomputed. That is why the parser's morph normal-delta
+  exports are bound but unused.
+- **A delta count of ~tens on a "character" morph means it's the wrong morph.**
+  DAZ character identity (e.g. Laura) is a *formula-driven control tree* with no
+  deltas until leaf morphs in other files; the `.duf` references only the top
+  control. A real shape morph touches thousands of verts. See
+  `Docs/FormulaMorphsV2.md`.
 - **Establish the visual symptom against the real asset before chasing
   mechanism.** The multi-UDIM thread burned many turns on a Laura mis-sampling
   bug that never existed — she rendered correctly throughout.
