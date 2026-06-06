@@ -141,10 +141,9 @@ Channels on a scene material that don't appear in the mapping table for its shad
 
 ---
 
-## Open follow-ups (post-v1)
+## Open follow-ups
 
-- Eye/cornea/eye-moisture treatment (translucent master, likely `M_DazEyeMoisture`).
-- Subsurface Profile pipeline (per-character `USubsurfaceProfile` assets instead of inline subsurface).
-- PBRSkin makeup, transmission, sub surface (`SSS Direction`, `Sub Surface Enable`), metallic flakes mappings.
-- G9 Multi-UDIM (per-tile textures, UV set parsing).
-- Bump path for PBRSkin if a preset is ever found that uses it.
+Material-pipeline follow-ups (planned, dropped on perf grounds, or deferred to
+the Designer plugin) are tracked in [`Docs/Roadmap.md`](Docs/Roadmap.md) §
+**Phase 6 v2 — Materials v2** — the single source of truth. This file remains
+the parameter-contract source of record for the master assets themselves.

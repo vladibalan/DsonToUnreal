@@ -26,6 +26,7 @@ _Last updated: 2026-06-06._
 | 6 | Materials — per-section MIC wiring, 3 masters, texture import | ✅ Done (v1) |
 | 6.x | UV-set import (seams) | ✅ Done — verified G8.1 + Laura, zero fallbacks |
 | 6.y | Material polish (IrayUber washy fix; multi-UDIM resolved as not-needed) | ✅ Done |
+| 6 v2 | Materials v2 — faithful makeup + LIE import (current), then SSS Profile, eye-moisture | 🔄 In progress — slice #1 of 3 |
 | 7 | Morph targets (`UMorphTarget` per morph) | ✅ Done — delta-bearing morphs, including formula-reachable `?value` leaf files, via MeshDescription morph attributes |
 | 8 | Save to Content Browser (`/Game/DazImports/`) | ✅ Implemented per-phase, working |
 
@@ -33,7 +34,7 @@ _Last updated: 2026-06-06._
 
 - Per scene-material `UMaterialInstanceConstant`, parented to one of three
   hand-authored masters in `Content/Materials/` (spec: `MaterialMastersV1.md`):
-  `M_DazIrayUber` (G8/G8.1), `M_DazPBRSkin` (G9/Laura), `M_DazDefault` (fallback).
+  `M_DazIrayUber` (G8/G8.1/G3), `M_DazPBRSkin` (G9/Laura), `M_DazDefault` (fallback).
 - Shader detection: URL fragment first, then `shader_type`.
 - Channel→parameter mapping tables in `DsonMaterialBuilder.cpp`
   (`GetIrayUberMapping()` / `GetPBRSkinMapping()`); textures imported via
@@ -56,31 +57,114 @@ shader has a matching master + channel mapping.
 |---|---|---|---|
 | Genesis 8 / 8.1 | ✅ | IrayUber → `M_DazIrayUber` | ✅ Supported, verified |
 | Genesis 9 (Laura, Nancy) | ✅ | PBRSkin → `M_DazPBRSkin` | ✅ Supported, verified (LIE/makeup chars = base skin only) |
-| Genesis 3 | ✅ imports | non-IrayUber shader, no mapping → falls back to `M_DazDefault` | ⚠️ Not supported in v1 (materials wrong) |
+| Genesis 3 (Victoria 7 HD) | ✅ | IrayUber → `M_DazIrayUber` | ✅ Supported, verified |
 
-Genesis 3 geometry, skeleton, and skin weights import correctly, but G3 surfaces
-use a different DAZ shader (not IrayUber) with no master/mapping yet, so its
-materials fall back to the matte `M_DazDefault` and look wrong. Proper G3 material
-support is a v2 item (see Deferred).
+## Phase 6 v2 — Materials v2
 
-## Deferred to v2 (material follow-ups)
+**Closes Phase 6 (Materials).** Picks up the deferred-from-v1 work under a
+two-part filter:
 
-Source of record: `MaterialMastersV1.md` "Open follow-ups", confirmed in the 6.y
-close-out.
+1. **Runtime perf > visual fidelity.** Game-runtime cost decides; the same
+   filter used for the IrayUber bump→normal decision (2026-06-06). If a DAZ
+   feature requires runtime shader work that can't be made free-or-near-free,
+   v1's approximation stands as the runtime answer.
+2. **Content options preserved.** The importer is a data pump — it never
+   bakes away authoring choices. Source assets (`Makeup Base Color`, LIE
+   layers) land as standalone `UTexture2D`s; whether/how they get combined
+   into a runtime Diffuse is an authoring step, deferred to the **Designer**
+   plugin (separate, future — see below).
 
-- Eye / cornea / eye-moisture translucent master (`M_DazEyeMoisture`).
-- Subsurface Profile pipeline (per-character `USubsurfaceProfile` instead of
-  inline subsurface).
-- PBRSkin makeup, transmission, SSS-direction / sub-surface-enable mappings.
-- **Layered-image (LIE) compositing** — DAZ LIE images stack a base map plus
-  overlay layers (makeup, brows, etc.) with blend operations. v1 uses only the
-  base layer; overlays are not composited. Full support means compositing (or
-  baking) the layer stack to a texture.
-- Full dual-lobe specular implementation (v1 approximates with a single lobe).
-- Clear-coat split masters (top-coat is approximated in v1).
-- **Genesis 3 material support** — identify G3's surface shader and add a master +
-  channel mapping for it. G3 geometry/skeleton/skin already import; only the
-  material mapping is missing (currently falls back to `M_DazDefault`).
+**Acceptance set** (same as v1): G8 Jordina Full Character + G8.1
+Genesis8_1Female base, G9 Laura + Nancy, G3 Victoria 7 HD. For the master
+parameter-contract format, `MaterialMastersV1.md` remains the source of record;
+its "Open follow-ups" subset is now superseded by the slice list below.
+
+Slices are sized to ship independently and are taken in order; each one updates
+this section as it lands. **Current: slice #1 (faithful makeup + LIE import).**
+
+### Planned slices
+
+1. **Faithful makeup + LIE import** — 🔄 Current. Importer imports `Makeup
+   Base Color` textures and each non-base LIE layer as standalone
+   `UTexture2D` assets under `/Game/DazImports/Textures/`. **No** `Makeup *`
+   entries added to `GetPBRSkinMapping()`, **no** `Makeup *` parameters added
+   to `M_DazPBRSkin` — per-surface makeup values (Enable/Weight/Roughness
+   Mult) stay in the DAZ source for the future Designer plugin to consume
+   directly via the parser. Folds in the sRGB-cache-conflict fix in
+   `DsonTextureImporter` while we're inside it.
+2. **Subsurface Profile pipeline** — generate per-character
+   `USubsurfaceProfile` assets; rewire skin masters' subsurface input. Maps
+   the SSS-family channels (`Sub Surface Enable`, `SSS Color`, `SSS
+   Direction`, `Transmitted Color`, `Translucency *`, `Scattering Measurement
+   Distance`) into the profile. Perf-neutral vs. inline subsurface.
+3. **Eye-moisture / cornea master** (`M_DazEyeMoisture`) — new translucent
+   master + eye-surface detection + mapping. Translucent shading cost
+   absorbed by the small pixel footprint of eyes (~1% on close-ups, much less
+   normally).
+
+### Slice #1 — handoff notes
+
+Captured during planning so the implementation session can pick up cold:
+
+- **Parser pre-req.** The parser parses LIE `map` arrays but exposes only the
+  base layer today (the G9 Nancy white-head fix). To import each non-base
+  layer as a standalone `UTexture2D`, the parser likely needs a new accessor
+  (layer count + per-layer image_url). That's a **DsonParser repo** change —
+  either a parser-first sub-step or a cross-repo slice. Confirm by reading
+  the parser's image-library accessor surface before drafting the Implementer
+  prompt.
+- **Importer side path.** `Makeup Base Color` deliberately stays out of
+  `GetPBRSkinMapping()` (no MIC binding). The Importer therefore needs a
+  side path: scan known image-bearing channels and import their textures
+  *without* binding to MIC params. Small new abstraction in the material
+  builder.
+- **Verification asset.** HID Nancy 9 (`D:/Daz_content/People/Genesis 9/
+  Characters/HID Nancy 9.duf`) carries both PBRSkin `Makeup *` channels
+  (every surface) and a LIE-based head diffuse — confirmed during planning.
+  Use as the slice's primary verification figure; retest the rest of the
+  acceptance set to confirm no regression on figures without makeup/LIE.
+
+### Slice #3 — note for the master rework
+
+While reworking `M_DazPBRSkin` to wire the Subsurface Profile, audit it for
+the same gated-but-evaluated-nodes pattern that motivated the IrayUber bump
+cleanup (parameters do not fold to zero at compile time; gated branches still
+sample). Remove any cost-when-disabled paths in the same pass.
+
+### Dropped from v2 — runtime cost > visual-fidelity gain
+
+v1's approximation is the runtime answer; the full DAZ-faithful version is not
+pursued for game runtime. Same framing as the IrayUber bump decision.
+
+- **Full dual-lobe specular** — adds a second specular GGX evaluation per skin
+  pixel per frame. v1's single-lobe approximation stands.
+- **Clear-coat split** — UE Clear Coat shading model adds clear-coat GGX +
+  transmission on top. v1's tinted-specular top-coat stands.
+- **Metallic Flakes (skin)** — procedural noise + size/density is non-trivial
+  runtime ALU. No current content needs it (Nancy ships flakes at weight 0).
+  If a future asset requires strong flakes, address per-character outside the
+  default skin pipeline.
+
+### Deferred to Designer (separate future plugin)
+
+The **Designer** plugin (not yet started) will be a separate UE plugin built on
+top of the importer. Planned scope:
+
+- In-editor diffuse composition: pick a target surface; mix base Diffuse with
+  the imported `Makeup Base Color`, LIE layers, and any user-provided
+  textures; per-source blend mode / opacity / weight; live preview.
+- Bake-out: produce a new `UTexture2D` and rebind the MIC's `DiffuseMap` to
+  it. Original imported assets stay untouched so variants remain possible.
+
+The Importer stays agnostic to the Designer: imported assets land with
+predictable paths and naming so the Designer (and any third tool) discovers
+them by convention — no importer-side hooks, no Designer-specific sidecars.
+The Designer re-uses the parser directly for per-surface metadata (Makeup
+weights, etc.) rather than receiving Importer-emitted data. Rationale: keep
+each plugin LLM-agent-friendly (smaller contexts per agent task).
+
+### Parked — revisit if content needs it
+
 - **True multi-tile UDIM** — one material/section whose UVs span multiple tiles
   needing *different* textures (VT/atlas territory). This is **not** the
   per-section integer `UVTileOffset` that was built and reverted: under UE Wrap
@@ -191,6 +275,12 @@ user 2026-06-06 (perf cleanup; no visual change).
   sparse-format migration (return 0 for sparse DSFs). Parser-side change (parser
   repo + DLL rebuild/copy into `Source/ThirdParty/DsonParser/Libs/Win64/`), after
   confirming no references remain.
+- **Audit source comments / log strings for stale G3 fallback phrasing.** The
+  earlier Roadmap claim that G3 fell back to `M_DazDefault` was incorrect (G3
+  uses IrayUber → `M_DazIrayUber`, verified Victoria 7 HD, 2026-06-06). If any
+  file's comments or log messages still claim "Genesis 3 → default" / "G3
+  fallback", remove or correct them. Search `Source/DsonImporter/` for
+  `Genesis 3` / `G3` references.
 
 ## Carry-forward lessons (hard-won; don't relearn)
 
@@ -260,9 +350,13 @@ user 2026-06-06 (perf cleanup; no visual change).
 
 ## Next up
 
-**Phase 7 v2 — formula evaluation/composed character shape.** The discovery-only
-portion is done: formula-reachable `?value` files import their leaf morph targets
-at weight 0. Next is the evaluator/compose feature in
-[`Docs/FormulaMorphsV2.md`](FormulaMorphsV2.md): channel `current_value`,
-`min`/`max`/`clamped`, and a fragment-to-leaf bridge are still needed before the
-importer can bake or emit a combined dialed character shape.
+**Phase 6 v2 — Materials v2.** Active. Current slice: #1 (faithful makeup + LIE
+import). See the Phase 6 v2 section above for the full slice plan and acceptance
+set.
+
+**Phase 7 v2 — formula evaluation/composed character shape** (queued behind
+Phase 6 v2). The discovery-only portion is done: formula-reachable `?value`
+files import their leaf morph targets at weight 0. Next is the evaluator/compose
+feature in [`Docs/FormulaMorphsV2.md`](FormulaMorphsV2.md): channel
+`current_value`, `min`/`max`/`clamped`, and a fragment-to-leaf bridge are still
+needed before the importer can bake or emit a combined dialed character shape.
