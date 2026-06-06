@@ -6,9 +6,12 @@
 
 #include "Engine/Texture2D.h"
 #include "Factories/TextureFactory.h"
+#include "IImageWrapper.h"
+#include "IImageWrapperModule.h"
 #include "Misc/FileHelper.h"
 #include "Misc/PackageName.h"
 #include "Misc/Paths.h"
+#include "Modules/ModuleManager.h"
 #include "ObjectTools.h"
 
 /*
@@ -26,6 +29,20 @@ struct FTextureAssetPath
     FString Extension;
     FString PackagePath;
 };
+
+struct FDecodedImage
+{
+    int32 Width = 0;
+    int32 Height = 0;
+    TArray<FColor> Pixels;
+
+    bool IsValid() const { return Width > 0 && Height > 0 && Pixels.Num() == Width * Height; }
+};
+
+static float ByteToUnit(uint8 Value)
+{
+    return static_cast<float>(Value) / 255.0f;
+}
 
 static FString SanitizePackageSubdir(const FString& RelDir)
 {
@@ -69,6 +86,107 @@ static FTextureAssetPath BuildTextureAssetPath(const FString& RelSubpath)
     AssetPath.PackagePath = AssetPath.PackagePath / AssetPath.AssetName;
 
     return AssetPath;
+}
+
+static FTextureAssetPath BuildBakedNormalAssetPath(const FString& RelSubpath)
+{
+    FTextureAssetPath AssetPath = BuildTextureAssetPath(RelSubpath);
+    const FString BaseFilename = FPaths::GetBaseFilename(RelSubpath);
+    AssetPath.AssetName = TEXT("T_") + ObjectTools::SanitizeObjectName(BaseFilename) + TEXT("_N");
+    AssetPath.PackagePath = FPaths::GetPath(AssetPath.PackagePath) / AssetPath.AssetName;
+    return AssetPath;
+}
+
+static bool DecodeImageFile(const FString& ResolvedPath, FDecodedImage& OutImage)
+{
+    TArray<uint8> FileBytes;
+    if (!FFileHelper::LoadFileToArray(FileBytes, *ResolvedPath))
+        return false;
+
+    IImageWrapperModule& ImageWrapperModule =
+        FModuleManager::LoadModuleChecked<IImageWrapperModule>(FName(TEXT("ImageWrapper")));
+    const EImageFormat ImageFormat =
+        ImageWrapperModule.DetectImageFormat(FileBytes.GetData(), FileBytes.Num());
+    if (ImageFormat == EImageFormat::Invalid)
+        return false;
+
+    TSharedPtr<IImageWrapper> ImageWrapper = ImageWrapperModule.CreateImageWrapper(ImageFormat);
+    if (!ImageWrapper.IsValid() || !ImageWrapper->SetCompressed(FileBytes.GetData(), FileBytes.Num()))
+        return false;
+
+    TArray64<uint8> RawRgba;
+    if (!ImageWrapper->GetRaw(ERGBFormat::RGBA, 8, RawRgba))
+        return false;
+
+    OutImage.Width = ImageWrapper->GetWidth();
+    OutImage.Height = ImageWrapper->GetHeight();
+    OutImage.Pixels.SetNum(OutImage.Width * OutImage.Height);
+
+    for (int32 i = 0; i < OutImage.Pixels.Num(); ++i)
+    {
+        const int64 RawIdx = static_cast<int64>(i) * 4;
+        OutImage.Pixels[i] = FColor(
+            RawRgba[RawIdx + 0],
+            RawRgba[RawIdx + 1],
+            RawRgba[RawIdx + 2],
+            RawRgba[RawIdx + 3]);
+    }
+
+    return OutImage.IsValid();
+}
+
+static float HeightAt(const FDecodedImage& Image, int32 X, int32 Y)
+{
+    X = FMath::Clamp(X, 0, Image.Width - 1);
+    Y = FMath::Clamp(Y, 0, Image.Height - 1);
+
+    const FColor& Pixel = Image.Pixels[Y * Image.Width + X];
+    return (ByteToUnit(Pixel.R) + ByteToUnit(Pixel.G) + ByteToUnit(Pixel.B)) / 3.0f;
+}
+
+static FVector3f DecodeNormalPixel(const FColor& Pixel)
+{
+    FVector3f Normal(
+        ByteToUnit(Pixel.R) * 2.0f - 1.0f,
+        ByteToUnit(Pixel.G) * 2.0f - 1.0f,
+        ByteToUnit(Pixel.B) * 2.0f - 1.0f);
+    return Normal.GetSafeNormal(UE_SMALL_NUMBER, FVector3f(0.0f, 0.0f, 1.0f));
+}
+
+static FVector3f SampleBaseNormal(const FDecodedImage& Image, int32 X, int32 Y, int32 TargetWidth, int32 TargetHeight)
+{
+    if (!Image.IsValid())
+        return FVector3f(0.0f, 0.0f, 1.0f);
+
+    const float U = TargetWidth > 1 ? static_cast<float>(X) / static_cast<float>(TargetWidth - 1) : 0.0f;
+    const float V = TargetHeight > 1 ? static_cast<float>(Y) / static_cast<float>(TargetHeight - 1) : 0.0f;
+    const int32 SrcX = FMath::Clamp(FMath::RoundToInt(U * static_cast<float>(Image.Width - 1)), 0, Image.Width - 1);
+    const int32 SrcY = FMath::Clamp(FMath::RoundToInt(V * static_cast<float>(Image.Height - 1)), 0, Image.Height - 1);
+    return DecodeNormalPixel(Image.Pixels[SrcY * Image.Width + SrcX]);
+}
+
+static FColor EncodeNormalPixel(const FVector3f& Normal)
+{
+    const FVector3f N = Normal.GetSafeNormal(UE_SMALL_NUMBER, FVector3f(0.0f, 0.0f, 1.0f));
+    return FColor(
+        static_cast<uint8>(FMath::Clamp(FMath::RoundToInt((N.X * 0.5f + 0.5f) * 255.0f), 0, 255)),
+        static_cast<uint8>(FMath::Clamp(FMath::RoundToInt((N.Y * 0.5f + 0.5f) * 255.0f), 0, 255)),
+        static_cast<uint8>(FMath::Clamp(FMath::RoundToInt((N.Z * 0.5f + 0.5f) * 255.0f), 0, 255)),
+        255);
+}
+
+static FString BuildBakedNormalCacheKey(
+    const FString& BumpPath,
+    float BumpStrength,
+    const FString& NormalPath,
+    float NormalStrength)
+{
+    return FString::Printf(
+        TEXT("%s|%.6f|%s|%.6f"),
+        *BumpPath,
+        BumpStrength,
+        *NormalPath,
+        NormalStrength);
 }
 
 // ---------------------------------------------------------------------------
@@ -143,7 +261,7 @@ UTexture2D* FDsonTextureImporter::ImportOrFind(const FString& ImageUrl, bool bSR
         {
             UE_LOG(LogDsonImporter, Warning,
                 TEXT("DsonTextureImporter: sRGB conflict for '%s' - cached=%d requested=%d; returning cached unmodified"),
-                *ImageUrl, (int32)CachedTex->SRGB, (int32)bSRGB);
+                *ImageUrl, static_cast<int32>(CachedTex->SRGB), static_cast<int32>(bSRGB));
         }
         ++CacheHitCount;
         UE_LOG(LogDsonImporter, VeryVerbose,
@@ -235,7 +353,141 @@ UTexture2D* FDsonTextureImporter::ImportOrFind(const FString& ImageUrl, bool bSR
 
     UE_LOG(LogDsonImporter, Verbose,
         TEXT("DsonTextureImporter: imported '%s' from '%s' (sRGB=%d)"),
-        *AssetPath.PackagePath, *ResolvedPath, (int32)bSRGB);
+        *AssetPath.PackagePath, *ResolvedPath, static_cast<int32>(bSRGB));
+
+    return Texture;
+}
+
+UTexture2D* FDsonTextureImporter::ImportBumpAsNormal(
+    const FString& BumpUrl,
+    float BumpStrength,
+    const FString& NormalUrl,
+    float NormalStrength)
+{
+    const FString BumpPath = FDsonContentRoots::ResolveUrl(BumpUrl, ContentRoots);
+    if (BumpPath.IsEmpty())
+    {
+        UE_LOG(LogDsonImporter, Warning,
+            TEXT("DsonTextureImporter: could not resolve bump map '%s' in %d content root(s)"),
+            *BumpUrl, ContentRoots.Num());
+        RecordFailure(BumpUrl);
+        return nullptr;
+    }
+
+    FString NormalPath;
+    if (!NormalUrl.IsEmpty())
+    {
+        NormalPath = FDsonContentRoots::ResolveUrl(NormalUrl, ContentRoots);
+        if (NormalPath.IsEmpty())
+        {
+            UE_LOG(LogDsonImporter, Warning,
+                TEXT("DsonTextureImporter: could not resolve normal map '%s' for bump bake '%s'"),
+                *NormalUrl, *BumpUrl);
+            RecordFailure(BumpUrl);
+            return nullptr;
+        }
+    }
+
+    const FString CacheKey = BuildBakedNormalCacheKey(BumpPath, BumpStrength, NormalPath, NormalStrength);
+    if (TObjectPtr<UTexture2D>* Found = BakedNormalCache.Find(CacheKey))
+    {
+        ++CacheHitCount;
+        return Found->Get();
+    }
+
+    FDecodedImage BumpImage;
+    if (!DecodeImageFile(BumpPath, BumpImage))
+    {
+        UE_LOG(LogDsonImporter, Warning,
+            TEXT("DsonTextureImporter: failed to decode bump map '%s'"), *BumpPath);
+        RecordFailure(BumpUrl);
+        return nullptr;
+    }
+
+    FDecodedImage BaseNormalImage;
+    if (!NormalPath.IsEmpty() && !DecodeImageFile(NormalPath, BaseNormalImage))
+    {
+        UE_LOG(LogDsonImporter, Warning,
+            TEXT("DsonTextureImporter: failed to decode normal map '%s' for bump bake '%s'"),
+            *NormalPath, *BumpPath);
+        RecordFailure(BumpUrl);
+        return nullptr;
+    }
+
+    const FString RelSubpath = DeriveRelativeSubpath(BumpUrl, BumpPath);
+    const FTextureAssetPath AssetPath = BuildBakedNormalAssetPath(RelSubpath);
+
+    UPackage* Package = FDsonAssetUtils::CreateLoadedPackage(AssetPath.PackagePath, TEXT("DsonTextureImporter"));
+    if (!Package)
+    {
+        RecordFailure(BumpUrl);
+        return nullptr;
+    }
+
+    UTexture2D* Texture = LoadObject<UTexture2D>(nullptr, *AssetPath.PackagePath, nullptr, LOAD_NoWarn);
+    if (!Texture)
+    {
+        Texture = NewObject<UTexture2D>(
+            Package, *AssetPath.AssetName, RF_Public | RF_Standalone);
+    }
+    if (!Texture)
+    {
+        UE_LOG(LogDsonImporter, Error,
+            TEXT("DsonTextureImporter: NewObject<UTexture2D> failed for baked normal '%s'"),
+            *AssetPath.PackagePath);
+        RecordFailure(BumpUrl);
+        return nullptr;
+    }
+
+    TArray<FColor> NormalPixels;
+    NormalPixels.SetNumUninitialized(BumpImage.Width * BumpImage.Height);
+
+    constexpr float BumpGradientScale = 4.0f;
+    for (int32 Y = 0; Y < BumpImage.Height; ++Y)
+    {
+        for (int32 X = 0; X < BumpImage.Width; ++X)
+        {
+            const float Gx = HeightAt(BumpImage, X + 1, Y) - HeightAt(BumpImage, X - 1, Y);
+            const float Gy = HeightAt(BumpImage, X, Y + 1) - HeightAt(BumpImage, X, Y - 1);
+            const float Scale = BumpGradientScale * BumpStrength;
+
+            // UE tangent-space normal maps use the DirectX/MikkTSpace green convention:
+            // image-space +Y height gradients tilt toward negative tangent Y for raised bumps.
+            const FVector3f BumpNormal = FVector3f(-Gx * Scale, -Gy * Scale, 1.0f)
+                .GetSafeNormal(UE_SMALL_NUMBER, FVector3f(0.0f, 0.0f, 1.0f));
+            const FVector3f BaseNormal =
+                SampleBaseNormal(BaseNormalImage, X, Y, BumpImage.Width, BumpImage.Height);
+            const FVector3f CombinedNormal = BaseNormalImage.IsValid()
+                ? FVector3f(BaseNormal.X + BumpNormal.X, BaseNormal.Y + BumpNormal.Y, BaseNormal.Z)
+                : BumpNormal;
+
+            NormalPixels[Y * BumpImage.Width + X] = EncodeNormalPixel(CombinedNormal);
+        }
+    }
+
+    Texture->Source.Init(
+        BumpImage.Width,
+        BumpImage.Height,
+        /*NumSlices=*/1,
+        /*NumMips=*/1,
+        TSF_BGRA8,
+        reinterpret_cast<const uint8*>(NormalPixels.GetData()));
+    Texture->CompressionSettings = TC_Normalmap;
+    Texture->SRGB = false;
+    Texture->UpdateResource();
+
+    if (!FDsonAssetUtils::SaveAssetPackage(Package, Texture, AssetPath.PackagePath, TEXT("DsonTextureImporter")))
+    {
+        RecordFailure(BumpUrl);
+        return nullptr;
+    }
+
+    BakedNormalCache.Add(CacheKey, Texture);
+    ++ImportedCount;
+
+    UE_LOG(LogDsonImporter, Verbose,
+        TEXT("DsonTextureImporter: baked bump normal '%s' from '%s' normal='%s' bumpStrength=%.4f normalStrength=%.4f"),
+        *AssetPath.PackagePath, *BumpPath, *NormalPath, BumpStrength, NormalStrength);
 
     return Texture;
 }

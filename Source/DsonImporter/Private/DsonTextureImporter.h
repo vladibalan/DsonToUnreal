@@ -15,6 +15,15 @@ public:
     // the new texture. Returns nullptr on any failure; logs a warning with details.
     UTexture2D* ImportOrFind(const FString& ImageUrl, bool bSRGB);
 
+    // Bakes a grayscale DAZ bump height image into a tangent-space normal map,
+    // optionally combining it with an existing normal map. The returned texture
+    // is saved as a generated normal asset and cached by bump+normal inputs.
+    UTexture2D* ImportBumpAsNormal(
+        const FString& BumpUrl,
+        float BumpStrength,
+        const FString& NormalUrl,
+        float NormalStrength);
+
     int32 GetImportedCount()  const { return ImportedCount;  }
     int32 GetCacheHitCount()  const { return CacheHitCount;  }
     int32 GetFailureCount()   const { return FailureCount;   }
@@ -31,6 +40,7 @@ private:
 
     TArray<FString>                     ContentRoots;
     TMap<FString, TObjectPtr<UTexture2D>> Cache;   // key: resolved absolute path
+    TMap<FString, TObjectPtr<UTexture2D>> BakedNormalCache; // key: resolved paths + strengths
     int32                               ImportedCount = 0;
     int32                               CacheHitCount = 0;
     int32                               FailureCount  = 0;

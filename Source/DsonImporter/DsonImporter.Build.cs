@@ -37,6 +37,7 @@ public class DsonImporter : ModuleRules
             "AssetRegistry",
             "ContentBrowser",
             "EditorFramework",
+            "ImageWrapper",
         });
     }
 }

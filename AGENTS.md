@@ -95,7 +95,7 @@ the X-macro list.)
 - Skinning and bone influences: `Source/DsonImporter/Private/DsonSkinWeightsBuilder.*`
 - Morph target import: `Source/DsonImporter/Private/DsonMorphBuilder.*`
 - Scene material instance creation and shader/channel mapping: `Source/DsonImporter/Private/DsonMaterialBuilder.*`
-- Texture import, package naming, texture cache: `Source/DsonImporter/Private/DsonTextureImporter.*`
+- Texture import, bump-to-normal baking, package naming, texture cache: `Source/DsonImporter/Private/DsonTextureImporter.*`
 - Verbose material channel dumps: `Source/DsonImporter/Private/DsonMaterialDiagnostic.*`
 - Parser C API function pointers: `Source/DsonImporter/Private/DsonParserFunctions.h`
 - Compile-time parser ABI drift check (no runtime code): `Source/DsonImporter/Private/DsonParserAbiCheck.cpp`

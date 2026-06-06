@@ -103,6 +103,53 @@ close-out.
   to leaf-morph identity bridge. Full analysis:
   **[`Docs/FormulaMorphsV2.md`](FormulaMorphsV2.md)**.
 
+## IrayUber bump-map seam — root cause & fix decision (2026-06-06)
+
+**Symptom.** G8 *character* figures on the IrayUber master (e.g. "Jordina Full
+Character") showed hard, lit-only shading creases at every DAZ material-zone
+boundary (face↔torso↔arms↔legs). The G8.1 *base* female (same `M_DazIrayUber`)
+and all G9/PBRSkin figures did **not**.
+
+**Root cause.** `M_DazIrayUber` reconstructs a normal from the grayscale **bump
+(height)** map *in-shader*, using screen/texture-space UV derivatives. Those
+derivatives are discontinuous across UV-island boundaries, and DAZ skin zones are
+exactly those islands → a hard normal seam at every zone edge. Confirmed by A/B:
+`UseBumpMap = 0` removes the seams. Base figures ship no/flat bump (path inert);
+PBRSkin has no bump path at all — which is why only bump-bearing IrayUber
+characters seam.
+
+**Decision: bake bump→normal offline (Option A), not an in-shader graph fix
+(Option B).** Selection criteria, in order: (1) game-runtime performance,
+(2) fidelity to DAZ surface authoring intent.
+- **Performance (decisive).** A turns the bump detail into an ordinary normal-map
+  sample — one tap, no per-pixel ALU, correct offline mips. A *seamless* in-shader
+  reconstruction (B) requires multi-tap (≥3) texture-space sampling per pixel,
+  every frame, on large close-up skin, multiplied per character.
+- **Fidelity (secondary).** A honors the authored `Bump Strength` at bake time and
+  is actually more correct on mips and seams. B's only edge is keeping bump
+  strength as a live runtime dial — an authoring convenience, not a runtime-quality
+  gain.
+
+**Approach.** At import, bake the bump height map to a tangent-space normal map
+(texture-space Sobel, scaled by the DAZ `Bump Strength`), **combine** it with the
+surface's existing normal map when present (detail preserved, not dropped), and
+feed the result to the master's normal input. The builder stops populating the
+master's in-shader bump parameters.
+
+**Consequences / trade-offs.**
+- Bump strength is **baked at import** — changing it means re-importing, not a live
+  material dial.
+- Adds baked normal textures (surfaces that already ship a normal map combine in
+  place, adding none; bump-only surfaces add one).
+- The master's `BumpStrength`/`BumpMap`/`UseBumpMap` become **dead inputs** in v1.5
+  (left in place, never set); `MaterialMastersV1.md` bump wiring note updated to match.
+- The bake must use the green-channel/handedness convention that matches the mesh's
+  MikkTSpace tangents (verify visually on a known figure).
+- Height-range nuance (DAZ bump min/max mm) is approximated by the strength scalar
+  in v1.5.
+
+**Status:** decided 2026-06-06; implementation pending (Implementer + user build/verify).
+
 ## Known latent issues (not blocking)
 
 - **Layered (LIE) images use the base layer only.** Characters whose surfaces

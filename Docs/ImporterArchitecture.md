@@ -90,6 +90,8 @@ The plugin is an Unreal Editor module:
 
 - Detects DAZ shader kind from scene material metadata.
 - Maps DAZ material channels onto Unreal material instance parameters.
+- For IrayUber, bakes bump maps into the normal input and leaves the master's
+  `BumpStrength`/`BumpMap`/`UseBumpMap` parameters unset.
 - Imports textures through `FDsonTextureImporter`.
 - Outputs material instances keyed by material group name.
 
@@ -97,6 +99,8 @@ The plugin is an Unreal Editor module:
 
 - Resolves image URLs to disk.
 - Imports or reuses `UTexture2D` assets.
+- Bakes IrayUber bump height maps into tangent-space normal textures and combines
+  them with the surface normal map when present.
 - Sets sRGB according to material channel needs.
 - Caches imports by resolved absolute path.
 

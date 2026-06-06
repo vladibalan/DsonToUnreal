@@ -58,6 +58,12 @@ struct FSceneMaterialMetadata
     FString ShaderType;
 };
 
+struct FDazChannelInfo
+{
+    FString TextureRef;
+    float Value = 0.0f;
+};
+
 // ---------------------------------------------------------------------------
 // Mapping tables - initialized once, returned by const reference
 // ---------------------------------------------------------------------------
@@ -77,14 +83,10 @@ static const TMap<FString, FDazParamBinding>& GetIrayUberMapping()
             { NAME_None,                        FName(TEXT("TranslucencyWeight")), NAME_None,                       NAME_None,                          false });
         M.Add(TEXT("Glossy Layered Weight"),
             { NAME_None,                        FName(TEXT("GlossyWeight")),    FName(TEXT("GlossyMap")),        FName(TEXT("UseGlossyMap")),        false });
-        M.Add(TEXT("Bump Strength"),
-            { NAME_None,                        FName(TEXT("BumpStrength")),    FName(TEXT("BumpMap")),          FName(TEXT("UseBumpMap")),          false });
         M.Add(TEXT("Top Coat Weight"),
             { NAME_None,                        FName(TEXT("TopCoatWeight")),   FName(TEXT("TopCoatMap")),       FName(TEXT("UseTopCoatMap")),       false });
         M.Add(TEXT("Top Coat Color"),
             { FName(TEXT("TopCoatColor")),      NAME_None,                      FName(TEXT("TopCoatColorMap")),  FName(TEXT("UseTopCoatColorMap")),  true  });
-        M.Add(TEXT("Normal Map"),
-            { NAME_None,                        FName(TEXT("NormalStrength")),  FName(TEXT("NormalMap")),        FName(TEXT("UseNormalMap")),        false });
         return M;
     }();
     return Map;
@@ -205,7 +207,7 @@ static void ApplySceneMaterialChannel(
             ? GDsonParser.GetSceneMaterialChannelColorB(DsonHandle, SceneMatIdx, ChannelIdx) : 0.0;
         MIC->SetVectorParameterValueEditorOnly(
             FMaterialParameterInfo(Binding.ColorParam),
-            FLinearColor((float)R, (float)G, (float)B, 1.0f));
+            FLinearColor(static_cast<float>(R), static_cast<float>(G), static_cast<float>(B), 1.0f));
     }
     else if (!bHasColor && Binding.ScalarParam != NAME_None)
     {
@@ -213,7 +215,7 @@ static void ApplySceneMaterialChannel(
             ? GDsonParser.GetSceneMaterialChannelValue(DsonHandle, SceneMatIdx, ChannelIdx) : 0.0;
         MIC->SetScalarParameterValueEditorOnly(
             FMaterialParameterInfo(Binding.ScalarParam),
-            (float)Val);
+            static_cast<float>(Val));
     }
 
     // Texture + UseFlag: orthogonal to color/scalar, applied when an image path exists.
@@ -264,6 +266,90 @@ static void ApplyMappedSceneMaterialChannels(
             continue;
 
         ApplySceneMaterialChannel(DsonHandle, SceneMatIdx, c, *Binding, MIC, TextureImporter);
+    }
+}
+
+static FDazChannelInfo FindSceneMaterialChannelById(
+    uint64_t DsonHandle,
+    int32 SceneMatIdx,
+    const FString& ChannelId,
+    float DefaultValue)
+{
+    FDazChannelInfo Info;
+    Info.Value = DefaultValue;
+
+    const int32 ChCount = GDsonParser.GetSceneMaterialChannelCount
+        ? GDsonParser.GetSceneMaterialChannelCount(DsonHandle, SceneMatIdx) : 0;
+
+    for (int32 c = 0; c < ChCount; ++c)
+    {
+        const FString ChId = S(GDsonParser.GetSceneMaterialChannelId
+            ? GDsonParser.GetSceneMaterialChannelId(DsonHandle, SceneMatIdx, c) : nullptr);
+        if (ChId != ChannelId)
+            continue;
+
+        if (GDsonParser.GetSceneMaterialChannelValue)
+        {
+            Info.Value = static_cast<float>(
+                GDsonParser.GetSceneMaterialChannelValue(DsonHandle, SceneMatIdx, c));
+        }
+
+        const FString TexturePath = S(GDsonParser.GetSceneMaterialChannelTexturePath
+            ? GDsonParser.GetSceneMaterialChannelTexturePath(DsonHandle, SceneMatIdx, c) : nullptr);
+        const FString ImgUrl = S(GDsonParser.GetSceneMaterialChannelImageUrl
+            ? GDsonParser.GetSceneMaterialChannelImageUrl(DsonHandle, SceneMatIdx, c) : nullptr);
+        Info.TextureRef = !TexturePath.IsEmpty() ? TexturePath : ImgUrl;
+        return Info;
+    }
+
+    return Info;
+}
+
+static void SetIrayUberNormalParams(
+    UMaterialInstanceConstant* MIC,
+    UTexture2D* Texture,
+    float NormalStrength)
+{
+    MIC->SetTextureParameterValueEditorOnly(
+        FMaterialParameterInfo(FName(TEXT("NormalMap"))), Texture);
+    MIC->SetScalarParameterValueEditorOnly(
+        FMaterialParameterInfo(FName(TEXT("UseNormalMap"))), 1.0f);
+    MIC->SetScalarParameterValueEditorOnly(
+        FMaterialParameterInfo(FName(TEXT("NormalStrength"))), NormalStrength);
+}
+
+static void ApplyIrayUberNormalChannels(
+    uint64_t DsonHandle,
+    int32 SceneMatIdx,
+    UMaterialInstanceConstant* MIC,
+    FDsonTextureImporter& TextureImporter)
+{
+    const FDazChannelInfo Bump = FindSceneMaterialChannelById(
+        DsonHandle, SceneMatIdx, TEXT("Bump Strength"), 0.0f);
+    const FDazChannelInfo Normal = FindSceneMaterialChannelById(
+        DsonHandle, SceneMatIdx, TEXT("Normal Map"), 1.0f);
+
+    if (!Bump.TextureRef.IsEmpty())
+    {
+        UTexture2D* CombinedNormal = TextureImporter.ImportBumpAsNormal(
+            Bump.TextureRef, Bump.Value, Normal.TextureRef, Normal.Value);
+        if (CombinedNormal)
+        {
+            SetIrayUberNormalParams(MIC, CombinedNormal, Normal.Value);
+            return;
+        }
+
+        UE_LOG(LogDsonImporter, Warning,
+            TEXT("DsonMaterialBuilder: bump-normal bake failed for scene material %d; falling back to plain normal map"),
+            SceneMatIdx);
+    }
+
+    if (!Normal.TextureRef.IsEmpty())
+    {
+        if (UTexture2D* NormalTexture = TextureImporter.ImportOrFind(Normal.TextureRef, false))
+        {
+            SetIrayUberNormalParams(MIC, NormalTexture, Normal.Value);
+        }
     }
 }
 
@@ -436,6 +522,10 @@ UMaterialInstanceConstant* FDsonMaterialBuilder::BuildSceneMaterial(
     if (const TMap<FString, FDazParamBinding>* Mapping = GetMappingForShader(Kind))
     {
         ApplyMappedSceneMaterialChannels(H, SceneMatIdx, *Mapping, MIC, TextureImporter);
+    }
+    if (Kind == EDazShaderKind::IrayUber)
+    {
+        ApplyIrayUberNormalChannels(H, SceneMatIdx, MIC, TextureImporter);
     }
 
     // Step 6 - finalise parameter override arrays before save
