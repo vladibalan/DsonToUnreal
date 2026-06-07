@@ -43,7 +43,11 @@ For discovery, prefer this order:
 1. `Docs/ImporterArchitecture.md` (code layout). For **project status** — what
    phase the importer is at, what shipped, what is deferred, and the bug/cleanup
    backlog — read `Docs/Roadmap.md` (the single source of truth that replaces the
-   old external handoffs).
+   old external handoffs). For the *why* behind a shipped decision (postmortems,
+   slice handoff history) read `Docs/DecisionLog.md`; for durable engineering
+   facts, hard-won lessons, and recurring gotchas (the coordinate flip, verified
+   vert counts, the LIE recipe / `#fragment` diagnostic) read `Docs/Reference.md`.
+   Consult those two for the *why* or a hard-won fact — not for current status.
 2. For audit, review, debugging, or diagnostic requests: `Docs/AuditGuide.md`
    - For code-review runs (DRY / modern-C++ / compactness) **and before editing
      source**, see "Before editing source" below — it governs authoring, not just review.
@@ -102,6 +106,8 @@ the X-macro list.)
 - Third-party parser import library and DLL packaging: `Source/ThirdParty/DsonParser/`
 - Master material parameter contract: `MaterialMastersV1.md`
 - Project status, phase tracking, deferred features, known issues, cleanup backlog: `Docs/Roadmap.md`
+- Why a shipped decision was made; postmortems; slice handoff history: `Docs/DecisionLog.md`
+- Durable engineering facts, hard-won lessons, recurring gotchas (coordinate flip, verified counts, LIE recipe / `#fragment`): `Docs/Reference.md`
 
 ## Generated Folders
 

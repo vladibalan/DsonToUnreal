@@ -61,7 +61,7 @@ Reference spec for the three `UMaterial` master assets that back the DsonToUnrea
   to a tangent-space normal map at import (scaled by `Bump Strength`) and combined
   into the surface's normal map offline; only the resulting normal feeds
   `NormalMap`. The `BumpStrength` / `BumpMap` / `UseBumpMap` parameters and the
-  bump-blend nodes have been **removed from the master**. See `Docs/Roadmap.md` →
+  bump-blend nodes have been **removed from the master**. See `Docs/DecisionLog.md` →
   "IrayUber bump-map seam" for the decision, justification, and consequences.
 - `TopCoat*` parameters drive Clear Coat. Requires Clear Coat shading model — if combining with Subsurface isn't viable, drop Clear Coat for v1 and just let `TopCoatColor` tint specular.
 

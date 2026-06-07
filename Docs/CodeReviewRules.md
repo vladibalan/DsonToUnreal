@@ -161,10 +161,12 @@ where:
   chat that will not be re-read.
 - **A cleanup item is done or newly identified** → tick or add it in the backlog.
 
-Keep `Roadmap.md` about *status*, not mechanism: load-bearing technical
-invariants (the coordinate flip — see R4) and material-parameter contracts
-(`MaterialMastersV1.md`) are owned elsewhere; reference them, don't restate them,
-so they cannot drift.
+Keep `Roadmap.md` about *status*, not mechanism: things owned elsewhere are
+referenced, not restated, so they cannot drift — load-bearing technical
+invariants (the coordinate flip — see R4), material-parameter contracts
+(`MaterialMastersV1.md`), dated decision rationale and postmortems
+(`Docs/DecisionLog.md`), and durable engineering facts/lessons/gotchas
+(`Docs/Reference.md`).
 
 A status change with no roadmap edit is the same defect class as stale
 orientation under R8. Reviewer action: if a change completes or defers a phase,
