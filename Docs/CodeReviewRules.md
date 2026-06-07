@@ -4,8 +4,9 @@ Read this before reviewing or writing any code under
 `Source/DsonImporter/`. It encodes the recurring hazards in this plugin and the
 review focus the maintainer cares about: **DRY**, **modern-C++ practice at the
 codebase's compiler level**, **a compact codebase with no lost
-functionality**, and **agent-orientation docs kept in sync with the code**. It
-is the standing checklist for code-review runs on this repo.
+functionality**, and **agent-orientation docs kept in sync with the code, tight,
+and tiered**. It is the standing checklist for code-review runs on this repo, and
+for any edit to the orientation docs themselves (R10).
 
 This plugin targets **Unreal Engine 5.4.4** and is an editor module
 (`DsonImporter`). It binds a third-party C ABI from `DsonParser.dll`. Those two
@@ -172,6 +173,38 @@ A status change with no roadmap edit is the same defect class as stale
 orientation under R8. Reviewer action: if a change completes or defers a phase,
 or fixes or adds a bug, and `Docs/Roadmap.md` was not touched, flag it.
 
+### R10 — Keep the orientation docs tight and tiered
+The orientation docs are read under a limited context budget, so bloat in a
+hot-path doc taxes every future session — and guidance alone has already failed
+once (R8 and R9 existed while `Docs/Roadmap.md` grew to 480 lines). Keep them
+economical; this rule binds **both roles**, a Director doing doc-only work
+included.
+- **One tier per doc — put content where it belongs, not where you happen to be.**
+  status → `Docs/Roadmap.md`; dated rationale/postmortems → `Docs/DecisionLog.md`;
+  durable facts/lessons/gotchas → `Docs/Reference.md`; rules → this file; roles →
+  `Docs/AgentWorkflow.md`; code layout → `Docs/ImporterArchitecture.md`; audit
+  routing → `Docs/AuditGuide.md`; editor tooling → `Docs/Tooling.md`;
+  entry/routing → `AGENTS.md`; master-parameter contract → `MaterialMastersV1.md`.
+- **Point, don't duplicate.** If another doc owns a fact, link it by name. The
+  R1–R10 list and the Director/Implementer role model each have exactly one home;
+  never re-list them elsewhere.
+- **Status holds *current* state only.** When work ships, move its rationale to
+  `Docs/DecisionLog.md` and its durable facts to `Docs/Reference.md`; do not let
+  `Docs/Roadmap.md` accumulate history — the precise failure that caused the
+  480-line bloat.
+- **Prefer a table or a pointer over repeated prose blocks.**
+- **Soft line budgets for hot-path docs** — crossing a ceiling is a signal to
+  relocate or split, not to keep growing (mirrored in the `dson-doc-guard` hook,
+  which warns on save): `AGENTS.md` ≤ 140, `Roadmap.md` ≤ 260, `AuditGuide.md` ≤
+  120, `ImporterArchitecture.md` ≤ 185, `AgentWorkflow.md` ≤ 120,
+  `CodeReviewRules.md` ≤ 240, `Tooling.md` ≤ 80. The cold/on-demand docs —
+  `DecisionLog.md`, `Reference.md`, `FormulaMorphsV2.md`, `MaterialMastersV1.md` —
+  are **exempt**; they exist to absorb history/detail off the hot path.
+
+Reviewer action: if a change restates content another doc owns, parks history in a
+status doc, or pushes a hot-path doc past its budget without relocating, flag it
+and name the tier the content belongs in.
+
 ## Quick checklist (state results after each change)
 
 - [ ] R1: every API call exists with its **UE 5.4** signature (no 5.5+ overloads).
@@ -190,3 +223,5 @@ or fixes or adds a bug, and `Docs/Roadmap.md` was not touched, flag it.
       (Read Order, Task Routing, tooling); name-referenced enumerations fixed.
 - [ ] R9: `Docs/Roadmap.md` updated for any phase/feature/bug/deferral/cleanup
       status change this diff makes.
+- [ ] R10: doc content sits in the tier that owns it; nothing another doc owns is
+      restated; no hot-path doc pushed past its soft line budget without relocating.

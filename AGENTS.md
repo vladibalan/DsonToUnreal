@@ -77,6 +77,15 @@ self-audit is your responsibility, and only an end-of-change review over the who
 diff catches cross-file issues like a duplicated helper or an export drifting from
 the X-macro list.)
 
+## Before editing docs
+
+Editing an orientation doc (`AGENTS.md`, `Docs/*.md`, `MaterialMastersV1.md`) —
+even doc-only as the Director — follow **[`Docs/CodeReviewRules.md`](Docs/CodeReviewRules.md)
+R10**: keep them tight and tiered. Put content in the tier that owns it (status →
+`Docs/Roadmap.md`, rationale/postmortems → `Docs/DecisionLog.md`, durable
+facts/lessons → `Docs/Reference.md`), **point instead of duplicating**, and don't
+push a hot-path doc past its line budget — relocate or split instead.
+
 ## Task Routing
 
 - Module startup, menu registration, parser DLL loading: `Source/DsonImporter/Private/DsonImporter.cpp`

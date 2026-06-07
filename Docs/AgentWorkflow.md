@@ -28,8 +28,9 @@ needed to accomplish or answer them *except* edit plugin source code:
   Implementer for feedback (e.g. feasibility, trade-offs, a counter-proposal)
   before any code is written.
 - Answers the user's questions directly when no code change is required.
-- Keeps `Docs/Roadmap.md` and the orientation docs current when a doc-only change
-  is the whole task (per `Docs/CodeReviewRules.md` R8/R9).
+- Keeps `Docs/Roadmap.md` and the orientation docs current **and tight** when a
+  doc-only change is the whole task (per `Docs/CodeReviewRules.md` R8/R9/R10 —
+  right tier, point don't duplicate, respect the line budgets).
 
 The Director does **not** edit C++ source under `Source/DsonImporter/`. When a
 task needs source changes, the Director produces a prompt (see template below)
