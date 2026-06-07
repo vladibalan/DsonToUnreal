@@ -35,6 +35,9 @@ typedef void* DsonDocumentHandle;
     X(1, int,                GetSceneNodeGeometryCount, DsonDocument_GetSceneNodeGeometryCount, (DsonDocumentHandle, int)) \
     X(1, const char*,        GetSceneNodeGeometryUrl,   DsonDocument_GetSceneNodeGeometryUrl,   (DsonDocumentHandle, int, int)) \
     \
+    /* Library version (optional) - runtime ABI-compatibility gate in DsonImporter.cpp */ \
+    X(0, const char*, GetVersion, DsonParser_GetVersion, ()) \
+    \
     /* Node iteration (GetNodeCount/GetNodeName required by IsValid) */ \
     X(1, int32_t,     GetNodeCount,         DsonDocument_GetNodeCount,         (uint64_t)) \
     X(0, const char*, GetNodeId,            DsonDocument_GetNodeId,            (uint64_t, int32_t)) \

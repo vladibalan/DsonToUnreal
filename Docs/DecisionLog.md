@@ -11,6 +11,7 @@ Contents (newest decisions appended):
 - IrayUber bump-map seam — root cause & fix decision (2026-06-06)
 - Materials v2 slice #1 (faithful makeup + LIE import) — handoff & session log (2026-06-06 → 2026-06-07)
 - Materials v2 slice #2 (Subsurface Profile pipeline) — decisions & verification (2026-06-07)
+- Parser version-awareness gate — consume DsonParser versioning; keep the four ABI checks (2026-06-07)
 
 ## IrayUber bump-map seam — root cause & fix decision (2026-06-06)
 
@@ -202,3 +203,69 @@ in the master**. IrayUber's translucency stays removed (negligible contribution)
   than Nancy and is *also* darker in DAZ Iray → faithful, left as-is. The master
   holds the one global tuning `Scale`; per-character nuance comes from each MIC's
   own DAZ values (or a manual MIC nudge), never by bending the master per figure.
+
+## Parser version-awareness gate & why the ABI checks all stay (2026-06-07)
+
+_Why the load-time version gate was added, and why none of the existing parser-ABI
+detection layers were pruned alongside it — including the specific "an LLM wrote it,
+so drop the static_assert" argument, which is a trap. Change status is at the end._
+
+**Context.** DsonParser shipped a versioning system (parser v1.0.0): compile-time
+`DSONPARSER_VERSION_*` macros in the vendored `DsonParserVersion.h`, a runtime
+`DsonParser_GetVersion()` export, and a SemVer-with-C-ABI `CHANGELOG.md` (MAJOR =
+breaking ABI, MINOR = additive/binary-compatible, PATCH = internal). The plugin was
+unaware of it — the export was unbound and nothing checked a version.
+
+**Decision — add a load-time version gate, hard on MAJOR.** Bind
+`DsonParser_GetVersion` as one *optional* `DSON_PARSER_API_LIST` row; in
+`DsonImporter.cpp`, after `IsValid()`, compare the loaded DLL's version to the
+compile-time `DSONPARSER_VERSION_*` the plugin built against:
+- MAJOR ≠ built-against MAJOR → Error + skip importer registration (same early-return
+  as an `IsValid()` failure; the ABI may have broken);
+- same MAJOR, different MINOR/PATCH → Warning + proceed (binary-compatible);
+- version missing (pre-1.0.0 DLL) or unparseable → Warning + proceed (cannot verify).
+
+**Why MAJOR-only / warn-on-minor.** Mirrors the SemVer-C-ABI contract: a MAJOR bump
+is the one case where the ABI is allowed to break, so it is the one worth refusing;
+MINOR/PATCH are binary-compatible, so warn-not-fail — which also keeps dev iteration
+unbricked (a header minor-bump never refuses the load). Optional (not in `IsValid()`)
+so a pre-versioning DLL gives a precise "predates versioning" message, not the generic
+required-exports failure.
+
+**Why the gate does not replace the compile-time ABI check.** The property that
+matters is **binding ↔ DLL**; neither half proves it alone. `DsonParserAbiCheck.cpp`
+proves **binding ↔ vendored header** (compile-time); the gate proves **header ↔ DLL**
+for the shared MAJOR (runtime, by contract). Chained → **binding ↔ DLL**. Before the
+gate, the static_assert silently *assumed* header == DLL (they are vendored
+side-by-side); the gate **verifies** that at load. They compose — the gate is the
+missing link, not a replacement.
+
+**Decision — keep all four existing detection layers; none is redundant, including
+under LLM authorship.** A future cold session may argue "an LLM authored this, typos
+≈ 0, prune the static_assert." Trap: these layers guard **drift between
+independently-maintained artifacts**, not human clumsiness — and that drift is
+unchanged, or *worsened*, by LLM authorship (each session starts cold, the parser is a
+separate repo, the DLL is copied in by a manual build step).
+
+| Layer (when; against what) | Guards against | Authorship-agnostic because |
+|---|---|---|
+| `DsonParserAbiCheck.cpp` static_assert (compile; binding↔header) | wrong return/param type, order, count, or a name the header doesn't declare, in an X-macro row | dominant fault is cross-repo / cold-session header↔binding desync; the residual LLM fault is *confident-plausible* mis-transcription — what human review skims past and a mechanical check catches deterministically; cost 0 |
+| per-export bind Error/Warning — `DsonImporter.cpp` (load; DLL) | a symbol genuinely absent from the shipped DLL | stale-DLL packaging (manual rebuild + copy) desyncs regardless of who wrote the source |
+| `IsValid()` — `DsonParserFunctions.h` (load + per stage; DLL) | the *required* subset actually being present | free aggregation of the above; hard gate before any import runs |
+| call-site presence guards (per feature; e.g. `DsonMorphBuilder`) | an optional feature's exports missing → skip that feature cleanly | the same-MAJOR-lower-MINOR degradation path + the R7 permissive convention; the gate only *warns* on that skew, it null-guards nothing |
+
+**Cost — near-zero, none in the game-runtime path.** static_assert is compile-time
+only (emits no code, auto-extends per X-macro row); presence binding is ~110
+`GetProcAddress` + pointer compares once at editor module load; call-site guards are
+predicted branches on the editor-time import path. There is no perf basis for pruning
+any of them.
+
+**Status.** ✅ Done & verified 2026-06-07. Compiles (the `DsonParserAbiCheck.cpp`
+static_assert for the new `GetVersion` row passed → binding ↔ vendored prototype); at
+editor startup `LogDsonImporter` reports `DsonParser DLL version: 1.0.0 (plugin built
+against 1.0.0)`, confirming the DLL→binding→gate path end to end on the matching-version
+(log-only) branch. The mismatch branches (MAJOR-abort; minor-skew / unparseable /
+missing-export warnings) are wired but not runtime-exercised — they need a deliberately
+mismatched DLL. Implemented exactly as decided: optional bind row + MAJOR gate, R8 sync
+in `Docs/ImporterArchitecture.md`. `Docs/Roadmap.md` left untouched: advances no phase,
+fixes no listed bug, so R9 does not trigger.

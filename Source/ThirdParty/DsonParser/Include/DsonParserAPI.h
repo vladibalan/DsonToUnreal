@@ -6,7 +6,14 @@
 #define DSONPARSER_API __declspec(dllimport)
 #endif
 
+// Canonical library-version macros (DSONPARSER_VERSION_*), published with this header.
+#include "DsonParserVersion.h"
+
 // Public C ABI orientation:
+// Library version 1.0.0 — query at runtime with DsonParser_GetVersion(), or at
+// compile time via DSONPARSER_VERSION_* in DsonParserVersion.h. See CHANGELOG.md
+// for what changed each release and docs/versioning.md for the SemVer/C-ABI policy.
+//
 // This header exposes a parsed DSON/DSF/DUF document through an opaque handle and
 // index-based accessors. The implementation owns all returned const char*
 // strings; copy them if they must survive DsonDocument_Clear/Destroy or later
@@ -18,6 +25,7 @@
 // Index conventions:
 // - Node/geometry/material/modifier indexes address the corresponding library
 //   arrays parsed from *_library sections.
+// - Image indexes address the image_library array (size = GetImageCount).
 // - Scene node/material/modifier/UV indexes address scene.* instance arrays.
 // - Morph indexes address a filtered list of modifiers where type == "morph";
 //   they are not raw modifier_library indexes.
@@ -168,6 +176,13 @@ DSONPARSER_API const char* DsonDocument_GetModifierFormulaOperationUrl(DsonDocum
 // Skin binding info for a modifier (0 if the modifier has no skin payload)
 DSONPARSER_API int DsonDocument_GetModifierSkinVertexCount(DsonDocumentHandle handle, int index);
 DSONPARSER_API int DsonDocument_GetModifierSkinJointCount(DsonDocumentHandle handle, int index);
+
+// ---- Images (image_library) ----
+// imageIndex addresses the image_library array (count = DsonDocument_GetImageCount).
+// Map dimensions come from the entry's map_size [width, height]; 0 if absent.
+DSONPARSER_API const char* DsonDocument_GetImageId(DsonDocumentHandle handle, int imageIndex);
+DSONPARSER_API int         DsonDocument_GetImageMapWidth(DsonDocumentHandle handle, int imageIndex);
+DSONPARSER_API int         DsonDocument_GetImageMapHeight(DsonDocumentHandle handle, int imageIndex);
 
 // ---- B. Skeleton / Nodes ----
 DSONPARSER_API const char* DsonDocument_GetNodeParent(DsonDocumentHandle handle, int nodeIndex);
@@ -322,6 +337,13 @@ DSONPARSER_API void DsonDocument_Destroy(DsonDocumentHandle handle);
 
 // Get last error message
 DSONPARSER_API const char* DsonParser_GetLastError();
+
+// Get this library's version string, e.g. "1.0.0" (mirrors DSONPARSER_VERSION_STRING).
+// Always returns a non-null, parser-owned static literal; it cannot fail.
+// This is the LIBRARY's own version — distinct from DsonDocument_GetFileVersion(),
+// which returns a parsed asset's file_version field.
+// @since 1.0.0
+DSONPARSER_API const char* DsonParser_GetVersion(void);
 
 #ifdef __cplusplus
 }

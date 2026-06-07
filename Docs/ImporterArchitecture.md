@@ -39,6 +39,7 @@ The plugin is an Unreal Editor module:
 - Owns module startup/shutdown.
 - Loads the third-party parser DLL.
 - Populates `GDsonParser`.
+- Verifies the loaded DLL's reported version against the built-against header (`DsonParser_GetVersion` vs `DSONPARSER_VERSION_*`); refuses to register on a MAJOR mismatch.
 - Adds the File menu entry that launches the import dialog.
 
 `SDsonImportWindow.*`
@@ -113,7 +114,7 @@ The plugin is an Unreal Editor module:
 
 `DsonParserFunctions.h`
 
-- Function pointer typedefs and `FDsonParserAPI`.
+- Function pointer typedefs and `FDsonParserAPI`; includes the optional `DsonParser_GetVersion` accessor used by `DsonImporter.cpp`'s startup ABI-compatibility check.
 - Keep this synchronized with exports provided by the bundled parser DLL, including morph-target accessors and scene-modifier URLs used to discover external morph files.
   Formula-output accessors are optional and extend morph file discovery only; they
   are not used to evaluate or compose formula-driven dial values.

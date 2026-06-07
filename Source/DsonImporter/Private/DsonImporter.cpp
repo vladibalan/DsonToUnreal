@@ -9,6 +9,8 @@
 #include "Widgets/SWindow.h"
 
 #include "DsonParserFunctions.h"
+#include "DsonParserVersion.h"  // compile-time DSONPARSER_VERSION_*
+#include "DsonImportUtils.h"    // DsonImportUtils::FromUtf8
 #include "SDsonImportWindow.h"
 
 /*
@@ -112,6 +114,50 @@ void FDsonImporterModule::StartupModule()
         UE_LOG(LogDsonImporter, Error,
             TEXT("DsonParser: required exports missing - plugin will not function"));
         return;
+    }
+
+    // Reconcile the loaded DLL against the parser header this plugin was built
+    // against. SemVer with C-ABI semantics (ThirdParty/DsonParser/Include/
+    // CHANGELOG.md): a differing MAJOR can mean a broken ABI, so refuse to
+    // register; a matching MAJOR is binary-compatible (warn only). Runtime
+    // complement to DsonParserAbiCheck.cpp, which only proves header<->binding
+    // agreement and cannot see the actual DLL.
+    if (GDsonParser.GetVersion != nullptr)
+    {
+        const FString RuntimeVersion = DsonImportUtils::FromUtf8(GDsonParser.GetVersion());
+        const FString BuiltAgainstVersion = TEXT(DSONPARSER_VERSION_STRING);
+        const int32 RuntimeMajor = FCString::Atoi(*RuntimeVersion); // leading int; 0 if unparseable
+
+        UE_LOG(LogDsonImporter, Log,
+            TEXT("DsonParser DLL version: %s (plugin built against %s)"),
+            *RuntimeVersion, *BuiltAgainstVersion);
+
+        if (RuntimeMajor <= 0) // parser MAJOR is always >= 1 once versioned
+        {
+            UE_LOG(LogDsonImporter, Warning,
+                TEXT("DsonParser version string '%s' unparseable; cannot verify ABI MAJOR. Proceeding."),
+                *RuntimeVersion);
+        }
+        else if (RuntimeMajor != DSONPARSER_VERSION_MAJOR)
+        {
+            UE_LOG(LogDsonImporter, Error,
+                TEXT("DsonParser ABI MAJOR mismatch: DLL reports %s, plugin built against %s. ")
+                TEXT("The C ABI may be incompatible; not registering the importer."),
+                *RuntimeVersion, *BuiltAgainstVersion);
+            return; // skips the success log + RegisterStartupCallback below
+        }
+        else if (RuntimeVersion != BuiltAgainstVersion)
+        {
+            UE_LOG(LogDsonImporter, Warning,
+                TEXT("DsonParser version skew (compatible MAJOR %d): DLL %s vs built-against %s."),
+                DSONPARSER_VERSION_MAJOR, *RuntimeVersion, *BuiltAgainstVersion);
+        }
+    }
+    else
+    {
+        UE_LOG(LogDsonImporter, Warning,
+            TEXT("DsonParser.dll predates versioning (no DsonParser_GetVersion export); ")
+            TEXT("cannot verify ABI compatibility. Proceeding."));
     }
 
     UE_LOG(LogDsonImporter, Log,
