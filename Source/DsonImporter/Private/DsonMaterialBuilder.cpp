@@ -121,6 +121,15 @@ static const TMap<FString, FDazParamBinding>& GetPBRSkinMapping()
         TMap<FString, FDazParamBinding> M;
         M.Add(TEXT("diffuse"),
             { FName(TEXT("DiffuseColor")),       NAME_None,                              FName(TEXT("DiffuseMap")),           FName(TEXT("UseDiffuseMap")),           true  });
+        // PBRSkin keeps translucency, re-fed per decision B1 (see SubsurfaceProfileV2.md,
+        // "Revision" section): the master routes a tuned TranslucencyColor * Map * Weight
+        // into Base Color for the skin brightness the Subsurface Profile cannot add. Feed
+        // RAW DAZ values here - the tuning scale is master-side. Not a Slice-2 leftover;
+        // these land in lockstep with the M_DazPBRSkin re-wire, so do not remove on cleanup.
+        M.Add(TEXT("Translucency Color"),
+            { FName(TEXT("TranslucencyColor")),  NAME_None,                              FName(TEXT("TranslucencyMap")),      FName(TEXT("UseTranslucencyMap")),      true  });
+        M.Add(TEXT("Translucency Weight"),
+            { NAME_None,                         FName(TEXT("TranslucencyWeight")),      NAME_None,                           NAME_None,                              false });
         M.Add(TEXT("Specular Lobe 1 Roughness"),
             { NAME_None,                         FName(TEXT("SpecularRoughness")),       FName(TEXT("SpecularRoughnessMap")), FName(TEXT("UseSpecularRoughnessMap")), false });
         M.Add(TEXT("Specular Lobe 2 Roughness Mult"),

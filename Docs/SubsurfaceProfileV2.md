@@ -7,8 +7,9 @@ rationale/postmortems land in [`DecisionLog.md`](DecisionLog.md) and durable DAZ
 facts in [`Reference.md`](Reference.md) **as the slice lands** — this doc is the
 working design the manual master-rework and the Implementer prompt are cut from.
 
-_Authored 2026-06-07 (Director). Pre-implementation; values marked "calibrate"
-are starting points to tune on the figure, not asserted truth._
+_Authored 2026-06-07 (Director); **slice landed & verified 2026-06-07** — see
+§Revision below + `Roadmap.md`. Values marked "calibrate" were starting points
+tuned on the figure, not asserted truth._
 
 ## Decisions locked (with the user, 2026-06-07)
 

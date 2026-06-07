@@ -51,6 +51,15 @@ Contents:
   re-fires `PostEditChange`. Fix: set the parent via
   `SetParentEditorOnly(Master, /*RecacheShader=*/true)`, which caches the
   shading model at parent-set time.
+- **UE Subsurface Profile *redistributes* diffuse light (≈energy-conserving); it
+  does not *add* luminance.** So it cannot replace an additive subsurface/translucency
+  brightness term — toggling the profile shifts hue (the scatter tint), not overall
+  brightness. PBRSkin's skin brightness came from its inline translucency (DAZ
+  `Translucency Weight` ~0.85 — the *active* path; the `Sub Surface` section is inert).
+  Since the profile model exposes no Subsurface Color pin, that term is restored
+  **tuned → Base Color** (additive, so it stays lighting-aware); IrayUber's
+  translucency was negligible (0.1) and stays removed. Per-character brightness is a
+  **MIC**-level concern, not the master (e.g. Laura is faithfully darker than Nancy).
 - `Use<Name>Map` toggles gate the texture via `lerp(Color, Map, UseFlag)`,
   default 0; the builder raises it to 1 when it sets a texture. If a channel
   ignores its texture, check the use-flag before suspecting the sampler.

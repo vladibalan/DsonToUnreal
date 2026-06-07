@@ -10,6 +10,7 @@ Roadmap keeps only the one-line outcome plus a pointer back.
 Contents (newest decisions appended):
 - IrayUber bump-map seam — root cause & fix decision (2026-06-06)
 - Materials v2 slice #1 (faithful makeup + LIE import) — handoff & session log (2026-06-06 → 2026-06-07)
+- Materials v2 slice #2 (Subsurface Profile pipeline) — decisions & verification (2026-06-07)
 
 ## IrayUber bump-map seam — root cause & fix decision (2026-06-06)
 
@@ -163,3 +164,41 @@ was retested to confirm no regression on figures without makeup/LIE.
   (all importer paths prefer the resolved `texture_path` / real layer urls), but
   the fix is safe regardless — a `#`-ref is never a file. Backlog, or fold in
   before slice #2.
+
+## Materials v2 slice #2 (Subsurface Profile pipeline) — decisions & verification (2026-06-07)
+
+**Shipped.** Both skin masters (`M_DazPBRSkin`, `M_DazIrayUber`) → **Subsurface
+Profile** shading; `SubsurfaceWeight`→Opacity per-surface SSS gate (skin → DAZ
+`Translucency Weight`, else 0 → reverts to default lit); one per-character
+`USubsurfaceProfile` (tinted toward scene skin colour) assigned to skin surfaces.
+Locked design decisions (Option 1 sourcing; one profile/character; per-character
+tint) → `SubsurfaceProfileV2.md`. Verified on the full acceptance set (G8.1,
+Jordina, Nancy, Laura, V7HD).
+
+**Verification fix 1 — IrayUber SSS didn't bind at import.** Imported skin rendered
+default-lit until a manual MIC param toggle. Root cause: the MIC's cached shading
+model lagged the render-proxy propagate on a raw-parented MIC, so
+`UpdateMaterialRenderProxy`'s subsurface branch (gated on
+`UseSubsurfaceProfile(GetShadingModels())`) was skipped. Fixed by parenting via
+`SetParentEditorOnly(Master, /*RecacheShader=*/true)`. Full mechanism →
+`Reference.md` (carry-forward lessons).
+
+**Verification fix 2 — PBRSkin much darker (decision B1).** Removing PBRSkin's
+inline `Translucency → Subsurface Color` term darkened the skin: on PBRSkin that
+term (weight ~0.85) was the *active* skin-brightness path (its `Sub Surface`
+section is inert), unlike IrayUber's weak 0.1 washy gate. **Finding:** the UE
+Subsurface Profile *redistributes* diffuse light (≈energy-conserving) — it does
+**not add** luminance, so it cannot replace an additive translucency term (toggling
+the profile changed only the pink hue, not brightness). A DAZ Iray reference placed
+the correct look *between* v1 (full translucency, too bright) and profile-only (too
+dark). **Decision B1:** keep the profile for *scatter*; restore a **tuned-down**
+translucency contribution routed into **Base Color** for *brightness* (the profile
+model exposes no Subsurface Color pin). The importer re-feeds the **raw** DAZ
+translucency params (`GetPBRSkinMapping()` rows restored); the **tuning scale lives
+in the master**. IrayUber's translucency stays removed (negligible contribution).
+- **Perf.** B1 adds ~1 texture sample + a multiply per skin pixel, skin-only —
+  modest by the bump-decision yardstick (which baked out ~4 samples/skin-pixel).
+- **Per-character brightness → MIC, not master.** Laura renders slightly darker
+  than Nancy and is *also* darker in DAZ Iray → faithful, left as-is. The master
+  holds the one global tuning `Scale`; per-character nuance comes from each MIC's
+  own DAZ values (or a manual MIC nudge), never by bending the master per figure.
