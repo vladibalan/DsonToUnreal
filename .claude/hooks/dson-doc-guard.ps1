@@ -61,7 +61,7 @@ if ($event -eq 'PostToolUse') {
 $reminder = @'
 DsonToUnreal doc economy (Docs/CodeReviewRules.md R10) for this edit:
 - One tier per doc - put content where it belongs: status -> Docs/Roadmap.md; dated rationale/postmortems -> Docs/DecisionLog.md; durable facts/lessons/gotchas -> Docs/Reference.md; rules -> Docs/CodeReviewRules.md; roles -> Docs/AgentWorkflow.md; code layout -> Docs/ImporterArchitecture.md; audit routing -> Docs/AuditGuide.md; tooling -> Docs/Tooling.md; entry/routing -> AGENTS.md.
-- Point, don't duplicate: if another doc owns a fact, link it by name (the R1-R10 list and the Director/Implementer role model each have exactly one home).
+- Point, don't duplicate: if another doc owns a fact, link it by name (the R1-R11 list and the Director/Implementer role model each have exactly one home).
 - Status holds CURRENT state only: when work ships, move rationale to DecisionLog and durable facts to Reference - don't let Roadmap accumulate history.
 - Prefer a table or pointer over repeated prose. Hot-path docs have soft line budgets; relocate or split rather than grow past them.
 '@

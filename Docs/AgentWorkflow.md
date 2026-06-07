@@ -49,7 +49,7 @@ rather than editing the code itself.
 The Implementer executes the prompts the user passes in from the Director:
 
 - Performs the code writing described by the prompt.
-- **Follows [`CodeReviewRules.md`](CodeReviewRules.md)** (R1–R9) while authoring,
+- **Follows [`CodeReviewRules.md`](CodeReviewRules.md)** (R1–R11) while authoring,
   and self-audits each edit against that doc's Quick checklist, per
   [`../AGENTS.md`](../AGENTS.md) "Before editing source".
 - Keeps `Docs/Roadmap.md` and the orientation docs in sync **in the same change**
@@ -105,7 +105,7 @@ Context: <relevant files + the specific facts the Implementer needs;
 
 Task: <concrete, ordered steps or the precise change required>
 
-Constraints: follow Docs/CodeReviewRules.md (R1–R9) and self-audit against its
+Constraints: follow Docs/CodeReviewRules.md (R1–R11) and self-audit against its
              Quick checklist after each edit. No silent fails — surface any
              blocker, gap, uncertainty, or step left undone in your report-back.
 

@@ -1,4 +1,14 @@
 {
+  "autoUpdatesChannel": "latest",
+  "theme": "auto",
+  "permissions": {
+    "deny": [
+      "Bash(msbuild:*)",
+      "Bash(MSBuild.exe:*)",
+      "Bash(dotnet build:*)",
+      "Bash(devenv:*)"
+    ]
+  },
   "hooks": {
     "PreToolUse": [
       {

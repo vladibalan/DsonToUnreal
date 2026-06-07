@@ -186,7 +186,7 @@ included.
   routing → `Docs/AuditGuide.md`; editor tooling → `Docs/Tooling.md`;
   entry/routing → `AGENTS.md`; master-parameter contract → `MaterialMastersV1.md`.
 - **Point, don't duplicate.** If another doc owns a fact, link it by name. The
-  R1–R10 list and the Director/Implementer role model each have exactly one home;
+  R1–R11 list and the Director/Implementer role model each have exactly one home;
   never re-list them elsewhere.
 - **Status holds *current* state only.** When work ships, move its rationale to
   `Docs/DecisionLog.md` and its durable facts to `Docs/Reference.md`; do not let
@@ -204,6 +204,16 @@ included.
 Reviewer action: if a change restates content another doc owns, parks history in a
 status doc, or pushes a hot-path doc past its budget without relocating, flag it
 and name the tier the content belongs in.
+
+### R11 — Keep the in-repo settings mirror in sync with the active global settings
+The settings that actually run are the **user-global** `~/.claude/settings.json`;
+this repo's `.claude/settings.json` is an unused mirror (added dirs don't load their
+own `.claude`) kept for review and version history. The two must stay
+**content-equivalent**: change one — a Director task, settings being config — and
+make the same change to the other in the same edit. The only allowed divergence is
+hook paths: the mirror uses repo-relative paths (`.claude/hooks/...`) for
+portability, the global file absolute. A drifted mirror is stale-orientation-class
+drift (R8).
 
 ## Quick checklist (state results after each change)
 
@@ -225,3 +235,5 @@ and name the tier the content belongs in.
       status change this diff makes.
 - [ ] R10: doc content sits in the tier that owns it; nothing another doc owns is
       restated; no hot-path doc pushed past its soft line budget without relocating.
+- [ ] R11: in-repo `.claude/settings.json` mirrors the active global
+      `~/.claude/settings.json` (content-equivalent; only hook paths differ).

@@ -62,9 +62,9 @@ These rules govern *authoring*, not just review. Before you edit any file under
 `Source/DsonImporter/`:
 
 1. **If you have not read [`Docs/CodeReviewRules.md`](Docs/CodeReviewRules.md) this
-   session, read it now.** It owns the standing checklist (R1–R9) — the recurring
+   session, read it now.** It owns the standing checklist (R1–R11) — the recurring
    hazards that are easy to introduce and expensive to catch on review. **Write
-   code that already complies with R1–R9 rather than fixing it after the fact.**
+   code that already complies with R1–R11 rather than fixing it after the fact.**
 2. **After each edit, self-audit the diff against that doc's Quick Checklist and
    state the result.** Name the rules you checked and confirm the diff satisfies
    them, or flag what doesn't — do not say "looks fine".
