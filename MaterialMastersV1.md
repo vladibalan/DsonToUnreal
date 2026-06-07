@@ -1,6 +1,6 @@
 # Material Masters v1
 
-Reference spec for the three `UMaterial` master assets that back the DsonToUnreal material pipeline. Author these in UE5; the plugin's `DsonMaterialBuilder` instances them per scene material.
+Reference spec for the three `UMaterial` master assets that back the DsonToUnreal material pipeline. Author these in UE5; the plugin's `DsonMaterialBuilder` instances them per scene material. _(Skin masters reworked for Materials v2 / slice #2 — Subsurface Profile shading; see per-master notes + `Docs/SubsurfaceProfileV2.md`.)_
 
 **Repo location for masters:** `/DsonToUnreal/Materials/`
 **Runtime MIC location (created by builder):** `/Game/DazImports/Materials/`
@@ -25,18 +25,16 @@ Reference spec for the three `UMaterial` master assets that back the DsonToUnrea
 
 ## M_DazIrayUber
 
-**Shading model:** Default Lit + Subsurface
+**Shading model:** Subsurface Profile _(v2/slice #2; was Default Lit + Subsurface)_
 **Blend mode:** Opaque
-**Purpose:** G8/G8.1 and most legacy DAZ content using the Iray Uber shader.
+**Purpose:** G8/G8.1/G3 and most legacy DAZ content using the Iray Uber shader.
 
 | Group | Parameter | Type | Default |
 |---|---|---|---|
 | Diffuse | `DiffuseColor` | Vector3 | (1, 1, 1) |
 | Diffuse | `DiffuseMap` | Texture2D | engine white |
 | Diffuse | `UseDiffuseMap` | Scalar | 0 |
-| Translucency | `TranslucencyColor` | Vector3 | (1, 1, 1) |
-| Translucency | `TranslucencyMap` | Texture2D | engine white |
-| Translucency | `UseTranslucencyMap` | Scalar | 0 |
+| Subsurface | `SubsurfaceWeight` | Scalar | 0 |
 | Glossy | `GlossyWeight` | Scalar | 0 |
 | Glossy | `GlossyMap` | Texture2D | engine white |
 | Glossy | `UseGlossyMap` | Scalar | 0 |
@@ -51,7 +49,7 @@ Reference spec for the three `UMaterial` master assets that back the DsonToUnrea
 | Normal | `UseNormalMap` | Scalar | 0 |
 
 **Wiring notes:**
-- Route `TranslucencyColor` × `TranslucencyMap` into the Subsurface Color input. Translucency on non-skin surfaces simply stays at default and contributes nothing visible at reasonable subsurface scattering values.
+- **SSS is profile-driven (v2/slice #2).** The builder assigns one per-character `USubsurfaceProfile` to skin surfaces and sets `SubsurfaceWeight` → **Opacity** (per-surface SSS gate: skin → DAZ `Translucency Weight`, else 0 → reverts to default lit). The old inline `Translucency → Subsurface Color` path is **removed** for IrayUber (its contribution was negligible). Detail → `Docs/SubsurfaceProfileV2.md`.
 - `GlossyWeight` × `GlossyMap` feeds Specular (or Roughness inverse — pick whichever reads better against Iray reference; specular is more direct).
 - **No bump path on the master (v1.5).** The in-shader height→normal path caused
   hard seams at DAZ material-zone UV islands (screen/texture-space derivative
@@ -69,7 +67,7 @@ Reference spec for the three `UMaterial` master assets that back the DsonToUnrea
 
 ## M_DazPBRSkin
 
-**Shading model:** Default Lit + Subsurface
+**Shading model:** Subsurface Profile _(v2/slice #2; was Default Lit + Subsurface)_
 **Blend mode:** Opaque
 **Purpose:** PBRSkin surfaces (Laura and recent G9 character presets).
 
@@ -82,6 +80,7 @@ Reference spec for the three `UMaterial` master assets that back the DsonToUnrea
 | Translucency | `TranslucencyMap` | Texture2D | engine white |
 | Translucency | `UseTranslucencyMap` | Scalar | 0 |
 | Translucency | `TranslucencyWeight` | Scalar | 0 |
+| Subsurface | `SubsurfaceWeight` | Scalar | 0 |
 | Specular | `SpecularRoughness` | Scalar | 0.5 |
 | Specular | `SpecularRoughnessMap` | Texture2D | engine white |
 | Specular | `UseSpecularRoughnessMap` | Scalar | 0 |
@@ -101,7 +100,7 @@ Reference spec for the three `UMaterial` master assets that back the DsonToUnrea
 
 **Wiring notes:**
 - PBRSkin uses Detail Normal Map exclusively (Bump Enable is empirically false on Laura). The single normal input on the master is `DetailNormalMap`; don't waste a bump path here.
-- `TranslucencyColor` × `TranslucencyMap` × `TranslucencyWeight` → Subsurface Color (weight controls subsurface contribution).
+- **SSS is profile-driven (v2/slice #2).** The builder assigns one per-character `USubsurfaceProfile` to skin and sets `SubsurfaceWeight` → **Opacity** (gate: skin → DAZ `Translucency Weight`, else 0). The inline translucency is **kept but rerouted (decision B1):** `TranslucencyColor × TranslucencyMap × TranslucencyWeight × Scale` adds into **Base Color** for the skin brightness the profile can't add (profile redistributes, doesn't add light). `Scale` is the master's global tuning knob, dialed to a DAZ Iray reference. Detail → `Docs/SubsurfaceProfileV2.md` §Revision + `Docs/DecisionLog.md`.
 - `SpecularRoughness` × `SpecularRoughnessMap` × `SpecularRoughnessMult` → Roughness input. The Mult is per-surface tuning from DAZ; multiply through after the map sample.
 - `DualLobeWeight` × `DualLobeMap` is the second specular lobe contribution. For v1, blend a second specular evaluation at lower roughness and lerp by dual lobe weight, or — simpler — drop to a single lobe and let dual lobe drive a slight roughness reduction. Pick whichever reads acceptably; this is a known approximation.
 - `AOWeight` × `AOMap` → multiply with Base Color, or feed AO input if using a workflow that exposes it.

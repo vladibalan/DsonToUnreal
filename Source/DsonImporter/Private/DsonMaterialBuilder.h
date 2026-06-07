@@ -4,6 +4,7 @@
 
 class UMaterialInstanceConstant;
 class UMaterial;
+class USubsurfaceProfile;
 class FDsonTextureImporter;
 
 enum class EDazShaderKind : uint8
@@ -58,6 +59,16 @@ private:
         int32 SceneMatIdx,
         FDsonTextureImporter& TextureImporter) const;
 
+    USubsurfaceProfile* BuildSubsurfaceProfileForDocument(
+        uint64_t DsonHandle,
+        const FString& OutputFolder);
+
+    void ApplySubsurfaceProfileSettings(
+        uint64_t DsonHandle,
+        int32 SceneMatIdx,
+        EDazShaderKind Kind,
+        UMaterialInstanceConstant* MIC);
+
     void RecordShaderKind(EDazShaderKind Kind);
     void RecordFailure();
 
@@ -67,6 +78,8 @@ private:
     TWeakObjectPtr<UMaterial> CachedIrayUberMaster;
     TWeakObjectPtr<UMaterial> CachedPBRSkinMaster;
     TWeakObjectPtr<UMaterial> CachedDefaultMaster;
+    TWeakObjectPtr<USubsurfaceProfile> CachedSubsurfaceProfile;
+    TSet<FString> WarnedUnknownSubsurfaceGroups;
 
     int32 BuiltCount    = 0;
     int32 FailureCount  = 0;

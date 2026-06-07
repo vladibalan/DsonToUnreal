@@ -34,7 +34,7 @@ _Last updated: 2026-06-07._
 | 6 | Materials — per-section MIC wiring, 3 masters, texture import | ✅ Done (v1) |
 | 6.x | UV-set import (seams) | ✅ Done — verified G8.1 + Laura, zero fallbacks |
 | 6.y | Material polish (IrayUber washy fix; multi-UDIM resolved as not-needed) | ✅ Done |
-| 6 v2 | Materials v2 — faithful makeup + LIE import, then SSS Profile (current), eye-moisture | 🔄 In progress — slice #1 ✅ done (acceptance set verified 2026-06-07, incl. extra spot-checks); slice #2 (SSS Profile) current |
+| 6 v2 | Materials v2 — faithful makeup + LIE import, SSS Profile, eye-moisture | 🔄 In progress — slices #1 ✅ + #2 ✅ done (full acceptance set verified 2026-06-07); slice #3 (eye-moisture) next |
 | 7 | Morph targets (`UMorphTarget` per morph) | ✅ Done — delta-bearing morphs, including formula-reachable `?value` leaf files, via MeshDescription morph attributes |
 | 8 | Save to Content Browser (`/Game/DazImports/`) | ✅ Implemented per-phase, working |
 
@@ -88,7 +88,7 @@ parameter-contract format, `MaterialMastersV1.md` remains the source of record;
 its "Open follow-ups" subset is now superseded by the slice list below.
 
 Slices are sized to ship independently and are taken in order; each one updates
-this section as it lands. **Current: slice #2 (Subsurface Profile pipeline).**
+this section as it lands. **Current: slice #3 (eye-moisture / cornea).**
 
 ### Planned slices
 
@@ -102,22 +102,26 @@ this section as it lands. **Current: slice #2 (Subsurface Profile pipeline).**
    per-surface makeup values (Enable/Weight/Roughness Mult) stay in the DAZ
    source for the future Designer plugin to consume directly via the parser.
    Folds in the sRGB-cache-conflict fix in `DsonTextureImporter`.
-2. **Subsurface Profile pipeline** — generate per-character
-   `USubsurfaceProfile` assets; rewire skin masters' subsurface input. Maps
-   the SSS-family channels (`Sub Surface Enable`, `SSS Color`, `SSS
-   Direction`, `Transmitted Color`, `Translucency *`, `Scattering Measurement
-   Distance`) into the profile. Perf-neutral vs. inline subsurface.
+2. **Subsurface Profile pipeline** — ✅ **Done & verified 2026-06-07** (full
+   acceptance set). Both skin masters → Subsurface Profile shading,
+   `SubsurfaceWeight`→Opacity, per-character `USubsurfaceProfile` on skin. Two
+   verification fixes: IrayUber SSS-binding (`SetParentEditorOnly`); PBRSkin
+   darkening → inline translucency restored **tuned → Base Color** (B1, profile
+   keeps the scatter), IrayUber translucency stays removed. Rationale + the
+   "profile redistributes, doesn't add light" finding →
+   [`SubsurfaceProfileV2.md`](SubsurfaceProfileV2.md) §Revision + `DecisionLog.md`.
 3. **Eye-moisture / cornea master** (`M_DazEyeMoisture`) — new translucent
    master + eye-surface detection + mapping. Translucent shading cost
    absorbed by the small pixel footprint of eyes (~1% on close-ups, much less
    normally).
 
-### Slice #3 — note for the master rework
+### Master-rework gated-node audit (slice #2 — done)
 
-While reworking `M_DazPBRSkin` to wire the Subsurface Profile, audit it for
-the same gated-but-evaluated-nodes pattern that motivated the IrayUber bump
-cleanup (`Docs/DecisionLog.md`): parameters do not fold to zero at compile time;
-gated branches still sample. Remove any cost-when-disabled paths in the same pass.
+(Mislabel fixed: this concerned slice #2's `M_DazPBRSkin`/IrayUber rework, not
+slice #3.) During that rework the masters were audited for the
+gated-but-evaluated-nodes pattern that motivated the IrayUber bump cleanup
+(`Docs/DecisionLog.md`) — parameters don't fold to zero at compile time, so gated
+branches still sample; cost-when-disabled paths were removed. ✅ done with slice #2.
 
 ### Dropped from v2 — runtime cost > visual-fidelity gain
 
@@ -218,8 +222,13 @@ ABI extension on the Designer's critical path, not the importer's.
 **Phase 6 v2 — Materials v2.** Active. **Slice #1 (faithful makeup + LIE import)
 is done and signed off** — full acceptance regression passed 2026-06-07 (G8
 Jordina, G8.1 base, G9 Laura, G3 Victoria 7 HD, plus extra spot-checks).
-**Immediate next action: slice #2 (Subsurface Profile pipeline).** See the
-Phase 6 v2 section above for the full slice plan and acceptance set.
+**Slice #2 (Subsurface Profile pipeline) — ✅ done & verified 2026-06-07** (full
+acceptance set: G8.1, Jordina, Nancy, Laura, V7HD). Two verification fixes landed —
+IrayUber SSS-binding (`SetParentEditorOnly`) and PBRSkin darkening (inline
+translucency restored tuned → Base Color, B1); rationale →
+[`SubsurfaceProfileV2.md`](SubsurfaceProfileV2.md) §Revision + `DecisionLog.md`.
+**Next: slice #3 — eye-moisture / cornea master** (`M_DazEyeMoisture`), then
+Phase 7 v2.
 
 **Phase 7 v2 — formula evaluation/composed character shape** (queued behind
 Phase 6 v2). The discovery-only portion is done: formula-reachable `?value`
