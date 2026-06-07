@@ -228,7 +228,10 @@ land together (the mapping/master contract is breaking — see Code plan #3).
 - Optional: import the now-unbound translucency/`*_sss` texture **standalone**
   (like makeup/LIE) so it survives for the Designer — defer unless cheap.
 
-## Doc updates when the slice lands (Implementer, same change — R8/R9)
+## Doc updates when the slice lands — ✅ all applied 2026-06-07 (Director, post-verification)
+
+_(MaterialMastersV1 item applied per **B1**: PBRSkin keeps translucency, rerouted →
+Base Color — not dropped. See §Revision.)_
 
 - **Roadmap.md:** slice #2 → done; **fix the mislabel** — the "Slice #3 — note
   for the master rework" block describes *this* slice's `M_DazPBRSkin`/IrayUber
