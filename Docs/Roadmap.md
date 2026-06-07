@@ -13,7 +13,7 @@ This file tracks *status*. For *how the code is organized* see
 flip, winding, scale) are owned by `CodeReviewRules.md` R4 and the `DazPointToUe`
 helper — referenced here, not restated, so they cannot drift.
 
-_Last updated: 2026-06-06._
+_Last updated: 2026-06-07._
 
 ## Phase status
 
@@ -173,6 +173,12 @@ exposed and not this slice.
   no new textures / unchanged materials on the no-makeup/no-LIE figures: **G8
   Jordina Full Character, G8.1 base female, G9 Laura, G3 Victoria 7 HD.** Only
   after that is slice #1 fully signed off — and only then start slice #2.
+- **G8.1 acceptance regression bug fixed 2026-06-07.** The IrayUber bump bake
+  now decodes DAZ's LZW-compressed 8-bit RGB TIFF base-normal maps by requesting
+  BGRA8 from UE's image wrapper (`DsonTextureImporter.cpp::DecodeImageFile`).
+  Previously the RGBA request failed on TIFF, so G8.1 fell back to a plain
+  normal map, lost baked bump detail, and inflated "failed to decode normal map"
+  warnings/failure counts.
 - **One open follow-up — the benign `#fragment` warning** (cosmetic; see "Known
   latent issues" + the LIE subsection under "Deferred to Designer"). A
   ready-to-use Implementer prompt was drafted this session: skip `#`-prefixed

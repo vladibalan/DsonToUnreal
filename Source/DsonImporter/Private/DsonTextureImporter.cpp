@@ -127,8 +127,9 @@ static bool DecodeImageFile(const FString& ResolvedPath, FDecodedImage& OutImage
     if (!ImageWrapper.IsValid() || !ImageWrapper->SetCompressed(FileBytes.GetData(), FileBytes.Num()))
         return false;
 
-    TArray64<uint8> RawRgba;
-    if (!ImageWrapper->GetRaw(ERGBFormat::RGBA, 8, RawRgba))
+    TArray64<uint8> RawBgra;
+    // UE's TIFF wrapper only supports BGRA8 for 8-bit images; requesting RGBA makes TIFF inputs fail to decode.
+    if (!ImageWrapper->GetRaw(ERGBFormat::BGRA, 8, RawBgra))
         return false;
 
     OutImage.Width = ImageWrapper->GetWidth();
@@ -139,10 +140,10 @@ static bool DecodeImageFile(const FString& ResolvedPath, FDecodedImage& OutImage
     {
         const int64 RawIdx = static_cast<int64>(i) * 4;
         OutImage.Pixels[i] = FColor(
-            RawRgba[RawIdx + 0],
-            RawRgba[RawIdx + 1],
-            RawRgba[RawIdx + 2],
-            RawRgba[RawIdx + 3]);
+            RawBgra[RawIdx + 2],
+            RawBgra[RawIdx + 1],
+            RawBgra[RawIdx + 0],
+            RawBgra[RawIdx + 3]);
     }
 
     return OutImage.IsValid();
