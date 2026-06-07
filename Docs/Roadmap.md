@@ -26,7 +26,7 @@ _Last updated: 2026-06-07._
 | 6 | Materials — per-section MIC wiring, 3 masters, texture import | ✅ Done (v1) |
 | 6.x | UV-set import (seams) | ✅ Done — verified G8.1 + Laura, zero fallbacks |
 | 6.y | Material polish (IrayUber washy fix; multi-UDIM resolved as not-needed) | ✅ Done |
-| 6 v2 | Materials v2 — faithful makeup + LIE import, then SSS Profile (current), eye-moisture | 🔄 In progress — slice #1 implemented (Nancy-verified); acceptance regression pending, then slice #2 |
+| 6 v2 | Materials v2 — faithful makeup + LIE import, then SSS Profile (current), eye-moisture | 🔄 In progress — slice #1 ✅ done (acceptance set verified 2026-06-07, incl. extra spot-checks); slice #2 (SSS Profile) current |
 | 7 | Morph targets (`UMorphTarget` per morph) | ✅ Done — delta-bearing morphs, including formula-reachable `?value` leaf files, via MeshDescription morph attributes |
 | 8 | Save to Content Browser (`/Game/DazImports/`) | ✅ Implemented per-phase, working |
 
@@ -84,8 +84,9 @@ this section as it lands. **Current: slice #2 (Subsurface Profile pipeline).**
 
 ### Planned slices
 
-1. **Faithful makeup + LIE import** — ✅ Implemented 2026-06-06; verified on
-   Nancy 9, acceptance regression pending (see "Slice #1 — handoff notes"). The
+1. **Faithful makeup + LIE import** — ✅ Done; implemented + Nancy 9-verified
+   2026-06-06, full acceptance regression passed 2026-06-07 (see "Slice #1 —
+   handoff notes"). The
    importer imports `Makeup
    Base Color` textures and each non-base LIE layer as standalone
    `UTexture2D` assets under `/Game/DazImports/Textures/`. **No** `Makeup *`
@@ -165,14 +166,15 @@ exposed and not this slice.
 
 **Session handoff (2026-06-06) — slice #1 status & open items.**
 
-- **Implemented and verified on Nancy 9 only.** End-to-end on HID Nancy 9: base
+- **Implemented; Nancy 9 was the primary end-to-end check.** End-to-end on HID Nancy 9: base
   skin binds (head renders correctly), every non-base LIE layer imports as a
   standalone `T_…_lie_<idx>[_label]` asset (incl. `makeup_02` + `brows_base`,
   cross-checked against the on-disk `lie/` folder), and no sRGB conflicts.
-- **Acceptance-set regression NOT run yet — the immediate next action.** Verify
-  no new textures / unchanged materials on the no-makeup/no-LIE figures: **G8
-  Jordina Full Character, G8.1 base female, G9 Laura, G3 Victoria 7 HD.** Only
-  after that is slice #1 fully signed off — and only then start slice #2.
+- **Acceptance-set regression complete (2026-06-07) — slice #1 signed off.** All
+  acceptance figures import clean — **G8 Jordina, G8.1 base female, G9 Laura, G3
+  Victoria 7 HD** — plus extra figures spot-checked by the maintainer. G8.1 was
+  the only one to log warnings, resolved by the bump-bake TIFF fix below. Slice
+  #2 (SSS Profile) is now the active work.
 - **G8.1 acceptance regression bug fixed 2026-06-07.** The IrayUber bump bake
   now decodes DAZ's LZW-compressed 8-bit RGB TIFF base-normal maps by requesting
   BGRA8 from UE's image wrapper (`DsonTextureImporter.cpp::DecodeImageFile`).
@@ -464,12 +466,11 @@ user 2026-06-06 (perf cleanup; no visual change).
 
 ## Next up
 
-**Phase 6 v2 — Materials v2.** Active. **Immediate next action: finish slice #1
-sign-off** — run the acceptance-set regression (G8 Jordina, G8.1 base, G9 Laura,
-G3 Victoria 7 HD); slice #1 is implemented and Nancy-verified but not yet
-regression-checked (see "Slice #1 — handoff notes"). **Then** start slice #2
-(Subsurface Profile pipeline). See the Phase 6 v2 section above for the full
-slice plan and acceptance set.
+**Phase 6 v2 — Materials v2.** Active. **Slice #1 (faithful makeup + LIE import)
+is done and signed off** — full acceptance regression passed 2026-06-07 (G8
+Jordina, G8.1 base, G9 Laura, G3 Victoria 7 HD, plus extra spot-checks).
+**Immediate next action: slice #2 (Subsurface Profile pipeline).** See the
+Phase 6 v2 section above for the full slice plan and acceptance set.
 
 **Phase 7 v2 — formula evaluation/composed character shape** (queued behind
 Phase 6 v2). The discovery-only portion is done: formula-reachable `?value`
