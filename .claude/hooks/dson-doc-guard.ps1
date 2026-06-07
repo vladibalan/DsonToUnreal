@@ -18,8 +18,11 @@ $path = if ($payload.tool_input) { [string]$payload.tool_input.file_path } else 
 if ([string]::IsNullOrWhiteSpace($path)) { exit 0 }
 $event = if ($payload.hook_event_name) { [string]$payload.hook_event_name } else { 'PreToolUse' }
 
-# Only fire for this plugin's orientation docs.
+# Only fire for THIS plugin's orientation docs. The /DsonToUnreal/ guard keeps it
+# safe when wired in user/global settings (which load for every project) - without
+# it, a generic /Docs/*.md or AGENTS.md edit in any other repo would trip it.
 $norm = $path -replace '\\', '/'
+if ($norm -notmatch '/DsonToUnreal/') { exit 0 }
 $isDoc = ($norm -match '/Docs/[^/]+\.md$') -or ($norm -match '/AGENTS\.md$') -or ($norm -match '/MaterialMastersV1\.md$')
 if (-not $isDoc) { exit 0 }
 

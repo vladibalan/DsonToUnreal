@@ -12,8 +12,12 @@ try { $payload = $raw | ConvertFrom-Json } catch { exit 0 }
 $path = if ($payload.tool_input) { [string]$payload.tool_input.file_path } else { '' }
 if ([string]::IsNullOrWhiteSpace($path)) { exit 0 }
 
-# Only fire for plugin C++ source files (.cpp/.h under Source/DsonImporter).
+# Only fire for THIS plugin's C++ source (.cpp/.h under Source/DsonImporter). The
+# /DsonToUnreal/ guard keeps it safe when wired in user/global settings (which load
+# for every project) - without it the checklist would fire on any repo that happens
+# to have a Source/DsonImporter/ path.
 $norm = $path -replace '\\', '/'
+if ($norm -notmatch '/DsonToUnreal/') { exit 0 }
 if ($norm -notmatch '/Source/DsonImporter/') { exit 0 }
 if ($norm -notmatch '\.(cpp|h)$') { exit 0 }
 
