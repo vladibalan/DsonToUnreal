@@ -100,55 +100,18 @@ the X-macro list.)
 
 ## Generated Folders
 
-Do not inspect these during normal discovery:
+Do not inspect these during normal discovery: `Binaries/`, `Intermediate/`, `.git/`.
+For audits/diagnostics they can be evidence (editor logs, crashes, build output) —
+see `Docs/AuditGuide.md` (Evidence Sources) for when and what.
 
-- `Binaries/`
-- `Intermediate/`
-- `.git/`
+## Editor Tooling
 
-For audits and diagnostics, inspect generated folders only when they are evidence:
-
-- `Saved/Logs/` for current and backup editor logs.
-- `Saved/Crashes/` for crash logs and crash context.
-- `Intermediate/` only for generated code or build-output questions.
-- `Binaries/` only for packaging, stale binary, or DLL-load questions.
-
-## Editor Tooling — clangd index (read before regenerating it)
-
-A clangd compile database already exists for this plugin. If you need to
-(re)generate it, **do not reach for UBT's `Build.bat -mode=GenerateClangDatabase`** —
-that mode aborts immediately with "Clang x64 must be installed" because this
-machine has **no LLVM/Clang toolchain installed** (only `clang-format`/`clang-tidy`
-ship with VS; there is no `clang-cl.exe`/`clang.exe`). clangd itself needs no such
-install — it has its own frontend — so the toolchain is not worth installing.
-
-The working, no-install approach (already set up):
-
-- Generator: `tools/gen-compile-commands.ps1` at the **host project root**
-  (`<project>/`, one level **above** this plugin repo — it is not under this git
-  repo, same as the `.clangd` and `compile_commands.json` it produces).
-- It **harvests** the per-TU response files UBT wrote on the last build
-  (`Plugins/DsonToUnreal/Intermediate/Build/Win64/x64/*/Development/DsonImporter/*.cpp.obj.rsp`),
-  inlines the shared `/I` list, and strips the MSVC-only flags clangd can't use
-  (`/Yu /Fp /Fo /sourceDependencies`). No compiler runs.
-- Prerequisite: the **editor target must have been built once** so those `.rsp`
-  files exist. Regenerate after adding/removing `.cpp` files, changing module
-  dependencies, or rebuilding with new flags:
-  `pwsh -File tools/gen-compile-commands.ps1` (from the host project root).
-- If clangd warns on a stray MSVC flag, add it to the script's drop-list — do
-  not switch to installing LLVM.
+clangd compile-database setup — how to regenerate the index without installing an
+LLVM/Clang toolchain — lives in **[`Docs/Tooling.md`](Docs/Tooling.md)**; read it
+before regenerating.
 
 ## Code Notes
 
 - `GDsonParser` is populated at module startup by loading exports from `DsonParser.dll`.
 - Builder classes are mostly static orchestration helpers except `FDsonMaterialBuilder` and `FDsonTextureImporter`, which carry caches/counters.
-- DSON URLs are usually relative to DAZ content roots and may include URL encoding and fragments.
-- The import flow starts from the File menu, opens `SDsonImportWindow`, validates the chosen `.duf`/`.dsf`, then builds skeleton, materials/textures, mesh, and skin weights.
-
-## Audit Notes
-
-- Start audit/diagnostic requests with `Docs/AuditGuide.md`.
-- Route by symptom before opening source files.
-- Collect log evidence first when the user reports a crash, import failure, missing asset, or wrong output.
-- For code-review audits, report findings first with file/line references.
-- If no issue is found, state the evidence checked and remaining risk.
+- The end-to-end import flow, DSON-URL handling, and per-component responsibilities live in `Docs/ImporterArchitecture.md` (Runtime Flow + Component Responsibilities) — not restated here. Audit/diagnostic routing: `Docs/AuditGuide.md` (Read Order step 2).
