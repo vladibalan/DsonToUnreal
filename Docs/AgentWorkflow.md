@@ -65,8 +65,14 @@ The Implementer executes the prompts the user passes in from the Director:
   working tree for the user to review and commit. Plugin git lives in this
   repo (`Plugins/DsonToUnreal`), not the host root — see [`../AGENTS.md`](../AGENTS.md)
   "Version Control".
-- **Missing inputs:** if a file needed for the task is not in the project folder,
-  **ask the user to upload it** rather than fabricating or guessing its contents.
+- **Missing inputs — ask for the file *first*, before engineering around its
+  absence.** If the task or answer needs a fact that lives in a file you don't have
+  (a `.duf`/`.dsf` asset, a log, a header), **ask the user to upload it** — they
+  can hand over source files directly for you to read. Ask *before* proposing a
+  build, a diagnostic dump, or any workaround that makes the user compile/run code
+  to surface data a file already contains: a diagnostic is the fallback only for
+  data no static file holds (runtime/engine behavior), never the default for
+  inspecting an asset. Never fabricate or guess contents.
 - The UE 5.4.4 / C++20 / parser-ABI / breaking-change constraints in
   [`../AGENTS.md`](../AGENTS.md) and [`CodeReviewRules.md`](CodeReviewRules.md)
   apply to both roles.
