@@ -28,6 +28,33 @@ are starting points to tune on the figure, not asserted truth._
    character's scene skin color, not left as a single untinted skin preset
    (confirmed with the user 2026-06-07).
 
+## Revision — PBRSkin translucency restored (2026-06-07, decision **B1**)
+
+Slice-2 verification surfaced two issues; this revises the plan for the second.
+
+1. **IrayUber SSS didn't bind at import** (rendered default-lit until a manual MIC
+   param toggle). Root cause: the MIC's cached shading model lagged the
+   render-proxy propagate on a raw-parented MIC, so the subsurface branch was
+   skipped. Fixed by parenting via `SetParentEditorOnly(Master, /*RecacheShader=*/true)`
+   (durable note in `Reference.md` → carry-forward lessons). ✅ verified G8.1 + Josina.
+2. **PBRSkin (G9 Laura/Nancy) rendered much darker.** Cause: removing the inline
+   `Translucency → Subsurface Color` term — which on PBRSkin (weight ~0.85) was the
+   *active* skin-brightness path, not IrayUber's weak 0.1 washy gate. The Subsurface
+   Profile **redistributes** diffuse light (≈energy-conserving); it does **not add**
+   luminance, so it cannot replace that brightness. Confirmed by a constant-
+   Subsurface-Color injection test, then a DAZ Iray reference: the correct look sits
+   **between** v1 (full translucency, too bright) and profile-only (too dark).
+
+**Resolution (B1):** keep the Subsurface Profile for *scatter*; restore a
+**tuned-down** `TranslucencyColor × TranslucencyMap × TranslucencyWeight`
+contribution routed into **Base Color** for *brightness* (the profile model has no
+Subsurface Color pin). The two are complementary, not redundant. The importer
+re-feeds the **raw** DAZ translucency params (faithful data pump); the **tuning
+scale lives in the master**, dialed against the DAZ Iray reference. **IrayUber is
+unchanged** (its translucency removal stands). This **supersedes** Master-rework
+spec #3 and Code plan #3 *for PBRSkin only*, and the "Doc updates when the slice
+lands" `MaterialMastersV1` item (PBRSkin keeps translucency, now → Base Color, tuned).
+
 ## DAZ data facts (from real `[MatDiag]` channel dumps, 2026-06-06/07 logs)
 
 Exact channel ids, verified — do not paraphrase:
@@ -145,11 +172,11 @@ land together (the mapping/master contract is breaking — see Code plan #3).
 1. **Shading model → `Subsurface Profile`** (Blend mode stays `Opaque`).
 2. **Add scalar param `SubsurfaceWeight`** (default `0`) → wire to the material
    **Opacity** output. This is the per-surface SSS gate.
-3. **Remove the inline subsurface wiring** — it is dead under the profile model:
-   - PBRSkin: the `TranslucencyColor × TranslucencyMap × TranslucencyWeight →
-     Subsurface Color` path and those params.
-   - IrayUber: the `TranslucencyColor × TranslucencyMap → Subsurface Color` path
-     **and** the `TranslucencyWeight` washy-skin gate.
+3. **Remove the inline subsurface wiring** where dead under the profile model:
+   - PBRSkin: **superseded — see Revision (B1).** Keep a *tuned* translucency term,
+     re-routed `→ Base Color` (the profile model exposes no Subsurface Color pin).
+   - IrayUber: remove the `TranslucencyColor × TranslucencyMap → Subsurface Color`
+     path **and** the `TranslucencyWeight` washy-skin gate (stands).
 4. **Audit & remove gated-but-evaluated nodes** (this *is* the work the Roadmap's
    mislabeled "Slice #3 — note for the master rework" describes — see Roadmap fix
    below): no SSS branch should sample/compute when disabled. Same pattern as the
@@ -170,11 +197,14 @@ land together (the mapping/master contract is breaking — see Code plan #3).
    weight, otherwise 0); for skin surfaces assign the profile
    (`bOverrideSubsurfaceProfile` + `SubsurfaceProfile`). Hold a
    `TSet<FString>` of already-warned groups on the builder for dedupe.
-3. **Remove `Translucency *` rows** from `GetIrayUberMapping()` /
-   `GetPBRSkinMapping()` — those master params no longer exist. ⚠️ **Breaking
-   change** to the mapping↔master contract (CodeReviewRules R2/R7): valid only
-   because the master rework removes the same params in lockstep. Do not ship one
-   without the other.
+3. **Mapping rows.** IrayUber: **remove** the `Translucency *` rows from
+   `GetIrayUberMapping()` (stands). PBRSkin: **re-add** to `GetPBRSkinMapping()` the
+   `Translucency Color` (→ `TranslucencyColor` + `TranslucencyMap` +
+   `UseTranslucencyMap`, sRGB on) and `Translucency Weight` (→ `TranslucencyWeight`)
+   rows, feeding **raw** DAZ values — tuning lives in the master (B1, see Revision).
+   ⚠️ **Breaking change** to the mapping↔master contract (CodeReviewRules R2/R7): the
+   PBRSkin master re-wire and these rows land in lockstep; do not ship one without the
+   other.
 4. Keep all parser reads through existing accessors — **no parser change** (Option
    1 needs only scene channels, which carry what we use).
 
@@ -184,6 +214,9 @@ land together (the mapping/master contract is breaking — see Code plan #3).
 - On the **figure in the skeletal-mesh editor** (not the sphere): backlit skin
   (ears/nose/fingers) scatters; **teeth/nails/eyes do not** (Opacity 0 → default
   lit); no perf regression; no shading creases.
+- **PBRSkin skin brightness** matches the DAZ Iray reference — between v1 (full
+  translucency, too bright) and profile-only (too dark). Tune the master
+  translucency scale against an **Iray render** (not the Texture-Shaded viewport).
 
 ## Open items (resolve during implementation)
 

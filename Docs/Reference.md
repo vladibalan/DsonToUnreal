@@ -42,6 +42,15 @@ Contents:
   prove a UV-offset path is live, test with a *fractional* value.
 - **The MIC preview sphere under-reports subsurface;** tune SSS/translucency
   weights against the figure in the Skeletal Mesh editor, not the sphere.
+- **A SubsurfaceProfile won't bind on a MIC whose parent was set by raw
+  `MIC->Parent = Master`.** `UpdateMaterialRenderProxy` is the only place the
+  profile registers and binds, gated on
+  `UseSubsurfaceProfile(GetShadingModels())`; `PostEditChange` reaches that
+  render-proxy propagation before refreshing the MIC's cached `ShadingModels`
+  from the parent. Symptom: imported skin is default-lit until any later MIC edit
+  re-fires `PostEditChange`. Fix: set the parent via
+  `SetParentEditorOnly(Master, /*RecacheShader=*/true)`, which caches the
+  shading model at parent-set time.
 - `Use<Name>Map` toggles gate the texture via `lerp(Color, Map, UseFlag)`,
   default 0; the builder raises it to 1 when it sets a texture. If a channel
   ignores its texture, check the use-flag before suspecting the sampler.

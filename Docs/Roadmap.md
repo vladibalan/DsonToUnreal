@@ -34,7 +34,7 @@ _Last updated: 2026-06-07._
 | 6 | Materials — per-section MIC wiring, 3 masters, texture import | ✅ Done (v1) |
 | 6.x | UV-set import (seams) | ✅ Done — verified G8.1 + Laura, zero fallbacks |
 | 6.y | Material polish (IrayUber washy fix; multi-UDIM resolved as not-needed) | ✅ Done |
-| 6 v2 | Materials v2 — faithful makeup + LIE import, then SSS Profile (current), eye-moisture | 🔄 In progress — slice #1 ✅ done (acceptance set verified 2026-06-07, incl. extra spot-checks); slice #2 (SSS Profile) — code + masters done, verification pending |
+| 6 v2 | Materials v2 — faithful makeup + LIE import, then SSS Profile (current), eye-moisture | 🔄 In progress — slice #1 ✅ done (acceptance set verified 2026-06-07, incl. extra spot-checks); slice #2 (SSS Profile) — in verification: IrayUber SSS-binding fix ✅ (SetParentEditorOnly); PBRSkin darkening → translucency restore (B1) in progress |
 | 7 | Morph targets (`UMorphTarget` per morph) | ✅ Done — delta-bearing morphs, including formula-reachable `?value` leaf files, via MeshDescription morph attributes |
 | 8 | Save to Content Browser (`/Game/DazImports/`) | ✅ Implemented per-phase, working |
 
@@ -220,15 +220,16 @@ ABI extension on the Designer's critical path, not the importer's.
 **Phase 6 v2 — Materials v2.** Active. **Slice #1 (faithful makeup + LIE import)
 is done and signed off** — full acceptance regression passed 2026-06-07 (G8
 Jordina, G8.1 base, G9 Laura, G3 Victoria 7 HD, plus extra spot-checks).
-**Slice #2 (Subsurface Profile pipeline) — code landed + masters reworked;
-verification pending (2026-06-07).** Implementer code half is implemented,
-Director-reviewed against the design (matches), and compiles; the two skin
-masters were reworked by the user (Subsurface Profile shading +
-`SubsurfaceWeight`→Opacity + inline translucency-subsurface removed).
-**Immediate next action: visual verification, then finalize docs** — acceptance
-set + pass criteria + the four docs to update on pass are all in
-[`SubsurfaceProfileV2.md`](SubsurfaceProfileV2.md) (§Verification and §"Doc
-updates when the slice lands").
+**Slice #2 (Subsurface Profile pipeline) — in verification (2026-06-07).** Two
+findings (full detail → [`SubsurfaceProfileV2.md`](SubsurfaceProfileV2.md) §Revision):
+(1) IrayUber SSS wasn't binding at import — **fixed** (parent via
+`SetParentEditorOnly`), verified G8.1 + Josina; (2) PBRSkin rendered much darker —
+the Subsurface Profile can't replace PBRSkin's removed inline translucency
+(profile redistributes, doesn't add light). **Resolution B1 in progress:** keep the
+profile for scatter, restore a tuned translucency into Base Color (importer re-feeds
+raw params, master holds the tuning). **Next:** Implementer re-adds the PBRSkin
+`Translucency *` mapping rows + user master re-wire (lockstep), then re-run
+acceptance + finalize docs (§"Doc updates when the slice lands").
 
 **Phase 7 v2 — formula evaluation/composed character shape** (queued behind
 Phase 6 v2). The discovery-only portion is done: formula-reachable `?value`

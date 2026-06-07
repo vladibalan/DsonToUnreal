@@ -852,7 +852,7 @@ UMaterialInstanceConstant* FDsonMaterialBuilder::BuildSceneMaterial(
     UMaterialInstanceConstant* MIC = AssetContext.MIC;
 
     // Step 4 - assign parent
-    MIC->Parent = Master;
+    MIC->SetParentEditorOnly(Master, /*RecacheShader=*/true);
 
     // Step 5 - iterate channels and apply parameters from the active mapping table.
     // Default shader has no defined mapping so no parameter overrides are applied.
