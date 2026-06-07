@@ -107,6 +107,8 @@ this section as it lands. **Current: slice #2 (Subsurface Profile pipeline).**
    the SSS-family channels (`Sub Surface Enable`, `SSS Color`, `SSS
    Direction`, `Transmitted Color`, `Translucency *`, `Scattering Measurement
    Distance`) into the profile. Perf-neutral vs. inline subsurface.
+   **Design:** [`SubsurfaceProfileV2.md`](SubsurfaceProfileV2.md) (both skin
+   masters; IrayUber SSS via Option 1 — scene + calibrated defaults).
 3. **Eye-moisture / cornea master** (`M_DazEyeMoisture`) — new translucent
    master + eye-surface detection + mapping. Translucent shading cost
    absorbed by the small pixel footprint of eyes (~1% on close-ups, much less

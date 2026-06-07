@@ -7,9 +7,11 @@
 #include "DsonTextureImporter.h"
 
 #include "Engine/Texture2D.h"
+#include "Engine/SubsurfaceProfile.h"
 #include "Materials/Material.h"
 #include "Materials/MaterialInstanceConstant.h"
 #include "ObjectTools.h"
+#include "Misc/Paths.h"
 
 /*
  * Intent:
@@ -28,6 +30,9 @@
 static const TCHAR* kIrayUberMasterPath = TEXT("/DsonToUnreal/Materials/M_DazIrayUber");
 static const TCHAR* kPBRSkinMasterPath  = TEXT("/DsonToUnreal/Materials/M_DazPBRSkin");
 static const TCHAR* kDefaultMasterPath  = TEXT("/DsonToUnreal/Materials/M_DazDefault");
+static constexpr float kSkinSubsurfaceWeight = 0.85f;
+static constexpr float kSssTintStrength = 0.4f;
+static constexpr float kSssMeanFreePathDistance = 2.6f;
 
 // ---------------------------------------------------------------------------
 // FDazParamBinding - file-private parameter mapping descriptor
@@ -64,10 +69,23 @@ struct FDazChannelInfo
     float Value = 0.0f;
 };
 
+struct FDazColorChannelInfo
+{
+    bool bHasColor = false;
+    FLinearColor Color = FLinearColor::White;
+};
+
 struct FStandaloneTextureImportCounts
 {
     int32 Makeup = 0;
     int32 LieLayers = 0;
+};
+
+enum class EDsonSurfaceClass : uint8
+{
+    Skin,
+    NonSkin,
+    Unknown,
 };
 
 // ---------------------------------------------------------------------------
@@ -83,10 +101,6 @@ static const TMap<FString, FDazParamBinding>& GetIrayUberMapping()
         TMap<FString, FDazParamBinding> M;
         M.Add(TEXT("diffuse"),
             { FName(TEXT("DiffuseColor")),     NAME_None,                       FName(TEXT("DiffuseMap")),       FName(TEXT("UseDiffuseMap")),       true  });
-        M.Add(TEXT("Translucency Color"),
-            { FName(TEXT("TranslucencyColor")), NAME_None,                      FName(TEXT("TranslucencyMap")),  FName(TEXT("UseTranslucencyMap")),  true  });
-        M.Add(TEXT("Translucency Weight"),
-            { NAME_None,                        FName(TEXT("TranslucencyWeight")), NAME_None,                       NAME_None,                          false });
         M.Add(TEXT("Glossy Layered Weight"),
             { NAME_None,                        FName(TEXT("GlossyWeight")),    FName(TEXT("GlossyMap")),        FName(TEXT("UseGlossyMap")),        false });
         M.Add(TEXT("Top Coat Weight"),
@@ -107,10 +121,6 @@ static const TMap<FString, FDazParamBinding>& GetPBRSkinMapping()
         TMap<FString, FDazParamBinding> M;
         M.Add(TEXT("diffuse"),
             { FName(TEXT("DiffuseColor")),       NAME_None,                              FName(TEXT("DiffuseMap")),           FName(TEXT("UseDiffuseMap")),           true  });
-        M.Add(TEXT("Translucency Color"),
-            { FName(TEXT("TranslucencyColor")),  NAME_None,                              FName(TEXT("TranslucencyMap")),      FName(TEXT("UseTranslucencyMap")),      true  });
-        M.Add(TEXT("Translucency Weight"),
-            { NAME_None,                         FName(TEXT("TranslucencyWeight")),      NAME_None,                           NAME_None,                              false });
         M.Add(TEXT("Specular Lobe 1 Roughness"),
             { NAME_None,                         FName(TEXT("SpecularRoughness")),       FName(TEXT("SpecularRoughnessMap")), FName(TEXT("UseSpecularRoughnessMap")), false });
         M.Add(TEXT("Specular Lobe 2 Roughness Mult"),
@@ -150,6 +160,50 @@ static const TSet<FString>& GetStandaloneImageChannelIds()
         TEXT("Makeup Base Color"),
     };
     return ChannelIds;
+}
+
+static const TSet<FString>& GetSkinSurfaceGroups()
+{
+    static const TSet<FString> Groups = {
+        TEXT("Face"),
+        TEXT("Head"),
+        TEXT("Body"),
+        TEXT("Torso"),
+        TEXT("Arms"),
+        TEXT("Legs"),
+        TEXT("Ears"),
+        TEXT("Lips"),
+    };
+    return Groups;
+}
+
+static const TSet<FString>& GetNonSkinSurfaceGroups()
+{
+    static const TSet<FString> Groups = {
+        TEXT("Teeth"),
+        TEXT("Mouth"),
+        TEXT("Mouth Cavity"),
+        TEXT("Tongue"),
+        TEXT("EyeSocket"),
+        TEXT("EyeMoisture"),
+        TEXT("Cornea"),
+        TEXT("Pupils"),
+        TEXT("Irises"),
+        TEXT("Sclera"),
+        TEXT("Eyelashes"),
+        TEXT("Fingernails"),
+        TEXT("Toenails"),
+    };
+    return Groups;
+}
+
+static EDsonSurfaceClass ClassifySurfaceGroup(const FString& GroupName)
+{
+    if (GetSkinSurfaceGroups().Contains(GroupName))
+        return EDsonSurfaceClass::Skin;
+    if (GetNonSkinSurfaceGroups().Contains(GroupName))
+        return EDsonSurfaceClass::NonSkin;
+    return EDsonSurfaceClass::Unknown;
 }
 
 // ---------------------------------------------------------------------------
@@ -328,6 +382,85 @@ static FDazChannelInfo FindSceneMaterialChannelById(
     }
 
     return Info;
+}
+
+static FDazColorChannelInfo FindSceneMaterialColorChannelById(
+    uint64_t DsonHandle,
+    int32 SceneMatIdx,
+    const FString& ChannelId)
+{
+    FDazColorChannelInfo Info;
+    const int32 ChCount = GDsonParser.GetSceneMaterialChannelCount
+        ? GDsonParser.GetSceneMaterialChannelCount(DsonHandle, SceneMatIdx) : 0;
+
+    for (int32 c = 0; c < ChCount; ++c)
+    {
+        const FString ChId = S(GDsonParser.GetSceneMaterialChannelId
+            ? GDsonParser.GetSceneMaterialChannelId(DsonHandle, SceneMatIdx, c) : nullptr);
+        if (ChId != ChannelId)
+            continue;
+
+        Info.bHasColor = GDsonParser.GetSceneMaterialChannelHasColor
+            ? GDsonParser.GetSceneMaterialChannelHasColor(DsonHandle, SceneMatIdx, c) : false;
+        if (Info.bHasColor)
+        {
+            const double R = GDsonParser.GetSceneMaterialChannelColorR
+                ? GDsonParser.GetSceneMaterialChannelColorR(DsonHandle, SceneMatIdx, c) : 1.0;
+            const double G = GDsonParser.GetSceneMaterialChannelColorG
+                ? GDsonParser.GetSceneMaterialChannelColorG(DsonHandle, SceneMatIdx, c) : 1.0;
+            const double B = GDsonParser.GetSceneMaterialChannelColorB
+                ? GDsonParser.GetSceneMaterialChannelColorB(DsonHandle, SceneMatIdx, c) : 1.0;
+            Info.Color = FLinearColor(static_cast<float>(R), static_cast<float>(G), static_cast<float>(B), 1.0f);
+        }
+        return Info;
+    }
+
+    return Info;
+}
+
+static bool TryReadSkinTintColor(
+    uint64_t DsonHandle,
+    int32 SceneMatIdx,
+    EDazShaderKind Kind,
+    FLinearColor& OutColor)
+{
+    if (Kind == EDazShaderKind::PBRSkin)
+    {
+        const FDazColorChannelInfo SssColor =
+            FindSceneMaterialColorChannelById(DsonHandle, SceneMatIdx, TEXT("SSS Color"));
+        if (SssColor.bHasColor)
+        {
+            OutColor = SssColor.Color;
+            return true;
+        }
+    }
+
+    const FDazColorChannelInfo TranslucencyColor =
+        FindSceneMaterialColorChannelById(DsonHandle, SceneMatIdx, TEXT("Translucency Color"));
+    if (TranslucencyColor.bHasColor)
+    {
+        OutColor = TranslucencyColor.Color;
+        return true;
+    }
+
+    return false;
+}
+
+static FLinearColor ClampSkinTintColor(const FLinearColor& Color)
+{
+    return FLinearColor(
+        FMath::Clamp(Color.R, 0.0f, 1.0f),
+        FMath::Clamp(Color.G, 0.0f, 1.0f),
+        FMath::Clamp(Color.B, 0.0f, 1.0f),
+        1.0f);
+}
+
+static int32 GetRepresentativeSkinGroupPriority(const FString& GroupName)
+{
+    if (GroupName == TEXT("Face")) return 0;
+    if (GroupName == TEXT("Head")) return 1;
+    if (GroupName == TEXT("Torso") || GroupName == TEXT("Body")) return 2;
+    return INDEX_NONE;
 }
 
 static void SetIrayUberNormalParams(
@@ -550,6 +683,135 @@ void FDsonMaterialBuilder::ImportStandaloneChannelTextures(
     }
 }
 
+USubsurfaceProfile* FDsonMaterialBuilder::BuildSubsurfaceProfileForDocument(
+    uint64_t DsonHandle,
+    const FString& OutputFolder)
+{
+    CachedSubsurfaceProfile.Reset();
+
+    const int32 SceneMatCount = GDsonParser.GetSceneMaterialCount
+        ? GDsonParser.GetSceneMaterialCount(DsonHandle) : 0;
+
+    int32 BestSceneMatIdx = INDEX_NONE;
+    int32 BestPriority = MAX_int32;
+    EDazShaderKind BestKind = EDazShaderKind::Default;
+
+    for (int32 i = 0; i < SceneMatCount; ++i)
+    {
+        FString GroupName;
+        if (!ReadFirstSceneMaterialGroupName(DsonHandle, i, GroupName))
+            continue;
+
+        const int32 Priority = GetRepresentativeSkinGroupPriority(GroupName);
+        if (Priority == INDEX_NONE || Priority >= BestPriority)
+            continue;
+
+        const FSceneMaterialMetadata Metadata = ReadSceneMaterialMetadata(DsonHandle, i);
+        const EDazShaderKind Kind = DetectShader(Metadata.Url, Metadata.ShaderType);
+        if (Kind != EDazShaderKind::IrayUber && Kind != EDazShaderKind::PBRSkin)
+            continue;
+
+        BestSceneMatIdx = i;
+        BestPriority = Priority;
+        BestKind = Kind;
+        if (BestPriority == 0)
+            break;
+    }
+
+    if (BestSceneMatIdx == INDEX_NONE)
+        return nullptr;
+
+    FLinearColor TintColor = FLinearColor::White;
+    const bool bHasTintColor = TryReadSkinTintColor(DsonHandle, BestSceneMatIdx, BestKind, TintColor);
+    if (!bHasTintColor)
+    {
+        UE_LOG(LogDsonImporter, Warning,
+            TEXT("DsonMaterialBuilder: no skin tint color found for subsurface profile; using UE skin defaults"));
+    }
+
+    const FString BaseName = ObjectTools::SanitizeObjectName(FPaths::GetCleanFilename(OutputFolder));
+    const FString AssetName = TEXT("SSP_") + BaseName;
+    const FString PackagePath = OutputFolder / AssetName;
+
+    UPackage* Package = FDsonAssetUtils::CreateLoadedPackage(PackagePath, TEXT("DsonMaterialBuilder"));
+    if (!Package)
+        return nullptr;
+
+    USubsurfaceProfile* Profile = NewObject<USubsurfaceProfile>(
+        Package, *AssetName, RF_Public | RF_Standalone);
+    if (!Profile)
+    {
+        UE_LOG(LogDsonImporter, Error,
+            TEXT("DsonMaterialBuilder: NewObject<USubsurfaceProfile> failed for '%s'"),
+            *PackagePath);
+        return nullptr;
+    }
+
+    Profile->Settings.bEnableBurley = true;
+    Profile->Settings.bEnableMeanFreePath = true;
+    if (bHasTintColor)
+    {
+        const FLinearColor ClampedTint = ClampSkinTintColor(TintColor);
+        Profile->Settings.MeanFreePathColor = FLinearColor(
+            FMath::Lerp(Profile->Settings.MeanFreePathColor.R, ClampedTint.R, kSssTintStrength),
+            FMath::Lerp(Profile->Settings.MeanFreePathColor.G, ClampedTint.G, kSssTintStrength),
+            FMath::Lerp(Profile->Settings.MeanFreePathColor.B, ClampedTint.B, kSssTintStrength),
+            1.0f);
+    }
+    Profile->Settings.MeanFreePathDistance = kSssMeanFreePathDistance;
+    Profile->PostEditChange();
+
+    if (!FDsonAssetUtils::SaveAssetPackage(
+            Package, Profile, PackagePath, TEXT("DsonMaterialBuilder")))
+    {
+        return nullptr;
+    }
+
+    CachedSubsurfaceProfile = Profile;
+    return Profile;
+}
+
+void FDsonMaterialBuilder::ApplySubsurfaceProfileSettings(
+    uint64_t DsonHandle,
+    int32 SceneMatIdx,
+    EDazShaderKind Kind,
+    UMaterialInstanceConstant* MIC)
+{
+    if (Kind != EDazShaderKind::IrayUber && Kind != EDazShaderKind::PBRSkin)
+        return;
+
+    FString GroupName;
+    if (!ReadFirstSceneMaterialGroupName(DsonHandle, SceneMatIdx, GroupName))
+        return;
+
+    const EDsonSurfaceClass SurfaceClass = ClassifySurfaceGroup(GroupName);
+    float SubsurfaceWeight = 0.0f;
+
+    if (SurfaceClass == EDsonSurfaceClass::Skin)
+    {
+        const FDazChannelInfo Weight = FindSceneMaterialChannelById(
+            DsonHandle, SceneMatIdx, TEXT("Translucency Weight"), kSkinSubsurfaceWeight);
+        SubsurfaceWeight = Weight.Value;
+        if (CachedSubsurfaceProfile.IsValid())
+        {
+            MIC->bOverrideSubsurfaceProfile = true;
+            MIC->SubsurfaceProfile = CachedSubsurfaceProfile.Get();
+        }
+    }
+    else if (SurfaceClass == EDsonSurfaceClass::Unknown
+        && !WarnedUnknownSubsurfaceGroups.Contains(GroupName))
+    {
+        WarnedUnknownSubsurfaceGroups.Add(GroupName);
+        UE_LOG(LogDsonImporter, Warning,
+            TEXT("DsonMaterialBuilder: unrecognized subsurface surface group '%s' - disabling SSS for this group"),
+            *GroupName);
+    }
+
+    MIC->SetScalarParameterValueEditorOnly(
+        FMaterialParameterInfo(FName(TEXT("SubsurfaceWeight"))),
+        SubsurfaceWeight);
+}
+
 // ---------------------------------------------------------------------------
 // BuildSceneMaterial
 // ---------------------------------------------------------------------------
@@ -603,6 +865,7 @@ UMaterialInstanceConstant* FDsonMaterialBuilder::BuildSceneMaterial(
         ApplyIrayUberNormalChannels(H, SceneMatIdx, MIC, TextureImporter);
     }
     ImportStandaloneChannelTextures(H, SceneMatIdx, TextureImporter);
+    ApplySubsurfaceProfileSettings(H, SceneMatIdx, Kind, MIC);
 
     // Step 6 - finalise parameter override arrays before save
     MIC->PostEditChange();
@@ -639,6 +902,9 @@ void FDsonMaterialBuilder::BuildAllSceneMaterials(
 
     const int32 SceneMatCount = GDsonParser.GetSceneMaterialCount
         ? GDsonParser.GetSceneMaterialCount(H) : 0;
+
+    WarnedUnknownSubsurfaceGroups.Reset();
+    BuildSubsurfaceProfileForDocument(H, OutputFolder);
 
     for (int32 i = 0; i < SceneMatCount; ++i)
     {

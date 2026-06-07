@@ -30,6 +30,8 @@ The plugin is an Unreal Editor module:
    - `FDsonSkeletonBuilder` creates a `USkeleton` from figure DSF nodes.
    - `FDsonTextureImporter` resolves and imports referenced image files.
    - `FDsonMaterialBuilder` creates material instances from scene material channels.
+     It also creates one per-character `USubsurfaceProfile` and assigns it to skin
+     MICs for the Subsurface Profile masters.
      It also imports makeup base textures and non-base LIE layers as standalone
      `UTexture2D` assets without binding them to the MIC; composition is deferred
      to authoring tools.
@@ -93,6 +95,8 @@ The plugin is an Unreal Editor module:
 
 - Detects DAZ shader kind from scene material metadata.
 - Maps DAZ material channels onto Unreal material instance parameters.
+- Creates one per-character `USubsurfaceProfile`, tints it from the character's
+  skin color, and assigns it to skin MICs while gating known non-skin groups off.
 - Imports unmapped makeup base images and non-base LIE layer images as standalone
   textures under the normal texture-import convention, without MIC parameter binding.
 - For IrayUber, bakes bump maps into the normal input and leaves the master's
