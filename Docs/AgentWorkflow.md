@@ -89,12 +89,8 @@ Context: <relevant files + the specific facts the Implementer needs;
 
 Task: <concrete, ordered steps or the precise change required>
 
-Constraints: follow Docs/CodeReviewRules.md (R1 UE 5.4.4 API, R2 parser ABI
-             single-source-of-truth, R3 RAII + parser-string copy, R4 DRY
-             helpers + coordinate flip, R5 compactness, R6 C++20 idiom,
-             R7 permissive-parser/return-value/breaking-change, R8 orientation
-             docs in sync, R9 Roadmap current); self-audit against the Quick
-             checklist after each edit.
+Constraints: follow Docs/CodeReviewRules.md (R1–R9) and self-audit against its
+             Quick checklist after each edit.
 
 Feedback requested: <yes/no — if yes, what to assess before/instead of coding>
 ```

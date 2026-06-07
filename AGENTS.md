@@ -4,23 +4,20 @@
 
 ## Operating model (two-agent workflow)
 
-This plugin is worked through two roles: a **Director** (takes your instructions,
-reads files, writes docs/instruction/config files, and authors prompts for the
-Implementer) and an **Implementer** (executes those prompts and edits source per
-the code-review rules). The user passes prompts between the two by hand. At
-session start the user states which role this session plays; if unstated, ask.
+This plugin is worked through two human-mediated roles — a **Director**
+(coordination: reads, writes docs/config, authors Implementer prompts; no source
+edits) and an **Implementer** (makes the source changes per the code-review
+rules), with the user passing prompts between them. At session start the user
+declares the role; **if unstated, ask** before doing role-specific work — and
+confirm it applies to *this* plugin, since this repo sits beside the separate
+`DsonParser` repo and roles do **not** carry across repos.
 
-**Both roles:** the user handles binary builds and git commits/pushes — never
-assume a build ran and never commit. If a needed file is missing from the
-project folder, ask the user to upload it rather than guessing its contents.
+Both roles share hard boundaries: **never run builds, never commit/push, and ask
+the user to upload a missing file rather than guess its contents.**
 
-> This plugin sits inside the `DsonHost` project next to the separate `DsonParser`
-> repo, which runs the same workflow. Roles and boundaries do **not** carry across
-> repos — when a session opens from the host root, confirm the role applies to
-> *this* plugin before doing role-specific work.
-
-**Read [`Docs/AgentWorkflow.md`](Docs/AgentWorkflow.md)** for the full role
-definitions, handoff sequence, and the Director's prompt template.
+Full role definitions, shared boundaries, the handoff sequence, and the
+Director's prompt template are owned by
+**[`Docs/AgentWorkflow.md`](Docs/AgentWorkflow.md)**.
 
 ## Version Control
 
@@ -65,17 +62,9 @@ These rules govern *authoring*, not just review. Before you edit any file under
 `Source/DsonImporter/`:
 
 1. **If you have not read [`Docs/CodeReviewRules.md`](Docs/CodeReviewRules.md) this
-   session, read it now.** It is the standing checklist (R1–R9) covering the
-   hazards that are easy to introduce and expensive to catch later: UE 5.4.4 API
-   compatibility (R1), the single-source-of-truth parser ABI in
-   `DsonParserFunctions.h` (R2), RAII handles + immediate parser-string copy (R3),
-   the shared DRY helpers and the correctness-critical coordinate flip (R4),
-   compactness without losing functionality (R5), the C++20 idiom (R6), the
-   permissive-parser / return-value / breaking-change contracts (R7), keeping
-   the agent-orientation docs in sync with the change (R8), and keeping
-   `Docs/Roadmap.md` current as phases complete, bugs are fixed/found, or work is
-   deferred (R9). **Write code that already complies with R1–R9 rather than
-   fixing it on review.**
+   session, read it now.** It owns the standing checklist (R1–R9) — the recurring
+   hazards that are easy to introduce and expensive to catch on review. **Write
+   code that already complies with R1–R9 rather than fixing it after the fact.**
 2. **After each edit, self-audit the diff against that doc's Quick Checklist and
    state the result.** Name the rules you checked and confirm the diff satisfies
    them, or flag what doesn't — do not say "looks fine".
