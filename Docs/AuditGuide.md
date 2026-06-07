@@ -4,14 +4,14 @@ Use this document for audit, review, debugging, and diagnostic requests. The goa
 
 ## Audit Entry Order
 
-1. Identify the symptom category from the sections below.
-2. Check the listed evidence sources.
-3. Read the listed header or top-of-file `Intent` comment.
+1. Identify the symptom row in the routing table below.
+2. Collect that row's evidence — always start with the latest editor log (see Evidence Sources), then the row's **added evidence**.
+3. Read the routed header's purpose comment (the `.cpp` files carry none).
 4. Inspect only the relevant functions.
 5. Report findings with file/line references and the observed risk.
 
 For code-review style audits, lead with findings. Do not summarize first. Use
-`Docs/CodeReviewRules.md` as the checklist — it encodes this repo's DRY, UE 5.4.4
+`Docs/CodeReviewRules.md` as the checklist — it owns this repo's DRY, UE 5.4.4
 compatibility, parser-ABI, RAII, compactness, orientation-doc-sync, and
 roadmap-upkeep rules (R1–R9).
 
@@ -30,196 +30,24 @@ Only inspect `Binaries/` or `Intermediate/` when the audit is specifically about
 
 ## Symptom Routing
 
-### Plugin Does Not Load
+Find the symptom, collect its evidence (the editor log first, then the **added
+evidence** column), then read the routed source. The **Source** column is the
+audit view of the same component routing owned by `Docs/ImporterArchitecture.md`
+("Common Change Areas") and `AGENTS.md` (Task Routing) — consult those for the
+canonical code layout; this table adds the per-symptom evidence and checks.
 
-Evidence:
-
-- `Saved/Logs/DsonHost.log`
-- `DsonToUnreal.uplugin`
-- `DsonImporter.Build.cs`
-
-Source:
-
-- `DsonImporter.cpp`
-- `DsonParserFunctions.h`
-- `Source/ThirdParty/DsonParser/`
-
-Checks:
-
-- `DsonParser.dll` path matches module startup expectations.
-- Required parser exports are loaded before import actions can run.
-- `GDsonParser.IsValid()` matches the set of required function pointers.
-- Build.cs includes modules needed by startup/menu/UI code.
-
-### Import Dialog Or Validation Fails
-
-Evidence:
-
-- `Saved/Logs/DsonHost.log`
-- Selected `.duf` or `.dsf` path if provided by the user.
-- DAZ content root list if logged.
-
-Source:
-
-- `SDsonImportWindow.*`
-- `DsonValidator.*`
-- `DsonContentRoots.*`
-
-Checks:
-
-- Import button is gated by validation and dependency resolution.
-- Asset type detection accepts the intended file type.
-- Dependency URLs are decoded and resolved against all content roots.
-- The UI preserves the resolved base figure path in `FDsonImportSettings`.
-
-### Missing Dependencies Or Bad DSON URL Resolution
-
-Evidence:
-
-- `Saved/Logs/DsonHost.log`
-- Raw DSON URL from diagnostics or parser output.
-- DAZ Studio content root paths.
-
-Source:
-
-- `DsonContentRoots.*`
-- `DsonValidator.*`
-
-Checks:
-
-- URL fragments are removed only when appropriate.
-- URL escapes are decoded correctly.
-- Absolute, root-relative, and content-root-relative paths are handled consistently.
-- Failed resolution is reported with enough context to reproduce.
-
-### Bad Skeleton Or Bone Hierarchy
-
-Evidence:
-
-- `Saved/Logs/DsonHost.log`
-- Imported skeleton asset name/path.
-- Base figure DSF path.
-
-Source:
-
-- `DsonSkeletonBuilder.*`
-- `DsonParserFunctions.h`
-
-Checks:
-
-- Node parent IDs produce a valid UE reference skeleton order.
-- Root bone handling is deterministic.
-- Unit scale and coordinate conversion are applied consistently.
-- Bone names match the IDs later used by skin weights.
-
-### Bad Mesh Shape, Faces, UVs, Or Material Slots
-
-Evidence:
-
-- `Saved/Logs/DsonHost.log`
-- Imported skeletal mesh asset path.
-- Geometry DSF path and UV-set DSF path.
-
-Source:
-
-- `DsonMeshBuilder.*`
-- `DsonSkinWeightsBuilder.*` only if deformation is involved.
-
-Checks:
-
-- Vertex count, face count, and polygon vertex indices are bounds-checked.
-- Coordinate conversion matches skeleton conversion.
-- UVs are assigned per polygon corner, including override data.
-- Polygon material groups become stable UE material slots.
-- `FDsonSkinWeightsBuilder` runs before mesh description commit.
-
-### Bad Skinning Or Deformation
-
-Evidence:
-
-- `Saved/Logs/DsonHost.log`
-- Skeleton asset path.
-- Mesh asset path.
-- Base figure or geometry DSF path.
-
-Source:
-
-- `DsonSkinWeightsBuilder.*`
-- `DsonSkeletonBuilder.*`
-- `DsonParserFunctions.h`
-
-Checks:
-
-- Skin modifier selection is deterministic.
-- DSF joint/node IDs map to UE bone indices.
-- Influences are capped, normalized, and applied to the correct vertex IDs.
-- Missing bones or influences produce warnings, not silent success.
-
-### Bad Materials
-
-Evidence:
-
-- `Saved/Logs/DsonHost.log`
-- Material diagnostic output if enabled.
-- Imported material instance paths.
-- `MaterialMastersV1.md`
-
-Source:
-
-- `DsonMaterialBuilder.*`
-- `DsonMaterialDiagnostic.*`
-- `DsonTextureImporter.*` if textures are involved.
-
-Checks:
-
-- Shader detection uses scene material URL and `shader_type` consistently.
-- Channel IDs match `MaterialMastersV1.md` and master asset parameters.
-- Material instances are keyed by material group name expected by the mesh builder.
-- Ignored channels are intentional v1 omissions, not missing core channels.
-
-### Missing Or Wrong Textures
-
-Evidence:
-
-- `Saved/Logs/DsonHost.log`
-- Material diagnostic output if enabled.
-- Raw `image_url` or texture path.
-- Imported texture asset path.
-
-Source:
-
-- `DsonTextureImporter.*`
-- `DsonContentRoots.*`
-- `DsonMaterialBuilder.*`
-
-Checks:
-
-- Image URL resolves to an existing file under a content root.
-- Package path preserves useful relative DAZ folder structure.
-- sRGB flag matches the channel role.
-- Cache key is the resolved absolute source path.
-- Failed URLs are retained for reporting.
-
-### Parser API Or Third-Party Boundary Issues
-
-Evidence:
-
-- `Saved/Logs/DsonHost.log`
-- Parser DLL/lib files under `Source/ThirdParty/DsonParser/`
-- Export names expected by `DsonImporter.cpp`
-
-Source:
-
-- `DsonParserFunctions.h`
-- `DsonImporter.cpp`
-- `Source/ThirdParty/DsonParser/Include/DsonParserAPI.h`
-
-Checks:
-
-- Function pointer typedefs match exported signatures.
-- Required exports fail loudly.
-- Optional exports degrade gracefully.
-- Parser string-return rules are respected by immediate conversion to `FString`.
+| Symptom | Added evidence | Source | Key checks |
+|---|---|---|---|
+| **Plugin does not load** | `DsonToUnreal.uplugin`; `DsonImporter.Build.cs` | `DsonImporter.cpp`; `DsonParserFunctions.h`; `Source/ThirdParty/DsonParser/` | `DsonParser.dll` path matches module-startup expectation; required exports loaded before import actions can run; `GDsonParser.IsValid()` matches the required pointer set; Build.cs includes the modules startup/menu/UI code needs |
+| **Import dialog / validation fails** | selected `.duf`/`.dsf` path; logged content-root list | `SDsonImportWindow.*`; `DsonValidator.*`; `DsonContentRoots.*` | Import button gated by validation + dependency resolution; asset-type detection accepts the intended type; dependency URLs decoded + resolved against all content roots; UI preserves the resolved base-figure path in `FDsonImportSettings` |
+| **Missing deps / bad DSON URL resolution** | raw DSON URL; DAZ content-root paths | `DsonContentRoots.*`; `DsonValidator.*` | URL fragments removed only when appropriate; URL escapes decoded correctly; absolute / root-relative / content-root-relative paths handled consistently; failed resolution reported with reproducible context |
+| **Bad skeleton / bone hierarchy** | skeleton asset path; base figure DSF path | `DsonSkeletonBuilder.*`; `DsonParserFunctions.h` | Node parent IDs yield a valid UE reference-skeleton order; root-bone handling deterministic; unit scale + coordinate conversion applied consistently; bone names match the IDs skin weights use later |
+| **Bad mesh shape / faces / UVs / material slots** | skeletal-mesh asset path; geometry DSF + UV-set DSF paths | `DsonMeshBuilder.*` (+ `DsonSkinWeightsBuilder.*` if deformation involved) | Vertex/face counts + polygon vertex indices bounds-checked; coordinate conversion matches the skeleton; UVs assigned per polygon corner incl. override data; polygon material groups become stable UE slots; skin weights run before mesh-description commit |
+| **Bad skinning / deformation** | skeleton + mesh asset paths; base-figure / geometry DSF path | `DsonSkinWeightsBuilder.*`; `DsonSkeletonBuilder.*`; `DsonParserFunctions.h` | Skin-modifier selection deterministic; DSF joint/node IDs map to UE bone indices; influences capped, normalized, applied to the correct vertex IDs; missing bones/influences warn (no silent success) |
+| **Missing / wrong morph targets** | morphed mesh asset; base figure DSF; scene / external morph DSF paths | `DsonMorphBuilder.*`; `DsonParserFunctions.h` (morph, scene-modifier, formula-output exports) | Morphs registered via MeshDescription attributes **before** `CommitMeshDescription` — post-build registration silently fails (see `Docs/Reference.md` → carry-forward lessons); only delta-bearing morphs; `?value` formula-reachable leaf files discovered + transitively resolved; deltas converted through `DazPointToUe` |
+| **Bad materials** | material diagnostic output; imported MIC paths; `MaterialMastersV1.md` | `DsonMaterialBuilder.*`; `DsonMaterialDiagnostic.*` (+ `DsonTextureImporter.*` for textures) | Shader detection uses scene-material URL + `shader_type` consistently; channel IDs match `MaterialMastersV1.md` + master params; MICs keyed by the material-group name the mesh builder expects; ignored channels are intentional v1 omissions, not missing core channels |
+| **Missing / wrong textures** | material diagnostic output; raw `image_url` / texture path; imported texture asset path | `DsonTextureImporter.*`; `DsonContentRoots.*`; `DsonMaterialBuilder.*` | Image URL resolves to an existing file under a content root; package path preserves useful DAZ folder structure; sRGB flag matches the channel role; cache key = resolved absolute source path; failed URLs retained for reporting |
+| **Parser API / third-party boundary** | parser DLL/lib under `Source/ThirdParty/DsonParser/`; export names `DsonImporter.cpp` expects | `DsonParserFunctions.h`; `DsonImporter.cpp`; `Source/ThirdParty/DsonParser/Include/DsonParserAPI.h` | Function-pointer typedefs match exported signatures; required exports fail loudly; optional exports degrade gracefully; parser `const char*` returns converted to `FString` immediately |
 
 ## Core Invariants
 
@@ -242,4 +70,3 @@ Use this structure:
 4. Suggested fixes or next diagnostic step.
 
 If no issues are found, say so clearly and name the remaining risk or missing evidence.
-
