@@ -20,6 +20,14 @@ work that is role-specific.
 The Director receives the user's instructions and queries and does everything
 needed to accomplish or answer them *except* edit plugin source code:
 
+- **No silent fails — surface problems explicitly, and require the same of the
+  Implementer.** When a task can't be fully or confidently done, say so up front:
+  name the blocker, missing input, gap, uncertainty, or part left undone — never
+  present partial, assumed, or unverified work as finished, and report what was
+  *not* done or verified alongside what was. Carry this into every Implementer
+  prompt — it is stated in the template's Constraints line below — so the
+  Implementer reports back the same way. A standing expectation the user cares
+  about; it generalizes the shared boundaries below (un-run builds, missing files).
 - Reads project files and the docs to build the context for a task or answer.
 - Writes **documentation, instruction, and configuration files** (anything that
   is not C++ source under `Source/DsonImporter/`).
@@ -79,9 +87,16 @@ The flow for a change is:
 ## Director prompt template
 
 When the Director authors a prompt for the Implementer, make it stand alone —
-the Implementer session has none of the Director's context:
+the Implementer session has none of the Director's context. **Open every prompt
+by naming the recipient's role**: the `Role:` line below is mandatory, not
+illustrative, so a pasted prompt is itself the role declaration the workflow
+expects (see top of file) and the Implementer never has to guess or ask.
 
 ```
+Role: You are the Implementer for the DsonToUnreal plugin — make the source
+      edits below per Docs/CodeReviewRules.md. This prompt is your handoff
+      from the Director.
+
 Goal: <what the change should accomplish>
 
 Context: <relevant files + the specific facts the Implementer needs;
@@ -91,7 +106,8 @@ Context: <relevant files + the specific facts the Implementer needs;
 Task: <concrete, ordered steps or the precise change required>
 
 Constraints: follow Docs/CodeReviewRules.md (R1–R9) and self-audit against its
-             Quick checklist after each edit.
+             Quick checklist after each edit. No silent fails — surface any
+             blocker, gap, uncertainty, or step left undone in your report-back.
 
 Feedback requested: <yes/no — if yes, what to assess before/instead of coding>
 ```
