@@ -26,18 +26,11 @@ The plugin is an Unreal Editor module:
 3. `SDsonImportWindow` detects DAZ content roots, lets the user choose a `.duf` or `.dsf`, and calls `FDsonValidator`.
 4. `FDsonValidator` parses basic metadata and resolves figure/material/geometry dependencies.
 5. Import confirmation produces `FDsonImportSettings`.
-6. The import path builds assets:
+6. `FDsonImportPipeline::Run(Settings, ContentRoots)` orchestrates asset creation and returns `FDsonImportResult` (skeleton, mesh, abort flag), in this order:
+   - `FDsonMaterialBuilder` builds material instances from scene material channels, driving image import through `FDsonTextureImporter`. It also creates one per-character `USubsurfaceProfile` for skin MICs (Subsurface Profile masters) and imports makeup base textures and non-base LIE layers as standalone `UTexture2D` assets without MIC binding; composition is deferred to authoring tools.
+   - Optional `FDsonMaterialDiagnostic` channel dump, then the `M_DazDefault` master loads — a missing master aborts before any asset is built.
    - `FDsonSkeletonBuilder` creates a `USkeleton` from figure DSF nodes.
-   - `FDsonTextureImporter` resolves and imports referenced image files.
-   - `FDsonMaterialBuilder` creates material instances from scene material channels.
-     It also creates one per-character `USubsurfaceProfile` and assigns it to skin
-     MICs for the Subsurface Profile masters.
-     It also imports makeup base textures and non-base LIE layers as standalone
-     `UTexture2D` assets without binding them to the MIC; composition is deferred
-     to authoring tools.
-   - `FDsonMeshBuilder` creates the skeletal mesh, UVs, polygon groups, and material slots.
-   - `FDsonSkinWeightsBuilder` applies DSF skin influences before mesh commit.
-   - `FDsonMorphBuilder` registers MeshDescription morph attributes before mesh commit; `BuildSkeletalMesh` generates the `UMorphTarget`s.
+   - `FDsonMeshBuilder` creates the skeletal mesh, UVs, polygon groups, and material slots, invoking `FDsonSkinWeightsBuilder` (DSF skin influences) and `FDsonMorphBuilder` (MeshDescription morph attributes) before mesh commit; `BuildSkeletalMesh` generates the `UMorphTarget`s.
 
 ## Component Responsibilities
 
@@ -135,6 +128,31 @@ The plugin is an Unreal Editor module:
   `DsonParserAPI.h` prototype. No runtime code, no linkage. Compiles to nothing
   if the vendored header is absent (`__has_include` guard).
 
+`DsonImportPipeline.*`
+
+- Top-level import orchestrator: `FDsonImportPipeline::Run` sequences material/texture
+  build, the diagnostic dump and `M_DazDefault` gate, then skeleton and mesh.
+
+`DsonImportTypes.h`
+
+- Plain structs passed between stages: `FDsonImportSettings` (DSON path, figure DSF,
+  generation, diagnostic toggle) and `FDsonImportResult` (skeleton, mesh, abort flag).
+
+`DsonLoadedDocument.*`
+
+- `FDsonLoadedDocument`: RAII owner of one parser document handle and the only place
+  parser `Create`/`Load`/`Destroy` runs (R3); optional `OutError` surfaces failure text.
+
+`DsonAssetUtils.*`
+
+- `FDsonAssetUtils`: package creation, asset saving, and import-folder/subfolder path
+  construction under the `/Game/DazImports` root.
+
+`DsonImportUtils.h`
+
+- Header-only shared leaf helpers: URL scheme/fragment stripping, UTF-8→`FString`, DAZ id
+  normalization, unit-scale, and the load-bearing coordinate flip; list/rules: `CodeReviewRules.md` R3/R4.
+
 ## Common Change Areas
 
 - Parser export missing or new parser function: update `DsonParserFunctions.h` and `DsonImporter.cpp`.
@@ -146,6 +164,11 @@ The plugin is an Unreal Editor module:
 - Missing or wrong morph targets: start in `DsonMorphBuilder.*`, then `DsonParserFunctions.h` for morph, scene-modifier, and formula-output exports.
 - Bad shader detection or channel mapping: start in `DsonMaterialBuilder.*`, then `MaterialMastersV1.md`.
 - Missing or wrong textures: start in `DsonTextureImporter.*`.
+- Import sequencing, or the abort-before-build gate: `DsonImportPipeline.*`.
+- A new field carried between import stages: `DsonImportTypes.h`.
+- A parser-handle leak or hand-rolled `Create`/`Destroy`: `DsonLoadedDocument.*` (R3).
+- A duplicated URL/id/coordinate helper: `DsonImportUtils.h` (see `CodeReviewRules.md` R4).
+- Package/asset save or import-path naming: `DsonAssetUtils.*`.
 
 ## Discovery Rule
 

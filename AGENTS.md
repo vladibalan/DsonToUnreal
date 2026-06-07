@@ -92,6 +92,7 @@ push a hot-path doc past its line budget — relocate or split instead.
 - Import dialog, validation UI, selected file settings: `Source/DsonImporter/Private/SDsonImportWindow.*`
 - DAZ content root discovery and DSON URL resolution: `Source/DsonImporter/Private/DsonContentRoots.*`
 - File validation, Genesis generation detection, dependency resolution: `Source/DsonImporter/Private/DsonValidator.*`
+- Top-level import orchestration and build sequencing (`Run`), abort-before-build gate: `Source/DsonImporter/Private/DsonImportPipeline.*`
 - Skeleton creation from figure DSF nodes: `Source/DsonImporter/Private/DsonSkeletonBuilder.*`
 - Skeletal mesh geometry, UVs, material slots: `Source/DsonImporter/Private/DsonMeshBuilder.*`
 - Skinning and bone influences: `Source/DsonImporter/Private/DsonSkinWeightsBuilder.*`
@@ -101,6 +102,10 @@ push a hot-path doc past its line budget — relocate or split instead.
 - Verbose material channel dumps: `Source/DsonImporter/Private/DsonMaterialDiagnostic.*`
 - Parser C API function pointers: `Source/DsonImporter/Private/DsonParserFunctions.h`
 - Compile-time parser ABI drift check (no runtime code): `Source/DsonImporter/Private/DsonParserAbiCheck.cpp`
+- Settings/result structs passed between import stages: `Source/DsonImporter/Private/DsonImportTypes.h`
+- Parser document-handle RAII (only place `Create`/`Load`/`Destroy` runs; R3): `Source/DsonImporter/Private/DsonLoadedDocument.*`
+- Package creation, asset saving, import-folder paths: `Source/DsonImporter/Private/DsonAssetUtils.*`
+- Shared URL/id/UTF-8/coordinate-flip leaf helpers (see `Docs/CodeReviewRules.md` R4): `Source/DsonImporter/Private/DsonImportUtils.h`
 - Third-party parser import library and DLL packaging: `Source/ThirdParty/DsonParser/`
 - Master material parameter contract: `MaterialMastersV1.md`
 - Project status, phase tracking, deferred features, known issues, cleanup backlog: `Docs/Roadmap.md`

@@ -201,11 +201,6 @@ ABI extension on the Designer's critical path, not the importer's.
 
 ## Cleanup backlog
 
-- **Trim UV diagnostic logging** in `DsonMeshBuilder.cpp`: keep the slim
-  `[uv] expansion:` summary (applied/skipped counts); trim or `Verbose`-gate the
-  per-triplet `[uv] override[..]` sample lines and per-reason skip samples (R5 —
-  no debug scaffolding at `Log` in the import path). Fold in any dead remnants of
-  the reverted `UVTileOffset` logging if stubs remain.
 - **Remove dead `GetUVPolygonVertexIndex*` parser APIs** — dead since the
   sparse-format migration (return 0 for sparse DSFs). Parser-side change (parser
   repo + DLL rebuild/copy into `Source/ThirdParty/DsonParser/Libs/Win64/`), after

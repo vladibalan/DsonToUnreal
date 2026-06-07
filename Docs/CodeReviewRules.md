@@ -67,9 +67,9 @@ the `FDsonParserAPI` struct fields, `IsValid()`, and the DLL-binding loop in
 
 ### R4 — Don't duplicate logic; shared helpers have a home
 Before adding a small helper, check whether it already exists:
-- `DsonImportUtils.h` — `StripUrlFragment`, `FromUtf8`, `NormalizeDazId`,
-  `ReadDazUnitScale`, `DazPointToUe`. Header-only on purpose (used across several
-  TUs, no new translation unit).
+- `DsonImportUtils.h` — `StripUrlScheme`, `StripUrlFragment`, `FromUtf8`,
+  `NormalizeDazId`, `ReadDazUnitScale`, `DazPointToUe`. Header-only on purpose (used
+  across several TUs, no new translation unit).
 - `FDsonContentRoots` — URL decoding and content-root resolution.
 - `FDsonAssetUtils` — package creation and asset saving.
 - `GenerationToString` (in `DsonValidator.h`) — Genesis generation labels.

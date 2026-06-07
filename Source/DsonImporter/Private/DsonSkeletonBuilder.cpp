@@ -191,13 +191,15 @@ void FDsonSkeletonBuilder::BuildReferenceSkeletonFromDsf(uint64_t DsfHandle, FRe
 
         FBoneEntry& Entry = Bones.AddDefaulted_GetRef();
 
-        const char* IdRaw  = GDsonParser.GetNodeId     ? GDsonParser.GetNodeId(DsfHandle, i)     : nullptr;
-        const char* NmRaw  = GDsonParser.GetNodeName   ? GDsonParser.GetNodeName(DsfHandle, i)   : nullptr;
-        const char* PrRaw  = GDsonParser.GetNodeParent ? GDsonParser.GetNodeParent(DsfHandle, i) : nullptr;
+        // Convert each parser const char* before the next parser call (R3): the
+        // returned pointers are transient.
+        const char* IdRaw = GDsonParser.GetNodeId ? GDsonParser.GetNodeId(DsfHandle, i) : nullptr;
+        Entry.Id   = IdRaw ? UTF8_TO_TCHAR(IdRaw) : FString::Printf(TEXT("Bone_%d"), i);
+        Entry.Name = Entry.Id;
 
-        Entry.Id       = IdRaw ? UTF8_TO_TCHAR(IdRaw) : FString::Printf(TEXT("Bone_%d"), i);
-        Entry.Name     = Entry.Id;
+        const char* PrRaw = GDsonParser.GetNodeParent ? GDsonParser.GetNodeParent(DsfHandle, i) : nullptr;
         Entry.ParentId = DsonImportUtils::NormalizeDazId(PrRaw);
+
         Entry.Transform = MakeBoneTransform(DsfHandle, i, UnitScale);
     }
 
@@ -230,6 +232,11 @@ namespace
     // M is orthogonal with det -1; conjugating a proper rotation by it yields another
     // proper rotation (det +1), so bones stay valid rotations; verified against the
     // figure's joint data (FK reconstructs to zero error).
+    //
+    // R4 INVARIANT: this encodes the SAME (z, -x, y) basis change as
+    // DsonImportUtils::DazPointToUe (which maps positions). The two encodings MUST stay
+    // consistent — bone rotations here and mesh vertex positions there share one flip, or
+    // the skeleton and mesh mirror apart and skin weights tear. Change one, change both.
     const FMatrix& DazToUeBasisMatrix()
     {
         // Row-vector convention: FMatrix(r0,r1,r2,r3) sets ROWS, transform is p' = p * M.
