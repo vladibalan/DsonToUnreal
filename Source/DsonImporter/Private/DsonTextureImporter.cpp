@@ -18,7 +18,7 @@
  * Intent:
  * - Resolve DAZ image URLs and import/reuse matching UTexture2D assets.
  * - Preserve DAZ relative folder structure under /Game/DazImports/Textures.
- * - Cache successful imports by absolute source path and record failed URLs.
+ * - Cache successful imports by absolute source path, sRGB mode, and optional asset suffix.
  *
  * Read this file for texture path resolution, package naming, sRGB flags, and image import failures.
  */
@@ -70,15 +70,28 @@ static FString NormalizeDirectoryPrefix(const FString& Directory)
     return Normalized;
 }
 
-static FTextureAssetPath BuildTextureAssetPath(const FString& RelSubpath)
+static FString SanitizeAssetSuffix(const FString& AssetNameSuffix)
+{
+    if (AssetNameSuffix.IsEmpty())
+        return TEXT("");
+
+    FString Sanitized = ObjectTools::SanitizeObjectName(AssetNameSuffix);
+    if (!Sanitized.IsEmpty() && !Sanitized.StartsWith(TEXT("_")))
+        Sanitized = TEXT("_") + Sanitized;
+
+    return Sanitized;
+}
+
+static FTextureAssetPath BuildTextureAssetPath(const FString& RelSubpath, const FString& AssetNameSuffix = FString())
 {
     FTextureAssetPath AssetPath;
 
     const FString RelDir = FPaths::GetPath(RelSubpath);
     const FString BaseFilename = FPaths::GetBaseFilename(RelSubpath);
     const FString SanitizedDir = SanitizePackageSubdir(RelDir);
+    const FString SanitizedSuffix = SanitizeAssetSuffix(AssetNameSuffix);
 
-    AssetPath.AssetName = TEXT("T_") + ObjectTools::SanitizeObjectName(BaseFilename);
+    AssetPath.AssetName = TEXT("T_") + ObjectTools::SanitizeObjectName(BaseFilename) + SanitizedSuffix;
     AssetPath.Extension = FPaths::GetExtension(RelSubpath);
     AssetPath.PackagePath = FDsonAssetUtils::ImportRootPath() / FString(TEXT("Textures"));
     if (!SanitizedDir.IsEmpty())
@@ -189,6 +202,15 @@ static FString BuildBakedNormalCacheKey(
         NormalStrength);
 }
 
+static FString BuildTextureCacheKey(const FString& ResolvedPath, bool bSRGB, const FString& AssetNameSuffix)
+{
+    return FString::Printf(
+        TEXT("%s|srgb=%d|suffix=%s"),
+        *ResolvedPath,
+        static_cast<int32>(bSRGB),
+        *SanitizeAssetSuffix(AssetNameSuffix));
+}
+
 // ---------------------------------------------------------------------------
 // Construction
 // ---------------------------------------------------------------------------
@@ -239,7 +261,7 @@ FString FDsonTextureImporter::DeriveRelativeSubpath(
 // ImportOrFind
 // ---------------------------------------------------------------------------
 
-UTexture2D* FDsonTextureImporter::ImportOrFind(const FString& ImageUrl, bool bSRGB)
+UTexture2D* FDsonTextureImporter::ImportOrFind(const FString& ImageUrl, bool bSRGB, const FString& AssetNameSuffix)
 {
     // 1. Resolve URL to an absolute filesystem path
     const FString ResolvedPath = FDsonContentRoots::ResolveUrl(ImageUrl, ContentRoots);
@@ -252,42 +274,57 @@ UTexture2D* FDsonTextureImporter::ImportOrFind(const FString& ImageUrl, bool bSR
         return nullptr;
     }
 
-    // 2. Cache lookup - key is the resolved absolute path so two different URL spellings
-    //    that resolve to the same file share one cache entry
-    if (TObjectPtr<UTexture2D>* Found = Cache.Find(ResolvedPath))
+    const FString CacheKey = BuildTextureCacheKey(ResolvedPath, bSRGB, AssetNameSuffix);
+
+    // 2. Cache lookup - key is the resolved absolute path plus import settings so
+    //    color/data requests for the same file do not return the wrong asset.
+    if (TObjectPtr<UTexture2D>* Found = Cache.Find(CacheKey))
     {
-        UTexture2D* CachedTex = Found->Get();
-        if (CachedTex && (CachedTex->SRGB != 0) != bSRGB)
-        {
-            UE_LOG(LogDsonImporter, Warning,
-                TEXT("DsonTextureImporter: sRGB conflict for '%s' - cached=%d requested=%d; returning cached unmodified"),
-                *ImageUrl, static_cast<int32>(CachedTex->SRGB), static_cast<int32>(bSRGB));
-        }
         ++CacheHitCount;
         UE_LOG(LogDsonImporter, VeryVerbose,
             TEXT("DsonTextureImporter: cache hit '%s'"), *ResolvedPath);
-        return CachedTex;
+        return Found->Get();
     }
 
     // 3. Derive the UE asset path
     //    Source:  D:/Daz_content/Runtime/Textures/Genesis8/Female/G8FBase.jpg
     //    Subpath: Runtime/Textures/Genesis8/Female/G8FBase.jpg
     //    Result:  /Game/DazImports/Textures/Runtime/Textures/Genesis8/Female/T_G8FBase
-    const FString RelSubpath   = DeriveRelativeSubpath(ImageUrl, ResolvedPath);
-    const FTextureAssetPath AssetPath = BuildTextureAssetPath(RelSubpath);
+    const FString RelSubpath = DeriveRelativeSubpath(ImageUrl, ResolvedPath);
+    FTextureAssetPath AssetPath = BuildTextureAssetPath(RelSubpath, AssetNameSuffix);
 
-    // 4. If a .uasset already exists at the derived path, load and return it without
-    //    re-importing - preserving any user-side tweaks made since the last import
+    // 4. If a .uasset already exists at the derived path with the requested sRGB,
+    //    return it; if it exists with the other sRGB mode, use a one-off suffix so
+    //    both variants can coexist without overwriting user-side tweaks.
     if (FPackageName::DoesPackageExist(AssetPath.PackagePath))
     {
         UTexture2D* Existing = LoadObject<UTexture2D>(nullptr, *AssetPath.PackagePath, nullptr, LOAD_NoWarn);
-        if (Existing)
+        if (Existing && (Existing->SRGB != 0) == bSRGB)
         {
-            Cache.Add(ResolvedPath, Existing);
+            Cache.Add(CacheKey, Existing);
             ++CacheHitCount;
             UE_LOG(LogDsonImporter, VeryVerbose,
                 TEXT("DsonTextureImporter: found existing asset '%s'"), *AssetPath.PackagePath);
             return Existing;
+        }
+
+        if (Existing)
+        {
+            const FString ColorSpaceSuffix = bSRGB ? TEXT("_srgb") : TEXT("_lin");
+            AssetPath = BuildTextureAssetPath(RelSubpath, AssetNameSuffix + ColorSpaceSuffix);
+            if (FPackageName::DoesPackageExist(AssetPath.PackagePath))
+            {
+                UTexture2D* ExistingVariant =
+                    LoadObject<UTexture2D>(nullptr, *AssetPath.PackagePath, nullptr, LOAD_NoWarn);
+                if (ExistingVariant && (ExistingVariant->SRGB != 0) == bSRGB)
+                {
+                    Cache.Add(CacheKey, ExistingVariant);
+                    ++CacheHitCount;
+                    UE_LOG(LogDsonImporter, VeryVerbose,
+                        TEXT("DsonTextureImporter: found existing asset '%s'"), *AssetPath.PackagePath);
+                    return ExistingVariant;
+                }
+            }
         }
     }
 
@@ -348,7 +385,7 @@ UTexture2D* FDsonTextureImporter::ImportOrFind(const FString& ImageUrl, bool bSR
         return nullptr;
     }
 
-    Cache.Add(ResolvedPath, Texture);
+    Cache.Add(CacheKey, Texture);
     ++ImportedCount;
 
     UE_LOG(LogDsonImporter, Verbose,

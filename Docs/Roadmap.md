@@ -26,7 +26,7 @@ _Last updated: 2026-06-06._
 | 6 | Materials — per-section MIC wiring, 3 masters, texture import | ✅ Done (v1) |
 | 6.x | UV-set import (seams) | ✅ Done — verified G8.1 + Laura, zero fallbacks |
 | 6.y | Material polish (IrayUber washy fix; multi-UDIM resolved as not-needed) | ✅ Done |
-| 6 v2 | Materials v2 — faithful makeup + LIE import (current), then SSS Profile, eye-moisture | 🔄 In progress — slice #1 of 3 |
+| 6 v2 | Materials v2 — faithful makeup + LIE import, then SSS Profile (current), eye-moisture | 🔄 In progress — slice #1 implemented (Nancy-verified); acceptance regression pending, then slice #2 |
 | 7 | Morph targets (`UMorphTarget` per morph) | ✅ Done — delta-bearing morphs, including formula-reachable `?value` leaf files, via MeshDescription morph attributes |
 | 8 | Save to Content Browser (`/Game/DazImports/`) | ✅ Implemented per-phase, working |
 
@@ -56,7 +56,7 @@ shader has a matching master + channel mapping.
 | Generation | Geometry / skeleton / skin | Materials | Status |
 |---|---|---|---|
 | Genesis 8 / 8.1 | ✅ | IrayUber → `M_DazIrayUber` | ✅ Supported, verified |
-| Genesis 9 (Laura, Nancy) | ✅ | PBRSkin → `M_DazPBRSkin` | ✅ Supported, verified (LIE/makeup chars = base skin only) |
+| Genesis 9 (Laura, Nancy) | ✅ | PBRSkin → `M_DazPBRSkin` | ✅ Supported, verified; makeup/LIE source textures import standalone |
 | Genesis 3 (Victoria 7 HD) | ✅ | IrayUber → `M_DazIrayUber` | ✅ Supported, verified |
 
 ## Phase 6 v2 — Materials v2
@@ -80,11 +80,13 @@ parameter-contract format, `MaterialMastersV1.md` remains the source of record;
 its "Open follow-ups" subset is now superseded by the slice list below.
 
 Slices are sized to ship independently and are taken in order; each one updates
-this section as it lands. **Current: slice #1 (faithful makeup + LIE import).**
+this section as it lands. **Current: slice #2 (Subsurface Profile pipeline).**
 
 ### Planned slices
 
-1. **Faithful makeup + LIE import** — 🔄 Current. Importer imports `Makeup
+1. **Faithful makeup + LIE import** — ✅ Implemented 2026-06-06; verified on
+   Nancy 9, acceptance regression pending (see "Slice #1 — handoff notes"). The
+   importer imports `Makeup
    Base Color` textures and each non-base LIE layer as standalone
    `UTexture2D` assets under `/Game/DazImports/Textures/`. **No** `Makeup *`
    entries added to `GetPBRSkinMapping()`, **no** `Makeup *` parameters added
@@ -104,25 +106,80 @@ this section as it lands. **Current: slice #1 (faithful makeup + LIE import).**
 
 ### Slice #1 — handoff notes
 
-Captured during planning so the implementation session can pick up cold:
+The parser-surface investigation the previous note called for is **done**
+(2026-06-06). Slice #1 decomposes into three independent parts; only one
+needs the parser, and that one is now the gating item.
 
-- **Parser pre-req.** The parser parses LIE `map` arrays but exposes only the
-  base layer today (the G9 Nancy white-head fix). To import each non-base
-  layer as a standalone `UTexture2D`, the parser likely needs a new accessor
-  (layer count + per-layer image_url). That's a **DsonParser repo** change —
-  either a parser-first sub-step or a cross-repo slice. Confirm by reading
-  the parser's image-library accessor surface before drafting the Implementer
-  prompt.
-- **Importer side path.** `Makeup Base Color` deliberately stays out of
-  `GetPBRSkinMapping()` (no MIC binding). The Importer therefore needs a
-  side path: scan known image-bearing channels and import their textures
-  *without* binding to MIC params. Small new abstraction in the material
-  builder.
+- **(a) Makeup Base Color import — plugin-side done.** The parser already
+  exposes every surface channel by id via the generic scene-material channel
+  accessors (`GetSceneMaterialChannelId` plus
+  `GetSceneMaterialChannelImageUrl` / `GetSceneMaterialChannelTexturePath`)
+  and drops nothing, so `Makeup Base Color` is already reachable; it just
+  stays out of `GetPBRSkinMapping()` by design. The importer uses a small
+  **side path**: iterate channels, match a known image-bearing-but-unmapped
+  list (`Makeup Base Color`), and call
+  `FDsonTextureImporter::ImportOrFind` **without**
+  `SetTextureParameterValueEditorOnly`. No parser change.
+- **(c) sRGB cache-conflict fix — plugin-side done.** `ImportOrFind`
+  (`DsonTextureImporter.cpp`) keys ordinary texture imports by resolved path,
+  sRGB mode, and optional asset suffix. If an existing base package already
+  belongs to the other sRGB mode, the second variant gets a disambiguating
+  package suffix. No parser change.
+- **(b) Non-base LIE layers — DsonParser change SHIPPED (2026-06-06).** This
+  needed a **retain-then-expose** parser change, not accessors-only: the parser
+  had been **discarding** overlay layers at parse time (`GetImageMapPath` read
+  only `map[0]`; `struct Image` stored a single `map_file`). It now retains all
+  layers on `Image::layers`, with `map_file` kept as the base for unchanged
+  single-texture resolution (non-breaking). Plugin side imports layers 1..N-1
+  as standalone textures.
+
+**Sequencing (2026-06-06): parser-first — parser done; plugin side done.** The DsonParser-repo
+change shipped; the rebuilt `DsonParser.dll`/`.lib`/header are in
+`Source/ThirdParty/DsonParser/` (bundled header byte-identical to the parser
+source). The plugin binds the layer exports, imports makeup and non-base LIE
+textures as standalone assets, and keys ordinary texture imports by source path
+plus sRGB mode with a collision-only package suffix for the second variant.
+
+**Parser ABI — shipped 2026-06-06** (the plugin binds these via the
+`DSON_PARSER_API_LIST` X-macro in `DsonParserFunctions.h`, guarded by
+`DsonParserAbiCheck.cpp`). Three accessors landed — note the parser **did not**
+add a per-layer image-url accessor, so the importer uses `LayerTexturePath`
+directly (no raw-URL fallback):
+
+- `int DsonDocument_GetSceneMaterialChannelLayerCount(handle, sceneMatIdx, channelIdx)`
+  — LIE layer count; **0 for a plain channel, N ≥ 2 for a layered one** (never
+  1). Layer 0 = base; its texture path equals the existing
+  `GetSceneMaterialChannelTexturePath`.
+- `const char* DsonDocument_GetSceneMaterialChannelLayerTexturePath(handle, sceneMatIdx, channelIdx, layerIdx)`
+- `const char* DsonDocument_GetSceneMaterialChannelLayerLabel(handle, sceneMatIdx, channelIdx, layerIdx)`
+
+Layers attach only on an identity (id/url) image match, never a shared
+base-path match. Per-layer compositing metadata (operation/opacity/color/
+transforms) stays in the parser model, **deferred to the Designer** — not
+exposed and not this slice.
 - **Verification asset.** HID Nancy 9 (`D:/Daz_content/People/Genesis 9/
   Characters/HID Nancy 9.duf`) carries both PBRSkin `Makeup *` channels
   (every surface) and a LIE-based head diffuse — confirmed during planning.
   Use as the slice's primary verification figure; retest the rest of the
   acceptance set to confirm no regression on figures without makeup/LIE.
+
+**Session handoff (2026-06-06) — slice #1 status & open items.**
+
+- **Implemented and verified on Nancy 9 only.** End-to-end on HID Nancy 9: base
+  skin binds (head renders correctly), every non-base LIE layer imports as a
+  standalone `T_…_lie_<idx>[_label]` asset (incl. `makeup_02` + `brows_base`,
+  cross-checked against the on-disk `lie/` folder), and no sRGB conflicts.
+- **Acceptance-set regression NOT run yet — the immediate next action.** Verify
+  no new textures / unchanged materials on the no-makeup/no-LIE figures: **G8
+  Jordina Full Character, G8.1 base female, G9 Laura, G3 Victoria 7 HD.** Only
+  after that is slice #1 fully signed off — and only then start slice #2.
+- **One open follow-up — the benign `#fragment` warning** (cosmetic; see "Known
+  latent issues" + the LIE subsection under "Deferred to Designer"). A
+  ready-to-use Implementer prompt was drafted this session: skip `#`-prefixed
+  refs in `ImportOrFind` + a Verbose diagnostic to capture origin. The exact
+  call passing the raw `#fragment` was never pinned statically (all importer
+  paths prefer the resolved `texture_path` / real layer urls), but the fix is
+  safe regardless — a `#`-ref is never a file. Backlog, or fold in before slice #2.
 
 ### Slice #3 — note for the master rework
 
@@ -162,6 +219,63 @@ them by convention — no importer-side hooks, no Designer-specific sidecars.
 The Designer re-uses the parser directly for per-surface metadata (Makeup
 weights, etc.) rather than receiving Importer-emitted data. Rationale: keep
 each plugin LLM-agent-friendly (smaller contexts per agent task).
+
+#### LIE (layered-image) composition — the recipe behind makeup/overlays
+
+**Read this before chasing any `#fragment` image reference or a
+"could not resolve '#…'" log warning — re-deriving it has cost two sessions.**
+
+A DAZ surface channel can point its `image` at a **Layered Image Editor (LIE)
+entry** in the document's `image_library`, by `#fragment` id — e.g.
+`"image": "#g09_Nancy_head_base 6_<guid> 2-1"`. That entry is **not a texture
+file; it is a composition recipe.** Its `map` array is an ordered layer stack,
+and each layer carries blend instructions — `operation` (`blend_source_over`,
+`blend_multiply`, …), `transparency`, `color`, `invert`, rotation/mirror/scale/
+offset, `active`. DAZ *runs* the recipe to bake one composited image, and that
+baked result — not any single file — is what the surface actually shows.
+
+Example — Nancy 9 head Diffuse, trimmed to the load-bearing fields (the real
+entry also repeats `transparency`/`color`/`invert`/transforms per layer):
+
+```
+"id": "g09_Nancy_head_base 6_<guid> 2-1",
+"map": [
+  { "url": ".../g09_Nancy_head_base.jpg", "operation": "blend_source_over" },
+  { "url": ".../lie/g09_Nancy_lie_brows_base.png", "operation": "blend_multiply" },
+  { "url": ".../lie/g09_Nancy_lie_base_color_02.png", "operation": "blend_source_over" },
+  { "url": ".../lie/g09_Nancy_lie_makeup_02.png", "operation": "blend_source_over" }
+]
+```
+
+L0 = base skin, L1 = brows (multiplied), L2 = skin-tone, L3 = makeup. All four
+`url`s are real files on disk; the intended face is L0→L3 composited per those
+operations, not any single file.
+
+**What the importer does today (v1, by design — not a bug):**
+
+- Binds **layer 0 only** (the base, via the channel's resolved `texture_path`)
+  as the Diffuse map → the surface renders *base skin*, not the composited look.
+- Imports the **non-base layers as standalone ingredient `UTexture2D`s**
+  (`T_…_lie_<idx>[_label]`) so they exist for later composition.
+- **Drops the recipe**: the parser's per-layer model keeps only `url` + `label`;
+  the blend instructions (operation/transparency/color/invert/transforms/active)
+  are discarded at parse time.
+
+**The Designer feature.** The "in-editor diffuse composition" bullet above *is*
+the feature that executes this recipe — composite the ingredient layers per
+their blend ops / transparency / order into a faithful Diffuse, then bake-out
+and rebind the MIC. Prerequisite: the **parser must first expose the per-layer
+compositing metadata it currently drops** (operation/transparency/color/invert/
+transforms/active) — an additive ABI extension on the Designer's critical path,
+not the importer's.
+
+**Diagnostic shortcut (the time-saver).** A channel `image` beginning with `#`
+is a LIE recipe id, *never* a file path. The importer gets the **base** from the
+channel's `texture_path` and the **overlay ingredients** from the
+`GetSceneMaterialChannelLayer*` accessors; the raw `#fragment` is neither, so if
+it reaches `ImportOrFind` it logs a harmless "could not resolve '#…'". That is
+cosmetic — every real texture is present and imported, and the surface renders.
+Do not treat it as a missing asset.
 
 ### Parked — revisit if content needs it
 
@@ -249,20 +363,14 @@ user 2026-06-06 (perf cleanup; no visual change).
 
 ## Known latent issues (not blocking)
 
-- **Layered (LIE) images use the base layer only.** Characters whose surfaces
-  reference layered `image_library` entries by `#fragment` (e.g. G9 "Nancy")
-  import with the base skin map; makeup/brow/overlay layers are not composited.
-  Not a failure — the surface renders correct base skin. (This was the G9
-  white-head bug: the parser now percent-decodes the `#fragment` and parses the
-  `map` array to resolve `texture_path` to the base layer, and the material
-  builder uses `texture_path` when present, falling back to the raw image url.)
-- **sRGB cache conflict** in `DsonTextureImporter`: the cache is keyed by resolved
-  path, so the same image requested with two different sRGB flags returns the
-  first-cached one (first-write-wins). Not the cause of any observed rendering
-  bug. v2 fix: duplicate import with a disambiguating suffix.
 - `SavePackage` return value not checked (hardening).
 - `IsValid()` does not include the UV function pointers — consistent with the
   permissive-parser convention (they are optional exports).
+- **Benign `could not resolve '#…'` warning on LIE characters** (e.g. G9 Nancy):
+  the channel `image` is a `#fragment` LIE composition-recipe id, not a file —
+  see "Deferred to Designer → LIE (layered-image) composition". Every real
+  texture still resolves and imports; cosmetic only. Cleanup: have the texture
+  importer skip `#`-prefixed refs before resolving.
 
 ## Cleanup backlog
 
@@ -350,9 +458,12 @@ user 2026-06-06 (perf cleanup; no visual change).
 
 ## Next up
 
-**Phase 6 v2 — Materials v2.** Active. Current slice: #1 (faithful makeup + LIE
-import). See the Phase 6 v2 section above for the full slice plan and acceptance
-set.
+**Phase 6 v2 — Materials v2.** Active. **Immediate next action: finish slice #1
+sign-off** — run the acceptance-set regression (G8 Jordina, G8.1 base, G9 Laura,
+G3 Victoria 7 HD); slice #1 is implemented and Nancy-verified but not yet
+regression-checked (see "Slice #1 — handoff notes"). **Then** start slice #2
+(Subsurface Profile pipeline). See the Phase 6 v2 section above for the full
+slice plan and acceptance set.
 
 **Phase 7 v2 — formula evaluation/composed character shape** (queued behind
 Phase 6 v2). The discovery-only portion is done: formula-reachable `?value`

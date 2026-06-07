@@ -64,6 +64,12 @@ struct FDazChannelInfo
     float Value = 0.0f;
 };
 
+struct FStandaloneTextureImportCounts
+{
+    int32 Makeup = 0;
+    int32 LieLayers = 0;
+};
+
 // ---------------------------------------------------------------------------
 // Mapping tables - initialized once, returned by const reference
 // ---------------------------------------------------------------------------
@@ -138,12 +144,41 @@ static const TMap<FString, FDazParamBinding>* GetMappingForShader(EDazShaderKind
     return nullptr;
 }
 
+static const TSet<FString>& GetStandaloneImageChannelIds()
+{
+    static const TSet<FString> ChannelIds = {
+        TEXT("Makeup Base Color"),
+    };
+    return ChannelIds;
+}
+
 // ---------------------------------------------------------------------------
 // Helper: nullable const char* -> FString (same pattern as the diagnostic)
 // ---------------------------------------------------------------------------
 
 // Short local alias for the shared nullable-utf8 -> FString helper (used heavily below).
 static FString S(const char* Raw) { return DsonImportUtils::FromUtf8(Raw); }
+
+static FString BuildLayerTextureSuffix(const FString& LayerLabel, int32 LayerIdx)
+{
+    const FString LabelPart = ObjectTools::SanitizeObjectName(LayerLabel);
+    if (LabelPart.IsEmpty())
+        return FString::Printf(TEXT("_lie_%d"), LayerIdx);
+
+    return FString::Printf(TEXT("_lie_%d_%s"), LayerIdx, *LabelPart);
+}
+
+static FString ReadSceneMaterialChannelTextureRef(uint64_t DsonHandle, int32 SceneMatIdx, int32 ChannelIdx)
+{
+    const FString TexturePath = S(GDsonParser.GetSceneMaterialChannelTexturePath
+        ? GDsonParser.GetSceneMaterialChannelTexturePath(DsonHandle, SceneMatIdx, ChannelIdx) : nullptr);
+    const FString ImgUrl = S(GDsonParser.GetSceneMaterialChannelImageUrl
+        ? GDsonParser.GetSceneMaterialChannelImageUrl(DsonHandle, SceneMatIdx, ChannelIdx) : nullptr);
+
+    // texture_path is the parser's resolved image_library link (including LIE base);
+    // image_url is the raw fallback for plain channels.
+    return !TexturePath.IsEmpty() ? TexturePath : ImgUrl;
+}
 
 static FSceneMaterialMetadata ReadSceneMaterialMetadata(uint64_t DsonHandle, int32 SceneMatIdx)
 {
@@ -221,14 +256,8 @@ static void ApplySceneMaterialChannel(
     // Texture + UseFlag: orthogonal to color/scalar, applied when an image path exists.
     if (Binding.TextureParam != NAME_None)
     {
-        const FString TexturePath = S(GDsonParser.GetSceneMaterialChannelTexturePath
-            ? GDsonParser.GetSceneMaterialChannelTexturePath(DsonHandle, SceneMatIdx, ChannelIdx) : nullptr);
-        const FString ImgUrl = S(GDsonParser.GetSceneMaterialChannelImageUrl
-            ? GDsonParser.GetSceneMaterialChannelImageUrl(DsonHandle, SceneMatIdx, ChannelIdx) : nullptr);
-
-        // texture_path is the parser's resolved image_library link (e.g. layered/LIE images
-        // referenced by #fragment); image_url is the raw ref, which may be an unresolvable fragment.
-        const FString& TextureRef = !TexturePath.IsEmpty() ? TexturePath : ImgUrl;
+        const FString TextureRef =
+            ReadSceneMaterialChannelTextureRef(DsonHandle, SceneMatIdx, ChannelIdx);
         if (!TextureRef.IsEmpty())
         {
             UTexture2D* Tex = TextureImporter.ImportOrFind(TextureRef, Binding.bSRGB);
@@ -294,11 +323,7 @@ static FDazChannelInfo FindSceneMaterialChannelById(
                 GDsonParser.GetSceneMaterialChannelValue(DsonHandle, SceneMatIdx, c));
         }
 
-        const FString TexturePath = S(GDsonParser.GetSceneMaterialChannelTexturePath
-            ? GDsonParser.GetSceneMaterialChannelTexturePath(DsonHandle, SceneMatIdx, c) : nullptr);
-        const FString ImgUrl = S(GDsonParser.GetSceneMaterialChannelImageUrl
-            ? GDsonParser.GetSceneMaterialChannelImageUrl(DsonHandle, SceneMatIdx, c) : nullptr);
-        Info.TextureRef = !TexturePath.IsEmpty() ? TexturePath : ImgUrl;
+        Info.TextureRef = ReadSceneMaterialChannelTextureRef(DsonHandle, SceneMatIdx, c);
         return Info;
     }
 
@@ -475,6 +500,56 @@ void FDsonMaterialBuilder::RecordFailure()
     ++FailureCount;
 }
 
+void FDsonMaterialBuilder::ImportStandaloneChannelTextures(
+    uint64_t DsonHandle,
+    int32 SceneMatIdx,
+    FDsonTextureImporter& InTextureImporter) const
+{
+    FStandaloneTextureImportCounts Counts;
+    const int32 ChCount = GDsonParser.GetSceneMaterialChannelCount
+        ? GDsonParser.GetSceneMaterialChannelCount(DsonHandle, SceneMatIdx) : 0;
+
+    for (int32 c = 0; c < ChCount; ++c)
+    {
+        const FString ChId = S(GDsonParser.GetSceneMaterialChannelId
+            ? GDsonParser.GetSceneMaterialChannelId(DsonHandle, SceneMatIdx, c) : nullptr);
+
+        if (GetStandaloneImageChannelIds().Contains(ChId))
+        {
+            const FString TextureRef = ReadSceneMaterialChannelTextureRef(DsonHandle, SceneMatIdx, c);
+            if (!TextureRef.IsEmpty() && InTextureImporter.ImportOrFind(TextureRef, true))
+                ++Counts.Makeup;
+        }
+
+        const int32 LayerCount = GDsonParser.GetSceneMaterialChannelLayerCount
+            ? GDsonParser.GetSceneMaterialChannelLayerCount(DsonHandle, SceneMatIdx, c) : 0;
+        if (LayerCount < 2 || !GDsonParser.GetSceneMaterialChannelLayerTexturePath)
+            continue;
+
+        for (int32 LayerIdx = 1; LayerIdx < LayerCount; ++LayerIdx)
+        {
+            const FString LayerPath = S(GDsonParser.GetSceneMaterialChannelLayerTexturePath(
+                DsonHandle, SceneMatIdx, c, LayerIdx));
+            if (LayerPath.IsEmpty())
+                continue;
+
+            const FString LayerLabel = S(GDsonParser.GetSceneMaterialChannelLayerLabel
+                ? GDsonParser.GetSceneMaterialChannelLayerLabel(DsonHandle, SceneMatIdx, c, LayerIdx) : nullptr);
+
+            // Parser exposes no per-layer colorspace; makeup and LIE overlays are treated as color-domain.
+            if (InTextureImporter.ImportOrFind(LayerPath, true, BuildLayerTextureSuffix(LayerLabel, LayerIdx)))
+                ++Counts.LieLayers;
+        }
+    }
+
+    if (Counts.Makeup > 0 || Counts.LieLayers > 0)
+    {
+        UE_LOG(LogDsonImporter, Verbose,
+            TEXT("[mat] standalone textures: makeup=%d lie-layers=%d"),
+            Counts.Makeup, Counts.LieLayers);
+    }
+}
+
 // ---------------------------------------------------------------------------
 // BuildSceneMaterial
 // ---------------------------------------------------------------------------
@@ -527,6 +602,7 @@ UMaterialInstanceConstant* FDsonMaterialBuilder::BuildSceneMaterial(
     {
         ApplyIrayUberNormalChannels(H, SceneMatIdx, MIC, TextureImporter);
     }
+    ImportStandaloneChannelTextures(H, SceneMatIdx, TextureImporter);
 
     // Step 6 - finalise parameter override arrays before save
     MIC->PostEditChange();

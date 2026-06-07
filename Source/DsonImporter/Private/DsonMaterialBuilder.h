@@ -53,6 +53,11 @@ private:
     // Parameter names on these assets must match MaterialMastersV1.md and mapping tables.
     UMaterial*     LoadMasterForShader(EDazShaderKind Kind);
 
+    void ImportStandaloneChannelTextures(
+        uint64_t DsonHandle,
+        int32 SceneMatIdx,
+        FDsonTextureImporter& TextureImporter) const;
+
     void RecordShaderKind(EDazShaderKind Kind);
     void RecordFailure();
 

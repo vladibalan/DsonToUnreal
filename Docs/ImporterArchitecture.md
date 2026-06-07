@@ -30,6 +30,9 @@ The plugin is an Unreal Editor module:
    - `FDsonSkeletonBuilder` creates a `USkeleton` from figure DSF nodes.
    - `FDsonTextureImporter` resolves and imports referenced image files.
    - `FDsonMaterialBuilder` creates material instances from scene material channels.
+     It also imports makeup base textures and non-base LIE layers as standalone
+     `UTexture2D` assets without binding them to the MIC; composition is deferred
+     to authoring tools.
    - `FDsonMeshBuilder` creates the skeletal mesh, UVs, polygon groups, and material slots.
    - `FDsonSkinWeightsBuilder` applies DSF skin influences before mesh commit.
    - `FDsonMorphBuilder` registers MeshDescription morph attributes before mesh commit; `BuildSkeletalMesh` generates the `UMorphTarget`s.
@@ -90,6 +93,8 @@ The plugin is an Unreal Editor module:
 
 - Detects DAZ shader kind from scene material metadata.
 - Maps DAZ material channels onto Unreal material instance parameters.
+- Imports unmapped makeup base images and non-base LIE layer images as standalone
+  textures under the normal texture-import convention, without MIC parameter binding.
 - For IrayUber, bakes bump maps into the normal input and leaves the master's
   `BumpStrength`/`BumpMap`/`UseBumpMap` parameters unset.
 - Imports textures through `FDsonTextureImporter`.
@@ -102,7 +107,8 @@ The plugin is an Unreal Editor module:
 - Bakes IrayUber bump height maps into tangent-space normal textures and combines
   them with the surface normal map when present.
 - Sets sRGB according to material channel needs.
-- Caches imports by resolved absolute path.
+- Caches ordinary imports by resolved absolute path, sRGB mode, and optional
+  asset-name suffix so color and linear variants can coexist.
 
 `DsonMaterialDiagnostic.*`
 
@@ -114,6 +120,9 @@ The plugin is an Unreal Editor module:
 - Keep this synchronized with exports provided by the bundled parser DLL, including morph-target accessors and scene-modifier URLs used to discover external morph files.
   Formula-output accessors are optional and extend morph file discovery only; they
   are not used to evaluate or compose formula-driven dial values.
+- Optional scene material channel layer accessors expose LIE layer count, texture
+  path, and label; the importer uses them only for standalone non-base layer
+  texture import.
 
 `DsonParserAbiCheck.cpp`
 

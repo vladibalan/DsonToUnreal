@@ -13,7 +13,7 @@ public:
     // exists on disk at the derived /Game/DazImports/Textures/... path). Otherwise
     // resolves the URL, imports via UTextureFactory, saves the package, and returns
     // the new texture. Returns nullptr on any failure; logs a warning with details.
-    UTexture2D* ImportOrFind(const FString& ImageUrl, bool bSRGB);
+    UTexture2D* ImportOrFind(const FString& ImageUrl, bool bSRGB, const FString& AssetNameSuffix = FString());
 
     // Bakes a grayscale DAZ bump height image into a tangent-space normal map,
     // optionally combining it with an existing normal map. The returned texture
@@ -39,7 +39,7 @@ private:
     void RecordFailure(const FString& ImageUrl);
 
     TArray<FString>                     ContentRoots;
-    TMap<FString, TObjectPtr<UTexture2D>> Cache;   // key: resolved absolute path
+    TMap<FString, TObjectPtr<UTexture2D>> Cache;   // key: resolved absolute path + sRGB + optional asset suffix
     TMap<FString, TObjectPtr<UTexture2D>> BakedNormalCache; // key: resolved paths + strengths
     int32                               ImportedCount = 0;
     int32                               CacheHitCount = 0;

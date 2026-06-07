@@ -163,7 +163,10 @@ typedef void* DsonDocumentHandle;
     X(0, double,      GetSceneMaterialChannelColorB,      DsonDocument_GetSceneMaterialChannelColorB,      (uint64_t, int32_t, int32_t)) \
     X(0, bool,        GetSceneMaterialChannelHasColor,    DsonDocument_GetSceneMaterialChannelHasColor,    (uint64_t, int32_t, int32_t)) \
     X(0, const char*, GetSceneMaterialChannelImageUrl,    DsonDocument_GetSceneMaterialChannelImageUrl,    (uint64_t, int32_t, int32_t)) \
-    X(0, const char*, GetSceneMaterialChannelTexturePath, DsonDocument_GetSceneMaterialChannelTexturePath, (uint64_t, int32_t, int32_t))
+    X(0, const char*, GetSceneMaterialChannelTexturePath, DsonDocument_GetSceneMaterialChannelTexturePath, (uint64_t, int32_t, int32_t)) \
+    X(0, int32_t,     GetSceneMaterialChannelLayerCount,       DsonDocument_GetSceneMaterialChannelLayerCount,       (uint64_t, int32_t, int32_t)) \
+    X(0, const char*, GetSceneMaterialChannelLayerTexturePath, DsonDocument_GetSceneMaterialChannelLayerTexturePath, (uint64_t, int32_t, int32_t, int32_t)) \
+    X(0, const char*, GetSceneMaterialChannelLayerLabel,       DsonDocument_GetSceneMaterialChannelLayerLabel,       (uint64_t, int32_t, int32_t, int32_t))
 
 struct FDsonParserAPI
 {
