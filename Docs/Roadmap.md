@@ -219,9 +219,11 @@ brow mesh. **Unblocks** slice #3 on G9 (`EyeMoisture Left/Right` live only in th
   see `Docs/Reference.md` → "LIE (layered-image) composition". Every real
   texture still resolves and imports; cosmetic only. Cleanup: have the texture
   importer skip `#`-prefixed refs before resolving.
-- **Companion `Mouth`/`Teeth` (incl. tongue) render metallic** — textureless gray through the skin
-  master `M_DazPBRSkin`; `Mouth`/`Teeth` omitted from `GetNonSkinSurfaceGroups()` (the other 7
-  companion surfaces were added). Fix scoped → `DecisionLog.md` (2026-06-08 session log).
+- **Companion `Mouth`/`Teeth` (incl. tongue) render metallic** — `Genesis 9 Mouth MAT.duf` binds the
+  real Base Color texture + roughness/translucency via **`scene.animations` key 0**, which the parser
+  doesn't apply, so they import textureless → metallic. Mechanism → [`Reference.md`](Reference.md) →
+  "Companion materials"; corrected diagnosis + fix plan/next steps → `DecisionLog.md`. **Parser-side
+  fix (DsonParser repo).**
 
 ## Cleanup backlog
 
