@@ -762,6 +762,7 @@ USkeletalMesh* FDsonMeshBuilder::BuildCompanion(
     const FString& AssetName,
     const FString& GeometryDsfPath,
     USkeleton* Skeleton,
+    const TMap<FString, UMaterialInstanceConstant*>& MaterialsByGroup,
     UMaterial* DefaultMaterial)
 {
     if (!GDsonParser.IsValid())
@@ -796,7 +797,7 @@ USkeletalMesh* FDsonMeshBuilder::BuildCompanion(
     // Companion figure DSFs carry no UV sets (same as body — see Reference.md).
     // Pass empty path: ReadUvData falls back to the geometry handle, finds UVSetCount=0,
     // and leaves UVs/UVPolyVertIndices empty; triangles get FVector2f::ZeroVector.
-    // UVs are a Slice C concern (companion UV-set DSF needed for material mapping).
+    // Companion UV-set wiring is deferred (not part of Slice C).
     FDsonUvData UvData = ReadUvData(DsfHandle, TEXT(""), FaceCount);
     const TArray<FDsonTriangle> Triangles = ReadTriangles(
         DsfHandle, FaceCount, UvData.UVPolyVertIndices);
@@ -806,9 +807,7 @@ USkeletalMesh* FDsonMeshBuilder::BuildCompanion(
         return nullptr;
     USkeletalMesh* Mesh = AssetContext.Mesh;
 
-    // No MICs for Slice B; all sections receive DefaultMaterial (Slice C wires them).
-    TMap<FString, UMaterialInstanceConstant*> NoMaterials;
-    PopulateMeshMaterialSlots(Mesh, MaterialGroupNames, NoMaterials, DefaultMaterial);
+    PopulateMeshMaterialSlots(Mesh, MaterialGroupNames, MaterialsByGroup, DefaultMaterial);
 
     FSkeletalMeshLODModel& LODModel = PrepareSkeletalMeshLod0(Mesh);
 

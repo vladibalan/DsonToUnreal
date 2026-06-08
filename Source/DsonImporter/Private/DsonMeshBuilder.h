@@ -22,12 +22,13 @@ public:
         const FString& UvSetDsfPath);
 
     // Builds one companion geometry DSF as its own USkeletalMesh bound to the body
-    // USkeleton by bone name. No materials (Slice C); sections get DefaultMaterial.
-    // Permissive (R7): logs and returns nullptr on failure without aborting other imports.
+    // USkeleton by bone name. Sections are wired to MaterialsByGroup by group name;
+    // unmatched sections fall back to DefaultMaterial (R7 — permissive).
     static USkeletalMesh* BuildCompanion(
         const FString& AssetName,
         const FString& GeometryDsfPath,
         USkeleton* Skeleton,
+        const TMap<FString, UMaterialInstanceConstant*>& MaterialsByGroup,
         UMaterial* DefaultMaterial);
 
 private:

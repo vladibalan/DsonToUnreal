@@ -64,7 +64,7 @@ shader has a matching master + channel mapping.
 | Generation | Geometry / skeleton / skin | Materials | Status |
 |---|---|---|---|
 | Genesis 8 / 8.1 | ✅ | IrayUber → `M_DazIrayUber` | ✅ Supported, verified |
-| Genesis 9 (Laura, Nancy) | ✅ | PBRSkin → `M_DazPBRSkin` | ✅ Supported, verified; makeup/LIE source textures import standalone. Companion figures import as separate `USkeletalMesh`es (Slice B ✅); no companion materials yet (Slice C pending) — see "Genesis 9 companion figures" |
+| Genesis 9 (Laura, Nancy) | ✅ | PBRSkin → `M_DazPBRSkin` | ✅ Supported, verified; makeup/LIE source textures import standalone. Companion figures import as separate `USkeletalMesh`es with MAT-preset MICs (Slice B+C ✅) — see "Genesis 9 companion figures" |
 | Genesis 3 (Victoria 7 HD) | ✅ | IrayUber → `M_DazIrayUber` | ✅ Supported, verified |
 
 ## Phase 6 v2 — Materials v2
@@ -111,12 +111,10 @@ this section as it lands. **Current: slice #3 (eye-moisture / cornea).**
    "profile redistributes, doesn't add light" finding →
    [`SubsurfaceProfileV2.md`](SubsurfaceProfileV2.md) §Revision + `DecisionLog.md`.
 3. **Eye-moisture / cornea master** (`M_DazEyeMoisture`) — new translucent
-   master + eye-surface detection + mapping. Translucent shading cost
-   absorbed by the small pixel footprint of eyes (~1% on close-ups, much less
-   normally). **G9 prerequisite:** the eye surfaces (`EyeMoisture Left/Right`)
-   live in the separate Eyes companion figure, not yet imported — see "Genesis 9
-   companion figures" below. G8/G8.1/G3 carry eyes on the body mesh, so the master
-   can be built and verified there with no prerequisite.
+   master + eye-surface detection + mapping. Translucent shading cost absorbed by
+   the small pixel footprint of eyes (~1% on close-ups, much less normally).
+   G8/G8.1/G3 carry eyes on the body mesh; **G9 fully unblocked** (companion
+   Slice C ✅ 2026-06-08 — `EyeMoisture Left/Right` import from the Eyes MAT preset).
 
 ### Master-rework gated-node audit (slice #2 — done)
 
@@ -188,8 +186,10 @@ skeleton** (not merged) — rationale in [`DecisionLog.md`](DecisionLog.md). Wor
 2. **Slice A — ✅ done** (2026-06-08): 5 PostLoadAddon exports bound (optional); each `AssetFile` resolved → loader .duf → geometry DSF + node id into `FDsonCompanionSource` list; logged. No meshes built.
 3. **Slice B — ✅ done** (2026-06-08): each companion geometry DSF imported as its own
    `USkeletalMesh` via `FDsonMeshBuilder::BuildCompanion`, bound to body `USkeleton` by bone name; `FDsonImportResult.CompanionMeshes`. No materials (Slice C).
-4. **Slice C — materials:** from each addon's `MatPreset` (`preset_hierarchical_material`),
-   matched by geometry-id + group.
+4. **Slice C — ✅ done** (2026-06-08): `BuildAllSceneMaterials` on each addon's MAT preset;
+   MICs keyed by group name wired to companion sections via updated `BuildCompanion`; R7
+   fallback to `M_DazDefault` per section. `EyeMoisture` `#fragment` channels resolve empty
+   (expected — slice #3 owns the master).
 
 **Deferred:** fiber eyebrows (`G9EyebrowFibers`) → groom; some characters (Nancy) have no
 brow mesh. **Unblocks** slice #3 on G9 (`EyeMoisture Left/Right` live only in the Eyes companion).
@@ -219,6 +219,9 @@ brow mesh. **Unblocks** slice #3 on G9 (`EyeMoisture Left/Right` live only in th
   see `Docs/Reference.md` → "LIE (layered-image) composition". Every real
   texture still resolves and imports; cosmetic only. Cleanup: have the texture
   importer skip `#`-prefixed refs before resolving.
+- **Companion `Mouth`/`Teeth` (incl. tongue) render metallic** — textureless gray through the skin
+  master `M_DazPBRSkin`; `Mouth`/`Teeth` omitted from `GetNonSkinSurfaceGroups()` (the other 7
+  companion surfaces were added). Fix scoped → `DecisionLog.md` (2026-06-08 session log).
 
 ## Cleanup backlog
 
@@ -243,8 +246,8 @@ acceptance set: G8.1, Jordina, Nancy, Laura, V7HD). Two verification fixes lande
 IrayUber SSS-binding (`SetParentEditorOnly`) and PBRSkin darkening (inline
 translucency restored tuned → Base Color, B1); rationale →
 [`SubsurfaceProfileV2.md`](SubsurfaceProfileV2.md) §Revision + `DecisionLog.md`.
-**Next: slice #3 — eye-moisture / cornea master** (`M_DazEyeMoisture`) — buildable now
-on G8/G8.1/G3; **G9 coverage now unblocked** (companion Slice B ✅ 2026-06-08; see that section). Then Phase 7 v2.
+**Next: slice #3 — eye-moisture / cornea master** (`M_DazEyeMoisture`) — buildable on
+G8/G8.1/G3 and G9 (companion Slice C ✅ 2026-06-08 — eyes/mouth/eyelashes/tear import with MICs; **Mouth/Teeth metallic fix pending — see Known issues**). Then Phase 7 v2.
 
 **Phase 7 v2 — formula evaluation/composed character shape** (queued behind
 Phase 6 v2). The discovery-only portion is done: formula-reachable `?value`

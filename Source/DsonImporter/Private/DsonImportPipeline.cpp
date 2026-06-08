@@ -132,8 +132,29 @@ FDsonImportResult FDsonImportPipeline::Run(
                     TEXT("[companion] skipping '%s': no geometry DSF"), *Companion.AssetName);
                 continue;
             }
+
+            TMap<FString, UMaterialInstanceConstant*> CompanionMICs;
+            if (!Companion.MatPresetPath.IsEmpty())
+            {
+                const FString CompanionMatFolder = MakeMaterialOutputFolder(Companion.MatPresetPath);
+                FString CompanionUvSetUrl;
+                Builder.BuildAllSceneMaterials(
+                    Companion.MatPresetPath, CompanionMatFolder, CompanionMICs, CompanionUvSetUrl);
+                UE_LOG(LogDsonImporter, Log,
+                    TEXT("[companion-mat] %s: %d MIC(s) from '%s'"),
+                    *Companion.AssetName, CompanionMICs.Num(),
+                    *FPaths::GetCleanFilename(Companion.MatPresetPath));
+                if (CompanionMICs.Num() == 0)
+                {
+                    UE_LOG(LogDsonImporter, Warning,
+                        TEXT("[companion-mat] %s: 0 MICs built — preset has no scene materials or all failed; sections use M_DazDefault"),
+                        *Companion.AssetName);
+                }
+            }
+
             USkeletalMesh* CompanionMesh = FDsonMeshBuilder::BuildCompanion(
-                Companion.AssetName, Companion.GeometryDsfUrl, Result.Skeleton, DefaultMaterial);
+                Companion.AssetName, Companion.GeometryDsfUrl, Result.Skeleton,
+                CompanionMICs, DefaultMaterial);
             if (CompanionMesh)
                 Result.CompanionMeshes.Add(CompanionMesh);
             else

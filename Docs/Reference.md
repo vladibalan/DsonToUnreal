@@ -211,3 +211,12 @@ full ref skeleton via `BuildReferenceSkeletonFromDsf`, and merges it into the bo
 `MergeAllBonesToBoneTree` — so tongue verts bind to tongue01–05, not the root, and the body
 skeleton is re-saved with the +5 bones. General: any companion-introduced bone with a resolvable
 parent chain follows the same path; unresolvable parent chains log a warning and fall back.
+
+**Companion materials (verified from `Genesis 9 Eyes MAT.duf`).** Each addon's `MatPreset` is a
+`preset_hierarchical_material` `.duf` (path from the PostLoadAddon manifest), not the character
+scene. Top-level keys: `image_library` + `material_library` + a **standard `scene.materials`**
+array (id/url/geometry/`groups`/uv_set/`extra`→shader-type) the parser's scene-material accessors
+read like the body's — so wire companion materials by reusing `FDsonMaterialBuilder` on the loaded
+preset, keyed by `groups` → surface. Mixed shaders within one preset (eyes: `Eye L/R` = PBRSkin,
+`EyeMoisture L/R` = IrayUber); some surfaces reference `material_library` via a `#fragment` url
+rather than inline channels (verify those channels resolve).

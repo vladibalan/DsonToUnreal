@@ -331,4 +331,30 @@ coupling chosen for animate-as-one-character (the price of not giving each compa
 skeleton). Consequence: `Genesis9_Skeleton` is the union of body + whatever companions imported
 together — the body mesh references bones it doesn't use, which is harmless/standard in UE.
 
-Session logs append here as slices land.
+**Session log — 2026-06-08.**
+- **Slice A** (discovery) ✅ — bound the 5 PostLoadAddon exports; resolve each `AssetFile` → loader
+  `.duf` → geometry DSF/node + `MatPreset` into `FDsonCompanionSource` (loader is a wearable
+  *preset*, 0 scene nodes → resolve via the geometry DSF). Verified Nancy 9 (4 companions).
+- **Slice B** (geometry + packaging) ✅ — each companion → its own `USkeletalMesh` on the shared
+  `Genesis9_Skeleton`; leader-pose left to the consumer. Tongue fix:
+  `FDsonSkeletonBuilder::MergeCompanionBonesIntoSkeleton` merges companion-introduced bones (Mouth
+  `tongue01–05` under `lowerteeth`, +5) so the tongue binds, not root-fallback.
+- **Slice C** (materials) ✅ — reuse `FDsonMaterialBuilder` on each `MatPreset`
+  (`preset_hierarchical_material`, standard `scene.materials`); MICs wired by surface group; 7
+  companion surfaces added to `GetNonSkinSurfaceGroups()`.
+
+**Open — Mouth/Teeth metallic (handoff's main TODO).** Companion `Mouth`/`Teeth` (the `Mouth`
+surface carries the tongue) render metallic: `Mouth`/`Teeth` were **omitted** from
+`GetNonSkinSurfaceGroups()` (the other 7 were added) → still treated as skin (`M_DazPBRSkin` +
+SubsurfaceProfile), and the `Mouth` surface is a flat gray diffuse value with **no texture** + sparse
+channels inheriting base `PBRSkin.dsf` → textureless gray through the skin master = metal. Fix =
+diagnose-then-fix: dump the importer's *resolved* Mouth/Teeth channels (cause isn't in the static
+files — it depends on base-shader inheritance), then add `Mouth`/`Teeth` to the non-skin handling
+and/or give textureless non-skin surfaces sensible roughness / route to `M_DazDefault`. **Not slice #3.**
+
+**Slice #3 heads-up.** EyeMoisture `L/R` import but their channels reference `material_library` via a
+`#fragment` url the parser doesn't resolve → the interim `M_DazIrayUber` MICs are near
+parameter-free. `M_DazEyeMoisture` (slice #3) must handle those EyeMoisture channels (may need
+parser-side `material_library` `#fragment` resolution).
+
+**Next:** (1) Mouth/Teeth metallic fix (Slice C follow-up), then (2) slice #3 (`M_DazEyeMoisture`).

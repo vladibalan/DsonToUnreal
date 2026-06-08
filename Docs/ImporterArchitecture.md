@@ -74,7 +74,7 @@ The plugin is an Unreal Editor module:
 - Loads geometry DSF and optional UV-set DSF.
 - Converts vertices, faces, UVs, polygon groups, and material slots into a `USkeletalMesh`.
 - Calls `FDsonSkinWeightsBuilder` before committing mesh data.
-- `BuildCompanion`: builds a companion geometry DSF as a separate `USkeletalMesh` bound to the body `USkeleton` by bone name (Slice B+).
+- `BuildCompanion`: builds a companion geometry DSF as a separate `USkeletalMesh` bound to the body `USkeleton` by bone name; wires sections to `MaterialsByGroup` MICs with `DefaultMaterial` fallback (Slice B+C).
 
 `DsonSkinWeightsBuilder.*`
 
@@ -165,7 +165,7 @@ The plugin is an Unreal Editor module:
 - Import dialog behavior: edit `SDsonImportWindow.*`.
 - Path/dependency failures: start in `DsonContentRoots.*`, then `DsonValidator.*`.
 - G9 companion-figure discovery or resolution failures: `DsonValidator.*` (`DiscoverCompanionFigures`).
-- G9 companion mesh build failures: `DsonImportPipeline.*` (companion loop) → `DsonMeshBuilder.*` (`BuildCompanion`).
+- G9 companion mesh or material failures: `DsonImportPipeline.*` (companion loop) → `DsonMeshBuilder.*` (`BuildCompanion`) or `DsonMaterialBuilder.*` (`BuildAllSceneMaterials` on MAT preset).
 - Bad bone hierarchy or transforms: start in `DsonSkeletonBuilder.*`.
 - Bad geometry, UVs, material slots, or mesh asset save: start in `DsonMeshBuilder.*`.
 - Bad skin weights: start in `DsonSkinWeightsBuilder.*`.
