@@ -255,6 +255,6 @@ G8/G8.1/G3 and G9 (companion Slice C ✅ 2026-06-08 — eyes/mouth/eyelashes/tea
 **Phase 7 v2 — formula evaluation/composed character shape** (queued behind
 Phase 6 v2). The discovery-only portion is done: formula-reachable `?value`
 files import their leaf morph targets at weight 0. Next is the evaluator/compose
-feature in [`Docs/FormulaMorphsV2.md`](FormulaMorphsV2.md): channel
-`current_value`, `min`/`max`/`clamped`, and a fragment-to-leaf bridge are still
-needed before the importer can bake or emit a combined dialed character shape.
+feature in [`Docs/FormulaMorphsV2.md`](FormulaMorphsV2.md): the parser already exposes
+the channel dial / `min`/`max`/`clamped` / `GetMorphId` it needs, so binding those
+(importer-side) plus the evaluator pass remain before a combined dialed shape can ship.
