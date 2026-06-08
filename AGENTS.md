@@ -104,6 +104,7 @@ push a hot-path doc past its line budget — relocate or split instead.
 - Verbose material channel dumps: `Source/DsonImporter/Private/DsonMaterialDiagnostic.*`
 - Parser C API function pointers: `Source/DsonImporter/Private/DsonParserFunctions.h`
 - Compile-time parser ABI drift check (no runtime code): `Source/DsonImporter/Private/DsonParserAbiCheck.cpp`
+- Requesting a parser feature (new DSON data the parser doesn't expose yet): `Docs/AgentWorkflow.md` ("Requesting parser features")
 - Settings/result structs passed between import stages: `Source/DsonImporter/Private/DsonImportTypes.h`
 - Parser document-handle RAII (only place `Create`/`Load`/`Destroy` runs; R3): `Source/DsonImporter/Private/DsonLoadedDocument.*`
 - Package creation, asset saving, import-folder paths: `Source/DsonImporter/Private/DsonAssetUtils.*`

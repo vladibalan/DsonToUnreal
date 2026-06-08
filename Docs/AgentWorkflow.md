@@ -95,6 +95,15 @@ feedback-file* — so it holds for any agent:
   [`../AGENTS.md`](../AGENTS.md) and [`CodeReviewRules.md`](CodeReviewRules.md)
   apply to both roles.
 
+## Requesting parser features (cross-repo)
+
+The parser is a separate repo with its own workflow (note at top). When a task needs a
+fact it doesn't yet expose, the Director raises a **parser request** stating *what*, not
+*how*: name the **DSON data needed** and the importer behaviour that needs it — never the
+C ABI to add (names, signatures, return contracts). Surface design is the Parser
+Director's, and a "how" request risks re-specifying an accessor that already ships. Name
+the need (e.g. "each modifier channel's dial value"); let the Parser Director answer it.
+
 ## The handoff is file-based (`.handoff/`)
 
 All Director↔Implementer traffic for a change travels through two files:
