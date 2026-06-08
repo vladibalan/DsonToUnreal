@@ -344,6 +344,17 @@ together — the body mesh references bones it doesn't use, which is harmless/st
   (`preset_hierarchical_material`, standard `scene.materials`); MICs wired by surface group; 7
   companion surfaces added to `GetNonSkinSurfaceGroups()`.
 
+**Companion zero-UV defect — found + fixed 2026-06-08 (commit `3f60375`).** Slice B built companion
+meshes with **all-zero UVs**: `FDsonMeshBuilder::BuildCompanion` passed an empty UV-set path to
+`ReadUvData` on the wrong assumption "companions carry no UV sets (same as body)" — but the body does
+not embed UVs either; it resolves an *external* UV-set DSF and passes it, a step the companion path
+skipped. Every companion sampled a single texel; surfaced as the G9 "pink teeth" (teeth sampled the
+gum region). Invisible until now because companions had no working texture until the
+`scene.animations` key-0 fix landed — a defect masked by an upstream-missing feature, exposed once
+that feature shipped. Fix mirrors the body path: the pipeline resolves each `CompanionUvSetUrl` via
+`ResolveUvSetDsfPath` and passes it to `BuildCompanion` → `ReadUvData`. (Nancy's Mouth UV set is
+single-tile "default", not the body's "Base Multi UDIM" — no UDIM work needed.)
+
 **Mouth/Teeth metallic — root cause found, fix deferred (corrected 2026-06-08, source-traced with
 the user).** The earlier diagnosis in this entry (Mouth/Teeth "omitted from
 `GetNonSkinSurfaceGroups()`" / "textureless gray inheriting base `PBRSkin.dsf`") was **wrong** and is
