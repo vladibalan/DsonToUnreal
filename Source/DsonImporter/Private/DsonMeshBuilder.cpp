@@ -763,7 +763,8 @@ USkeletalMesh* FDsonMeshBuilder::BuildCompanion(
     const FString& GeometryDsfPath,
     USkeleton* Skeleton,
     const TMap<FString, UMaterialInstanceConstant*>& MaterialsByGroup,
-    UMaterial* DefaultMaterial)
+    UMaterial* DefaultMaterial,
+    const FString& UvSetDsfPath)
 {
     if (!GDsonParser.IsValid())
     {
@@ -794,11 +795,9 @@ USkeletalMesh* FDsonMeshBuilder::BuildCompanion(
     const int32 FaceCount            = ReadFaceCount(DsfHandle);
     const TArray<FString> MaterialGroupNames = ReadMaterialGroupNames(DsfHandle);
 
-    // Companion figure DSFs carry no UV sets (same as body — see Reference.md).
-    // Pass empty path: ReadUvData falls back to the geometry handle, finds UVSetCount=0,
-    // and leaves UVs/UVPolyVertIndices empty; triangles get FVector2f::ZeroVector.
-    // Companion UV-set wiring is deferred (not part of Slice C).
-    FDsonUvData UvData = ReadUvData(DsfHandle, TEXT(""), FaceCount);
+    // The companion's UV set is an external DSF resolved by the caller and passed in;
+    // an empty path falls back to zero UVs (permissive).
+    FDsonUvData UvData = ReadUvData(DsfHandle, UvSetDsfPath, FaceCount);
     const TArray<FDsonTriangle> Triangles = ReadTriangles(
         DsfHandle, FaceCount, UvData.UVPolyVertIndices);
 

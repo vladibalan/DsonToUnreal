@@ -134,10 +134,10 @@ FDsonImportResult FDsonImportPipeline::Run(
             }
 
             TMap<FString, UMaterialInstanceConstant*> CompanionMICs;
+            FString CompanionUvSetUrl;
             if (!Companion.MatPresetPath.IsEmpty())
             {
                 const FString CompanionMatFolder = MakeMaterialOutputFolder(Companion.MatPresetPath);
-                FString CompanionUvSetUrl;
                 Builder.BuildAllSceneMaterials(
                     Companion.MatPresetPath, CompanionMatFolder, CompanionMICs, CompanionUvSetUrl);
                 UE_LOG(LogDsonImporter, Log,
@@ -152,9 +152,10 @@ FDsonImportResult FDsonImportPipeline::Run(
                 }
             }
 
+            const FString CompanionUvSetAbsPath = ResolveUvSetDsfPath(CompanionUvSetUrl, ContentRoots);
             USkeletalMesh* CompanionMesh = FDsonMeshBuilder::BuildCompanion(
                 Companion.AssetName, Companion.GeometryDsfUrl, Result.Skeleton,
-                CompanionMICs, DefaultMaterial);
+                CompanionMICs, DefaultMaterial, CompanionUvSetAbsPath);
             if (CompanionMesh)
                 Result.CompanionMeshes.Add(CompanionMesh);
             else

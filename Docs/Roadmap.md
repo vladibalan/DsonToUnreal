@@ -185,7 +185,7 @@ skeleton** (not merged) — rationale in [`DecisionLog.md`](DecisionLog.md). Wor
 1. **Parser ABI** — ✅ done (DsonParser 1.1.0): `DsonDocument_GetScenePostLoadAddon{Count,Slot,AssetName,AssetFile,MatPreset}`, paths only.
 2. **Slice A — ✅ done** (2026-06-08): 5 PostLoadAddon exports bound (optional); each `AssetFile` resolved → loader .duf → geometry DSF + node id into `FDsonCompanionSource` list; logged. No meshes built.
 3. **Slice B — ✅ done** (2026-06-08): each companion geometry DSF imported as its own
-   `USkeletalMesh` via `FDsonMeshBuilder::BuildCompanion`, bound to body `USkeleton` by bone name; `FDsonImportResult.CompanionMeshes`. No materials (Slice C).
+   `USkeletalMesh` via `FDsonMeshBuilder::BuildCompanion`, bound to body `USkeleton` by bone name; `FDsonImportResult.CompanionMeshes`; UV-set DSF resolved and applied like body (was zero-UV, single-texel — fix 2026-06-08). No materials (Slice C).
 4. **Slice C — ✅ done** (2026-06-08): `BuildAllSceneMaterials` on each addon's MAT preset;
    MICs keyed by group name wired to companion sections via updated `BuildCompanion`; R7
    fallback to `M_DazDefault` per section. `EyeMoisture` `#fragment` channels resolve empty
