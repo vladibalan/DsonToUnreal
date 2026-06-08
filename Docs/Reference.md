@@ -74,6 +74,13 @@ Contents:
   `Base Multi UDIM.dsf` 27087 UVs, 3744 overrides; 7 sections, all PBRSkin
   (`studio/material/daz_brick`, `PBRSkin.dsf#PBRSkin`). Zone→tile: Head 1001,
   Body 1002, Legs 1003, Arms 1004, Nails 1005.
+- **G9 companion figures** (separate conforming figures, each its own DSF + bones):
+  Eyes `Genesis9Eyes-1` 2120 v / 2112 p (`EyeMoisture Left/Right`, `Eye Left/Right`),
+  13 bones; Eyelashes `Genesis9Eyelashes-1` 2028 v / 858 p (`Eyelashes Lower/Upper`),
+  38 bones; Mouth `Genesis9Mouth-1` 5079 v / 5000 p (`Mouth`, `Teeth`), 43 bones; Tear
+  `Genesis9Tear-1` 280 v / 220 p (`Tear`), 38 bones. The G9 **body** (`Genesis9-1`,
+  25182 v) carries none of these — its 7 surfaces are Fingernails, Toenails, Legs,
+  Mouth Cavity, Arms, Head, Body.
 - Figure DSFs contain **no** UV data — only a `default_uv_set` URL to a separate
   UV-set DSF.
 - Coordinate conversion (load-bearing — see `CodeReviewRules.md` R4 /
@@ -151,3 +158,35 @@ channel's `texture_path` and the **overlay ingredients** from the
 it reaches `ImportOrFind` it logs a harmless "could not resolve '#…'". That is
 cosmetic — every real texture is present and imported, and the surface renders.
 Do not treat it as a missing asset.
+
+## Genesis 9 companion figures & the `PostLoadAddons` discovery chain
+
+**Read before concluding a G9 file "doesn't reference" eyes/mouth/etc. — they are
+declared in `scene.extra`, not `scene.nodes`** (re-deriving this cost a parsing pass
+that wrongly concluded the companions were absent). A G9 character preset
+(`asset_info.type` = `character`) instances only the **body** (`Genesis9.dsf`) in
+`scene.nodes`; the eyes, mouth, eyelashes, and tear are pulled in by a post-load script
+recorded in `scene.extra`:
+
+```
+scene.extra[ type="scene_post_load_script", name="Genesis9PostLoad…" ]
+  .settings.PostLoadAddons.value[ "<slot>" ].value:
+     AssetName   e.g. "Genesis9Eyes"
+     AssetFile   -> a loader .duf (type=wearable) that instances the companion
+     Presets.value.Mat.value.PresetFile -> a MAT preset .duf (preset_hierarchical_material)
+```
+
+Resolution chain to import one companion: `character preset → PostLoadAddons[slot].AssetFile
+(loader .duf) → its scene node → geometry DSF` (e.g. `Genesis9Eyes.dsf#Genesis9Eyes-1`),
+plus `PostLoadAddons[slot].MatPreset` for its materials (matched by geometry-id + group;
+the preset targets the figure via `name://@selection`). The loader conforms the companion
+to the selected figure (`conform_target = name://@selection:`).
+
+Slots seen: `…/Face/Eyes`, `…/Face/Mouth`, `…/Face/Eyelashes`, `…/Face/Tears`, and
+(character-dependent) `…/Forehead/Eyebrows`. The eyebrow addon is **fibermesh**
+(`G9EyebrowFibers`, strand-based hair), not a polygon companion. `PostLoadAddons` is a
+slot-keyed object, so a consumer must impose a stable order.
+
+The parser does **not** expose `scene.extra` today (its only `extra` accessor is material
+shader-type); exposing this manifest is the prerequisite tracked in
+[`Roadmap.md`](Roadmap.md) → "Genesis 9 companion figures".

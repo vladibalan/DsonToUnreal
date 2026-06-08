@@ -64,7 +64,7 @@ shader has a matching master + channel mapping.
 | Generation | Geometry / skeleton / skin | Materials | Status |
 |---|---|---|---|
 | Genesis 8 / 8.1 | ✅ | IrayUber → `M_DazIrayUber` | ✅ Supported, verified |
-| Genesis 9 (Laura, Nancy) | ✅ | PBRSkin → `M_DazPBRSkin` | ✅ Supported, verified; makeup/LIE source textures import standalone |
+| Genesis 9 (Laura, Nancy) | ✅ | PBRSkin → `M_DazPBRSkin` | ✅ Supported, verified; makeup/LIE source textures import standalone. ⚠️ Companion figures (eyes/mouth/eyelashes/tear) not imported — see "Genesis 9 companion figures" |
 | Genesis 3 (Victoria 7 HD) | ✅ | IrayUber → `M_DazIrayUber` | ✅ Supported, verified |
 
 ## Phase 6 v2 — Materials v2
@@ -113,7 +113,10 @@ this section as it lands. **Current: slice #3 (eye-moisture / cornea).**
 3. **Eye-moisture / cornea master** (`M_DazEyeMoisture`) — new translucent
    master + eye-surface detection + mapping. Translucent shading cost
    absorbed by the small pixel footprint of eyes (~1% on close-ups, much less
-   normally).
+   normally). **G9 prerequisite:** the eye surfaces (`EyeMoisture Left/Right`)
+   live in the separate Eyes companion figure, not yet imported — see "Genesis 9
+   companion figures" below. G8/G8.1/G3 carry eyes on the body mesh, so the master
+   can be built and verified there with no prerequisite.
 
 ### Master-rework gated-node audit (slice #2 — done)
 
@@ -173,6 +176,28 @@ ABI extension on the Designer's critical path, not the importer's.
   Current content does not need it (DAZ ships each skin zone as its own 0–1
   section).
 
+## Genesis 9 companion figures (eyes / mouth / eyelashes / tear) — not yet imported
+
+**Planned, not started; gated on a DsonParser C-ABI extension (handoff prepared for the
+DsonParser Director).** G9 splits eyes, mouth (teeth), eyelashes, and tear into separate
+conforming figures; the body mesh carries none, so only the body imports today. They are
+declared in the preset's `scene.extra → PostLoadAddons`, **not** `scene.nodes` — chain +
+per-figure data in [`Reference.md`](Reference.md) → "Genesis 9 companion figures". Scope,
+in dependency order:
+
+1. **Parser ABI (DsonParser repo — blocks everything):** expose the `scene.extra` addon
+   manifest (slot, asset name, `AssetFile`, `MatPreset`); additive/non-breaking.
+2. **Multi-figure import:** resolve each `AssetFile` → loader `.duf` → geometry DSF as an
+   extra mesh (reuses the per-figure path; new work is a *list* of sources, not one).
+3. **Skeleton + packaging:** bind companions to the main skeleton by bone-name; open
+   runtime-perf fork — merged `USkeletalMesh` vs. separate meshes.
+4. **Materials:** from each addon's `MatPreset` (`preset_hierarchical_material`), matched
+   by geometry-id + group.
+
+**Deferred:** fiber eyebrows (`G9EyebrowFibers`) → groom pipeline; some characters (Nancy)
+have no separate brow mesh. **Unblocks** slice #3 on G9 (`EyeMoisture Left/Right` exist only
+in the Eyes companion).
+
 ## Deferred to v2 (morph follow-ups)
 
 - **Scene dial current values are not baked into the imported character shape.**
@@ -222,8 +247,9 @@ acceptance set: G8.1, Jordina, Nancy, Laura, V7HD). Two verification fixes lande
 IrayUber SSS-binding (`SetParentEditorOnly`) and PBRSkin darkening (inline
 translucency restored tuned → Base Color, B1); rationale →
 [`SubsurfaceProfileV2.md`](SubsurfaceProfileV2.md) §Revision + `DecisionLog.md`.
-**Next: slice #3 — eye-moisture / cornea master** (`M_DazEyeMoisture`), then
-Phase 7 v2.
+**Next: slice #3 — eye-moisture / cornea master** (`M_DazEyeMoisture`) — buildable now
+on G8/G8.1/G3; **G9 coverage waits on Genesis 9 companion-figure import** (parser-ABI
+handoff sent). Then Phase 7 v2.
 
 **Phase 7 v2 — formula evaluation/composed character shape** (queued behind
 Phase 6 v2). The discovery-only portion is done: formula-reachable `?value`
