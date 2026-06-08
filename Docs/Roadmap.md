@@ -176,27 +176,23 @@ ABI extension on the Designer's critical path, not the importer's.
   Current content does not need it (DAZ ships each skin zone as its own 0–1
   section).
 
-## Genesis 9 companion figures (eyes / mouth / eyelashes / tear) — not yet imported
+## Genesis 9 companion figures (eyes / mouth / eyelashes / tear) — importer work in progress
 
-**Planned, not started; gated on a DsonParser C-ABI extension (handoff prepared for the
-DsonParser Director).** G9 splits eyes, mouth (teeth), eyelashes, and tear into separate
-conforming figures; the body mesh carries none, so only the body imports today. They are
-declared in the preset's `scene.extra → PostLoadAddons`, **not** `scene.nodes` — chain +
-per-figure data in [`Reference.md`](Reference.md) → "Genesis 9 companion figures". Scope,
-in dependency order:
+G9 declares eyes, mouth (teeth), eyelashes, and tear as separate conforming figures in the
+preset's `scene.extra → PostLoadAddons`, **not** `scene.nodes`, so only the body imports
+today — chain + per-figure data in [`Reference.md`](Reference.md) → "Genesis 9 companion
+figures". **Packaging: separate `USkeletalMesh` per companion, leader-posed to the body
+skeleton** (not merged) — rationale in [`DecisionLog.md`](DecisionLog.md). Work, in order:
 
-1. **Parser ABI (DsonParser repo — blocks everything):** expose the `scene.extra` addon
-   manifest (slot, asset name, `AssetFile`, `MatPreset`); additive/non-breaking.
-2. **Multi-figure import:** resolve each `AssetFile` → loader `.duf` → geometry DSF as an
-   extra mesh (reuses the per-figure path; new work is a *list* of sources, not one).
-3. **Skeleton + packaging:** bind companions to the main skeleton by bone-name; open
-   runtime-perf fork — merged `USkeletalMesh` vs. separate meshes.
-4. **Materials:** from each addon's `MatPreset` (`preset_hierarchical_material`), matched
-   by geometry-id + group.
+1. **Parser ABI** — ✅ done (DsonParser 1.1.0): `DsonDocument_GetScenePostLoadAddon{Count,Slot,AssetName,AssetFile,MatPreset}`, paths only.
+2. **Slice A — ✅ done** (2026-06-08): 5 PostLoadAddon exports bound (optional); each `AssetFile` resolved → loader .duf → geometry DSF + node id into `FDsonCompanionSource` list; logged. No meshes built.
+3. **Slice B — geometry + packaging:** import each companion geometry DSF as its own
+   `USkeletalMesh` via the per-figure path, bound to the body `USkeleton` and leader-posed.
+4. **Slice C — materials:** from each addon's `MatPreset` (`preset_hierarchical_material`),
+   matched by geometry-id + group.
 
-**Deferred:** fiber eyebrows (`G9EyebrowFibers`) → groom pipeline; some characters (Nancy)
-have no separate brow mesh. **Unblocks** slice #3 on G9 (`EyeMoisture Left/Right` exist only
-in the Eyes companion).
+**Deferred:** fiber eyebrows (`G9EyebrowFibers`) → groom; some characters (Nancy) have no
+brow mesh. **Unblocks** slice #3 on G9 (`EyeMoisture Left/Right` live only in the Eyes companion).
 
 ## Deferred to v2 (morph follow-ups)
 
@@ -248,8 +244,8 @@ IrayUber SSS-binding (`SetParentEditorOnly`) and PBRSkin darkening (inline
 translucency restored tuned → Base Color, B1); rationale →
 [`SubsurfaceProfileV2.md`](SubsurfaceProfileV2.md) §Revision + `DecisionLog.md`.
 **Next: slice #3 — eye-moisture / cornea master** (`M_DazEyeMoisture`) — buildable now
-on G8/G8.1/G3; **G9 coverage waits on Genesis 9 companion-figure import** (parser-ABI
-handoff sent). Then Phase 7 v2.
+on G8/G8.1/G3; **G9 coverage waits on companion-figure Slice B** (geometry + packaging;
+Slice A ✅ 2026-06-08; see that section). Then Phase 7 v2.
 
 **Phase 7 v2 — formula evaluation/composed character shape** (queued behind
 Phase 6 v2). The discovery-only portion is done: formula-reachable `?value`

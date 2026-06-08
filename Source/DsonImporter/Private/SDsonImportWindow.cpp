@@ -381,6 +381,7 @@ void SDsonImportWindow::RefreshPendingSettingsFromValidation()
     PendingSettings.ResolvedFigureDsfPath =
         FindFirstResolvedDependencyPath(ValidationResult.Dependencies);
     PendingSettings.bDumpMaterialDiagnostics = bDumpMaterialDiagnostics;
+    PendingSettings.CompanionFigures = ValidationResult.CompanionFigures;
 }
 
 EVisibility SDsonImportWindow::GetValidationSuccessVisibility() const

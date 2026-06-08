@@ -169,7 +169,15 @@ typedef void* DsonDocumentHandle;
     X(0, const char*, GetSceneMaterialChannelTexturePath, DsonDocument_GetSceneMaterialChannelTexturePath, (uint64_t, int32_t, int32_t)) \
     X(0, int32_t,     GetSceneMaterialChannelLayerCount,       DsonDocument_GetSceneMaterialChannelLayerCount,       (uint64_t, int32_t, int32_t)) \
     X(0, const char*, GetSceneMaterialChannelLayerTexturePath, DsonDocument_GetSceneMaterialChannelLayerTexturePath, (uint64_t, int32_t, int32_t, int32_t)) \
-    X(0, const char*, GetSceneMaterialChannelLayerLabel,       DsonDocument_GetSceneMaterialChannelLayerLabel,       (uint64_t, int32_t, int32_t, int32_t))
+    X(0, const char*, GetSceneMaterialChannelLayerLabel,       DsonDocument_GetSceneMaterialChannelLayerLabel,       (uint64_t, int32_t, int32_t, int32_t)) \
+    \
+    /* PostLoadAddons: companion figures declared in scene.extra (DsonParser >= 1.1.0; optional). */ \
+    /* Count is flattened across all PostLoadAddons maps in document order; 0 = none.           */ \
+    X(0, int,         GetScenePostLoadAddonCount,     DsonDocument_GetScenePostLoadAddonCount,     (DsonDocumentHandle)) \
+    X(0, const char*, GetScenePostLoadAddonSlot,      DsonDocument_GetScenePostLoadAddonSlot,      (DsonDocumentHandle, int)) \
+    X(0, const char*, GetScenePostLoadAddonAssetName, DsonDocument_GetScenePostLoadAddonAssetName, (DsonDocumentHandle, int)) \
+    X(0, const char*, GetScenePostLoadAddonAssetFile, DsonDocument_GetScenePostLoadAddonAssetFile, (DsonDocumentHandle, int)) \
+    X(0, const char*, GetScenePostLoadAddonMatPreset,  DsonDocument_GetScenePostLoadAddonMatPreset,  (DsonDocumentHandle, int))
 
 struct FDsonParserAPI
 {

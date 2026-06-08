@@ -1,5 +1,6 @@
 #pragma once
 #include "CoreMinimal.h"
+#include "DsonImportTypes.h"  // EGenesisGeneration, FDsonCompanionSource
 
 // Plain C++ enum: used only internally (no UPROPERTY/Blueprint exposure), so no UENUM/reflection.
 enum class EDsonAssetType : uint8
@@ -9,15 +10,6 @@ enum class EDsonAssetType : uint8
     Character,   // asset_info.type == "character" (scene DUF)
     Modifier,    // morph/pose
     Unsupported
-};
-
-// Plain C++ enum: internal-only, no reflection needed.
-enum class EGenesisGeneration : uint8
-{
-    Unknown,
-    Genesis3,
-    Genesis8,
-    Genesis9
 };
 
 // Human-readable Genesis generation label, shared by the validator UI text and the
@@ -37,6 +29,7 @@ struct FDsonValidationResult
     EDsonAssetType AssetType = EDsonAssetType::Unknown;
     EGenesisGeneration Generation = EGenesisGeneration::Unknown;
     TArray<FDsonDependency> Dependencies;
+    TArray<FDsonCompanionSource> CompanionFigures;  // resolved G9 companions (Slice A+)
     FString ErrorMessage;
 
     // True only when every dependency discovered by validation resolved to disk.
@@ -74,4 +67,12 @@ private:
         EDsonAssetType AssetType,
         const TArray<FString>& ContentRoots,
         TArray<FDsonDependency>& OutDependencies);
+
+    // Discovers companion figures from scene.extra PostLoadAddons (G9 character presets).
+    // Requires DsonParser >= 1.1.0 exports; exits silently when exports are absent.
+    // Null-guards all 5 addon exports before use; skips any slot that fails to resolve.
+    static void DiscoverCompanionFigures(
+        void* DocHandle,
+        const TArray<FString>& ContentRoots,
+        TArray<FDsonCompanionSource>& OutCompanions);
 };

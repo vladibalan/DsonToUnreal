@@ -139,6 +139,9 @@ FDsonValidationResult FDsonValidator::Validate(
 
     ResolveDependencies(DocHandle, Result.AssetType, ContentRoots, Result.Dependencies);
 
+    if (Result.AssetType == EDsonAssetType::Character)
+        DiscoverCompanionFigures(DocHandle, ContentRoots, Result.CompanionFigures);
+
     Result.bIsValid = true;
     return Result;
 }
@@ -213,6 +216,156 @@ void FDsonValidator::ResolveDependencies(
             SeenUrls.Add(UrlKey);
 
             OutDependencies.Add(BuildDependency(UrlStr, ContentRoots));
+        }
+    }
+}
+
+void FDsonValidator::DiscoverCompanionFigures(
+    void* DocHandle,
+    const TArray<FString>& ContentRoots,
+    TArray<FDsonCompanionSource>& OutCompanions)
+{
+    // All 5 PostLoadAddon exports are optional (DsonParser >= 1.1.0). Bail silently on
+    // a pre-1.1.0 DLL so older parsers degrade gracefully (R7).
+    if (!GDsonParser.GetScenePostLoadAddonCount
+        || !GDsonParser.GetScenePostLoadAddonSlot
+        || !GDsonParser.GetScenePostLoadAddonAssetName
+        || !GDsonParser.GetScenePostLoadAddonAssetFile
+        || !GDsonParser.GetScenePostLoadAddonMatPreset)
+    {
+        return;
+    }
+
+    const int AddonCount = GDsonParser.GetScenePostLoadAddonCount(DocHandle);
+    if (AddonCount <= 0)
+        return;
+
+    UE_LOG(LogDsonImporter, Log, TEXT("DsonValidator: found %d PostLoadAddon slot(s)"), AddonCount);
+
+    for (int i = 0; i < AddonCount; ++i)
+    {
+        // Copy all parser strings before the next parser call (R3).
+        const FString Slot         = DsonImportUtils::FromUtf8(GDsonParser.GetScenePostLoadAddonSlot(DocHandle, i));
+        const FString AssetName    = DsonImportUtils::FromUtf8(GDsonParser.GetScenePostLoadAddonAssetName(DocHandle, i));
+        const FString AssetFile    = DsonImportUtils::FromUtf8(GDsonParser.GetScenePostLoadAddonAssetFile(DocHandle, i));
+        const FString MatPresetRaw = DsonImportUtils::FromUtf8(GDsonParser.GetScenePostLoadAddonMatPreset(DocHandle, i));
+
+        if (AssetFile.IsEmpty())
+        {
+            UE_LOG(LogDsonImporter, Warning,
+                TEXT("DsonValidator: companion slot '%s' has empty AssetFile — skipping"), *Slot);
+            continue;
+        }
+
+        // Resolve the loader .duf to an absolute disk path.
+        const FString LoaderDufPath = FDsonContentRoots::ResolveUrl(AssetFile, ContentRoots);
+        if (LoaderDufPath.IsEmpty())
+        {
+            UE_LOG(LogDsonImporter, Warning,
+                TEXT("DsonValidator: companion '%s' (slot '%s') AssetFile not found — skipping"),
+                *AssetName, *Slot);
+            continue;
+        }
+
+        // Load the loader .duf as its own RAII document (R3).
+        FDsonLoadedDocument LoaderDoc;
+        if (!LoaderDoc.LoadFromFileAsWarning(LoaderDufPath, TEXT("DsonValidator[companion]")))
+        {
+            UE_LOG(LogDsonImporter, Warning,
+                TEXT("DsonValidator: failed to load companion loader '%s' — skipping"), *AssetName);
+            continue;
+        }
+
+        const DsonDocumentHandle LoaderHandle   = LoaderDoc.GetHandle();
+        const uint64_t           LoaderHandle64 = LoaderDoc.GetHandle64();
+
+        // Extract geometry DSF URL + node id from loader scene nodes — same pattern as the
+        // body figure in ResolveDependencies (GetSceneNodeCount / GetSceneNodeGeometryUrl).
+        FString GeometryDsfRawUrl;
+        FString NodeId;
+
+        const int SceneNodeCount = GDsonParser.GetSceneNodeCount(LoaderHandle);
+        for (int ni = 0; ni < SceneNodeCount && GeometryDsfRawUrl.IsEmpty(); ++ni)
+        {
+            const int GeomCount = GDsonParser.GetSceneNodeGeometryCount(LoaderHandle, ni);
+            for (int gi = 0; gi < GeomCount; ++gi)
+            {
+                const char* RawUrl = GDsonParser.GetSceneNodeGeometryUrl(LoaderHandle, ni, gi);
+                if (!RawUrl || RawUrl[0] == '\0')
+                    continue;
+
+                const FString UrlStr = DsonImportUtils::FromUtf8(RawUrl); // copy before next call (R3)
+
+                // Fragment (e.g. "#Genesis9Eyes-1") is the geometry node id; strip for disk path.
+                GeometryDsfRawUrl = DsonImportUtils::StripUrlFragment(UrlStr);
+                int32 HashIdx = INDEX_NONE;
+                if (UrlStr.FindChar(TEXT('#'), HashIdx))
+                {
+                    NodeId = UrlStr.Mid(HashIdx + 1);
+                    // Strip any trailing ?query from the node id (formula URLs use #id?value).
+                    int32 QueryIdx = INDEX_NONE;
+                    if (NodeId.FindChar(TEXT('?'), QueryIdx))
+                        NodeId = NodeId.Left(QueryIdx);
+                }
+                break;
+            }
+        }
+
+        if (GeometryDsfRawUrl.IsEmpty())
+        {
+            UE_LOG(LogDsonImporter, Warning,
+                TEXT("DsonValidator: companion '%s' loader has no scene geometry — skipping"),
+                *AssetName);
+            continue;
+        }
+
+        // Resolve geometry DSF URL to an absolute disk path (ResolveUrl handles scheme/fragment).
+        const FString ResolvedGeomDsfPath = FDsonContentRoots::ResolveUrl(GeometryDsfRawUrl, ContentRoots);
+        if (ResolvedGeomDsfPath.IsEmpty())
+        {
+            UE_LOG(LogDsonImporter, Warning,
+                TEXT("DsonValidator: companion '%s' geometry DSF not resolved — skipping"),
+                *AssetName);
+            continue;
+        }
+
+        // Resolve mat preset (may be empty = none; permissive — proceed even if absent).
+        FString ResolvedMatPreset;
+        if (!MatPresetRaw.IsEmpty())
+            ResolvedMatPreset = FDsonContentRoots::ResolveUrl(MatPresetRaw, ContentRoots);
+
+        // Stash resolved companion source.
+        FDsonCompanionSource Companion;
+        Companion.Slot           = Slot;
+        Companion.AssetName      = AssetName;
+        Companion.GeometryDsfUrl = ResolvedGeomDsfPath;
+        Companion.NodeId         = NodeId;
+        Companion.MatPresetPath  = ResolvedMatPreset;
+        OutCompanions.Add(MoveTemp(Companion));
+
+        UE_LOG(LogDsonImporter, Log,
+            TEXT("DsonValidator: companion resolved — slot='%s' asset='%s' node='%s' matPreset='%s'"),
+            *Slot, *AssetName, *NodeId,
+            ResolvedMatPreset.IsEmpty() ? TEXT("(none)") : *ResolvedMatPreset);
+        UE_LOG(LogDsonImporter, Log,
+            TEXT("  GeomDSF: %s"), *ResolvedGeomDsfPath);
+
+        // Log library nodes from the loader doc (informs Slice B skeleton-binding analysis).
+        if (GDsonParser.GetNodeCount && GDsonParser.GetNodeName)
+        {
+            const int32 NodeCount = GDsonParser.GetNodeCount(LoaderHandle64);
+            TArray<FString> NodeNames;
+            NodeNames.Reserve(NodeCount);
+            for (int32 ni = 0; ni < NodeCount; ++ni)
+            {
+                const char* RawName = GDsonParser.GetNodeName(LoaderHandle64, ni);
+                if (RawName && RawName[0] != '\0')
+                    NodeNames.Add(DsonImportUtils::FromUtf8(RawName));
+            }
+            UE_LOG(LogDsonImporter, Log,
+                TEXT("  Loader nodes (%d): %s"),
+                NodeNames.Num(),
+                NodeNames.IsEmpty() ? TEXT("(none)") : *FString::Join(NodeNames, TEXT(", ")));
         }
     }
 }

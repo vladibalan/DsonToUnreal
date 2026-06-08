@@ -1,4 +1,5 @@
 #include "DsonMaterialDiagnostic.h"
+#include "DsonValidator.h"      // GenerationToString
 #include "DsonImporter.h"
 #include "DsonParserFunctions.h"
 #include "DsonImportUtils.h"

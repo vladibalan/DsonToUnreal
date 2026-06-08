@@ -59,6 +59,7 @@ The plugin is an Unreal Editor module:
 - Loads the selected DSON document through the parser.
 - Determines asset type and Genesis generation.
 - Resolves dependencies needed by the import.
+- Discovers G9 companion figures from scene.extra PostLoadAddons (`DiscoverCompanionFigures`): loads each addon's loader .duf (RAII), extracts geometry DSF URL + node id into `FDsonCompanionSource`, logs results.
 
 `DsonSkeletonBuilder.*`
 
@@ -121,6 +122,7 @@ The plugin is an Unreal Editor module:
 - Optional scene material channel layer accessors expose LIE layer count, texture
   path, and label; the importer uses them only for standalone non-base layer
   texture import.
+- Optional PostLoadAddon accessors (`GetScenePostLoadAddon{Count,Slot,AssetName,AssetFile,MatPreset}`) expose G9 companion-figure declarations from scene.extra; used by `DsonValidator.*` companion discovery.
 
 `DsonParserAbiCheck.cpp`
 
@@ -136,8 +138,7 @@ The plugin is an Unreal Editor module:
 
 `DsonImportTypes.h`
 
-- Plain structs passed between stages: `FDsonImportSettings` (DSON path, figure DSF,
-  generation, diagnostic toggle) and `FDsonImportResult` (skeleton, mesh, abort flag).
+- Inter-stage types: `EGenesisGeneration` (moved here from `DsonValidator.h` to break circular include), `FDsonCompanionSource` (resolved companion-figure record, Slice A+), `FDsonImportSettings`, `FDsonImportResult`.
 
 `DsonLoadedDocument.*`
 
@@ -159,6 +160,7 @@ The plugin is an Unreal Editor module:
 - Parser export missing or new parser function: update `DsonParserFunctions.h` and `DsonImporter.cpp`.
 - Import dialog behavior: edit `SDsonImportWindow.*`.
 - Path/dependency failures: start in `DsonContentRoots.*`, then `DsonValidator.*`.
+- G9 companion-figure discovery or resolution failures: `DsonValidator.*` (`DiscoverCompanionFigures`).
 - Bad bone hierarchy or transforms: start in `DsonSkeletonBuilder.*`.
 - Bad geometry, UVs, material slots, or mesh asset save: start in `DsonMeshBuilder.*`.
 - Bad skin weights: start in `DsonSkinWeightsBuilder.*`.

@@ -187,6 +187,7 @@ Slots seen: `…/Face/Eyes`, `…/Face/Mouth`, `…/Face/Eyelashes`, `…/Face/T
 (`G9EyebrowFibers`, strand-based hair), not a polygon companion. `PostLoadAddons` is a
 slot-keyed object, so a consumer must impose a stable order.
 
-The parser does **not** expose `scene.extra` today (its only `extra` accessor is material
-shader-type); exposing this manifest is the prerequisite tracked in
-[`Roadmap.md`](Roadmap.md) → "Genesis 9 companion figures".
+The parser exposes this manifest as of **DsonParser 1.1.0** —
+`DsonDocument_GetScenePostLoadAddon{Count,Slot,AssetName,AssetFile,MatPreset}` (paths only;
+resolving against content roots and loading the referenced files stay importer work). Import
+status + slicing: [`Roadmap.md`](Roadmap.md) → "Genesis 9 companion figures".

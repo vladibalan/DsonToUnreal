@@ -12,6 +12,7 @@ Contents (newest decisions appended):
 - Materials v2 slice #1 (faithful makeup + LIE import) — handoff & session log (2026-06-06 → 2026-06-07)
 - Materials v2 slice #2 (Subsurface Profile pipeline) — decisions & verification (2026-06-07)
 - Parser version-awareness gate — consume DsonParser versioning; keep the four ABI checks (2026-06-07)
+- Genesis 9 companion figures — packaging decision (separate meshes, leader-pose) + import plan (2026-06-08)
 
 ## IrayUber bump-map seam — root cause & fix decision (2026-06-06)
 
@@ -269,3 +270,45 @@ missing-export warnings) are wired but not runtime-exercised — they need a del
 mismatched DLL. Implemented exactly as decided: optional bind row + MAJOR gate, R8 sync
 in `Docs/ImporterArchitecture.md`. `Docs/Roadmap.md` left untouched: advances no phase,
 fixes no listed bug, so R9 does not trigger.
+
+## Genesis 9 companion figures — packaging decision & import plan (2026-06-08)
+
+**Context.** G9 character presets instance only the body in `scene.nodes`; eyes, mouth
+(teeth), eyelashes, and tear are separate conforming figures declared in `scene.extra →
+PostLoadAddons` (resolution chain in `Docs/Reference.md` → "Genesis 9 companion figures").
+The parser prerequisite shipped in **DsonParser 1.1.0** (`DsonDocument_GetScenePostLoadAddon{
+Count,Slot,AssetName,AssetFile,MatPreset}`, paths only), so the remaining work is importer-side.
+
+**Decision — separate `USkeletalMesh` per companion, leader-posed to the body skeleton; not
+merged.** Selection criteria, in order (same filter as the IrayUber bump decision):
+(1) game-runtime performance, (2) importer complexity/risk, (3) content modularity.
+- **Runtime (decisive, ~neutral).** Companions bound via a leader-pose (MasterPose) component
+  copy the body's evaluated pose and skip their own animation evaluation, so per-follower CPU
+  is near-zero; the meshes are tiny (low vert counts, ~1% screen on close-ups). Merging does
+  **not** cut draw calls — companions carry distinct materials (opaque sclera/iris, translucent
+  cornea/tear, masked eyelash), so each draws as its own section either way. The only runtime
+  delta is a few extra `USkeletalMeshComponent`s in the separate case — the standard, optimized
+  UE modular-character pattern.
+- **Complexity/risk (favors separate).** Separate reuses the existing per-figure import path
+  verbatim (new work is a *list* of sources, not one); merging adds MeshDescription
+  combination, material-slot offsetting, and folding skin weights into one bone-index space.
+- **Modularity (favors separate).** Preserves DAZ's per-figure separation (toggle the tear,
+  re-import one companion) and keeps the translucent cornea/tear as clean small meshes rather
+  than translucent sections on the body mesh (sorting risk).
+
+The merged edge — one asset, one component, lowest per-component overhead — does not outweigh
+the above when the runtime delta is marginal.
+
+**Plan.** Importer slices, dependency-ordered (status tracked in `Docs/Roadmap.md`):
+- **A — plumbing + discovery:** bind the 5 exports (`DsonParserFunctions.h` + `DsonImporter.cpp`
+  + ABI-check list); resolve each `AssetFile` → loader `.duf` → geometry DSF/node into a
+  companion-source list. No meshes built.
+- **B — geometry + packaging:** import each companion geometry DSF as its own `USkeletalMesh`
+  via the per-figure path, bound to the body `USkeleton` by bone-name and leader-posed.
+- **C — materials:** from each addon's `MatPreset` (`preset_hierarchical_material`), matched by
+  geometry-id + group.
+
+Fiber eyebrows (`G9EyebrowFibers`) deferred → groom. **Open feasibility check for B** (Implementer
+to verify against real assets, not assume): that each companion rigs to the *same* Genesis 9
+skeleton as the body (a leader-pose prerequisite). Pre-implementation decision record; session
+logs append here as slices land.
