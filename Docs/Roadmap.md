@@ -21,7 +21,7 @@ Load-bearing invariants (coordinate flip, winding, scale) are owned by
 `CodeReviewRules.md` R4 / the `DazPointToUe` helper (and restated in
 `Docs/Reference.md`) — referenced here, never restated, so they cannot drift.
 
-_Last updated: 2026-06-07._
+_Last updated: 2026-06-08._
 
 ## Phase status
 
@@ -64,7 +64,7 @@ shader has a matching master + channel mapping.
 | Generation | Geometry / skeleton / skin | Materials | Status |
 |---|---|---|---|
 | Genesis 8 / 8.1 | ✅ | IrayUber → `M_DazIrayUber` | ✅ Supported, verified |
-| Genesis 9 (Laura, Nancy) | ✅ | PBRSkin → `M_DazPBRSkin` | ✅ Supported, verified; makeup/LIE source textures import standalone. ⚠️ Companion figures (eyes/mouth/eyelashes/tear) not imported — see "Genesis 9 companion figures" |
+| Genesis 9 (Laura, Nancy) | ✅ | PBRSkin → `M_DazPBRSkin` | ✅ Supported, verified; makeup/LIE source textures import standalone. Companion figures import as separate `USkeletalMesh`es (Slice B ✅); no companion materials yet (Slice C pending) — see "Genesis 9 companion figures" |
 | Genesis 3 (Victoria 7 HD) | ✅ | IrayUber → `M_DazIrayUber` | ✅ Supported, verified |
 
 ## Phase 6 v2 — Materials v2
@@ -186,8 +186,8 @@ skeleton** (not merged) — rationale in [`DecisionLog.md`](DecisionLog.md). Wor
 
 1. **Parser ABI** — ✅ done (DsonParser 1.1.0): `DsonDocument_GetScenePostLoadAddon{Count,Slot,AssetName,AssetFile,MatPreset}`, paths only.
 2. **Slice A — ✅ done** (2026-06-08): 5 PostLoadAddon exports bound (optional); each `AssetFile` resolved → loader .duf → geometry DSF + node id into `FDsonCompanionSource` list; logged. No meshes built.
-3. **Slice B — geometry + packaging:** import each companion geometry DSF as its own
-   `USkeletalMesh` via the per-figure path, bound to the body `USkeleton` and leader-posed.
+3. **Slice B — ✅ done** (2026-06-08): each companion geometry DSF imported as its own
+   `USkeletalMesh` via `FDsonMeshBuilder::BuildCompanion`, bound to body `USkeleton` by bone name; `FDsonImportResult.CompanionMeshes`. No materials (Slice C).
 4. **Slice C — materials:** from each addon's `MatPreset` (`preset_hierarchical_material`),
    matched by geometry-id + group.
 
@@ -244,8 +244,7 @@ IrayUber SSS-binding (`SetParentEditorOnly`) and PBRSkin darkening (inline
 translucency restored tuned → Base Color, B1); rationale →
 [`SubsurfaceProfileV2.md`](SubsurfaceProfileV2.md) §Revision + `DecisionLog.md`.
 **Next: slice #3 — eye-moisture / cornea master** (`M_DazEyeMoisture`) — buildable now
-on G8/G8.1/G3; **G9 coverage waits on companion-figure Slice B** (geometry + packaging;
-Slice A ✅ 2026-06-08; see that section). Then Phase 7 v2.
+on G8/G8.1/G3; **G9 coverage now unblocked** (companion Slice B ✅ 2026-06-08; see that section). Then Phase 7 v2.
 
 **Phase 7 v2 — formula evaluation/composed character shape** (queued behind
 Phase 6 v2). The discovery-only portion is done: formula-reachable `?value`

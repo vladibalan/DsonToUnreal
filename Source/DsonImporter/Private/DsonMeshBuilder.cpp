@@ -4,6 +4,7 @@
 #include "DsonParserFunctions.h"
 #include "DsonImportUtils.h"
 #include "DsonLoadedDocument.h"
+#include "DsonSkeletonBuilder.h"
 #include "DsonSkinWeightsBuilder.h"
 #include "DsonMorphBuilder.h"
 
@@ -244,6 +245,25 @@ namespace
                 *AssetContext.AssetPath.PackagePath);
         }
 
+        return AssetContext;
+    }
+
+    static FDsonMeshAssetContext CreateNamedMeshAsset(const FString& AssetName)
+    {
+        FDsonMeshAssetContext AssetContext;
+        AssetContext.AssetPath = FDsonAssetUtils::MakeImportAssetPath(AssetName, TEXT("_SkeletalMesh"));
+        AssetContext.Package = FDsonAssetUtils::CreateLoadedPackage(
+            AssetContext.AssetPath.PackagePath, TEXT("DsonMeshBuilder[companion]"));
+        if (!AssetContext.Package)
+            return AssetContext;
+        AssetContext.Mesh = NewObject<USkeletalMesh>(
+            AssetContext.Package, *AssetContext.AssetPath.AssetName, RF_Public | RF_Standalone);
+        if (!AssetContext.Mesh)
+        {
+            UE_LOG(LogDsonImporter, Error,
+                TEXT("DsonMeshBuilder[companion]: failed to create USkeletalMesh in '%s'"),
+                *AssetContext.AssetPath.PackagePath);
+        }
         return AssetContext;
     }
 
@@ -732,4 +752,112 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
             AssetContext.Package, Mesh, AssetContext.AssetPath.PackagePath, TEXT("DsonMeshBuilder"))
         ? Mesh
         : nullptr;
+}
+
+// ---------------------------------------------------------------------------
+// BuildCompanion
+// ---------------------------------------------------------------------------
+
+USkeletalMesh* FDsonMeshBuilder::BuildCompanion(
+    const FString& AssetName,
+    const FString& GeometryDsfPath,
+    USkeleton* Skeleton,
+    UMaterial* DefaultMaterial)
+{
+    if (!GDsonParser.IsValid())
+    {
+        UE_LOG(LogDsonImporter, Error,
+            TEXT("DsonMeshBuilder[companion]: DsonParser API not fully loaded"));
+        return nullptr;
+    }
+
+    // R3: one RAII document per companion DSF — no hand-rolled Create/Destroy.
+    FDsonLoadedDocument DsfDocument;
+    if (!DsfDocument.LoadFromFileAsError(GeometryDsfPath, TEXT("DsonMeshBuilder[companion]")))
+        return nullptr;
+
+    const uint64_t DsfHandle = DsfDocument.GetHandle64();
+
+    if (!HasBaseGeometry(DsfHandle, GeometryDsfPath))
+        return nullptr;
+
+    // Merge any companion-exclusive bones (e.g. tongue01–05) into the shared body
+    // skeleton before building the mesh. After the merge the skin weight builder finds
+    // those bones in the body skeleton and assigns correct influences; the body skeleton
+    // is re-saved with the expanded bone tree. Permissive (R7): returns 0 and logs a
+    // warning if the merge cannot anchor a bone; skin weights fall back as before.
+    FDsonSkeletonBuilder::MergeCompanionBonesIntoSkeleton(DsfHandle, Skeleton);
+
+    // R4: DazPointToUe used inside ReadVertexPositions — not re-inlined here.
+    const TArray<FVector3f> Positions = ReadVertexPositions(DsfHandle);
+    const int32 FaceCount            = ReadFaceCount(DsfHandle);
+    const TArray<FString> MaterialGroupNames = ReadMaterialGroupNames(DsfHandle);
+
+    // Companion figure DSFs carry no UV sets (same as body — see Reference.md).
+    // Pass empty path: ReadUvData falls back to the geometry handle, finds UVSetCount=0,
+    // and leaves UVs/UVPolyVertIndices empty; triangles get FVector2f::ZeroVector.
+    // UVs are a Slice C concern (companion UV-set DSF needed for material mapping).
+    FDsonUvData UvData = ReadUvData(DsfHandle, TEXT(""), FaceCount);
+    const TArray<FDsonTriangle> Triangles = ReadTriangles(
+        DsfHandle, FaceCount, UvData.UVPolyVertIndices);
+
+    const FDsonMeshAssetContext AssetContext = CreateNamedMeshAsset(AssetName);
+    if (!AssetContext.IsValid())
+        return nullptr;
+    USkeletalMesh* Mesh = AssetContext.Mesh;
+
+    // No MICs for Slice B; all sections receive DefaultMaterial (Slice C wires them).
+    TMap<FString, UMaterialInstanceConstant*> NoMaterials;
+    PopulateMeshMaterialSlots(Mesh, MaterialGroupNames, NoMaterials, DefaultMaterial);
+
+    FSkeletalMeshLODModel& LODModel = PrepareSkeletalMeshLod0(Mesh);
+
+    FMeshDescription* MeshDesc = Mesh->CreateMeshDescription(0);
+    check(MeshDesc);
+    FSkeletalMeshAttributes SkelAttribs(*MeshDesc);
+    SkelAttribs.Register();
+
+    // Bones from the body skeleton; companion skin weights index into body-skeleton space.
+    PopulateMeshDescriptionBones(SkelAttribs, Skeleton);
+    const TArray<FVertexID> VertexIDs =
+        PopulateMeshDescriptionVertices(*MeshDesc, SkelAttribs, Positions);
+    PopulateMeshDescriptionTriangles(*MeshDesc, SkelAttribs, Mesh, VertexIDs, Triangles, UvData.UVs);
+
+    // Map companion SkinBinding joints to body-skeleton bone indices by name (R7: permissive).
+    if (!FDsonSkinWeightsBuilder::Apply(DsfHandle, Mesh, Skeleton))
+    {
+        UE_LOG(LogDsonImporter, Warning,
+            TEXT("DsonMeshBuilder[companion]: skin weights failed for '%s', using root-bone fallback"),
+            *AssetName);
+        // Non-fatal per R7: mesh continues with placeholder weights.
+    }
+
+    // Morphs skipped: companion morphs are not required for Slice B.
+
+    if (!Mesh->CommitMeshDescription(0))
+    {
+        UE_LOG(LogDsonImporter, Error,
+            TEXT("DsonMeshBuilder[companion]: CommitMeshDescription failed for '%s'"), *AssetName);
+        return nullptr;
+    }
+
+    Mesh->PreEditChange(nullptr);
+    Mesh->InvalidateDeriveDataCacheGUID();
+
+    if (!PopulateMeshRefSkeleton(Mesh, Skeleton))
+        return nullptr;
+
+    FinalizeMeshBuildInputs(Mesh, LODModel, Positions);
+
+    if (!BuildSkeletalMeshRenderData(Mesh, GeometryDsfPath))
+        return nullptr;
+
+    // MergeAllBonesToBoneTree (verified UE 5.4 API: USkeleton.h:846) tells the body
+    // skeleton to accept the companion subset; SetSkeleton binds the mesh to it.
+    FinalizeBuiltMeshSkeleton(Mesh, Skeleton);
+
+    return FDsonAssetUtils::SaveAssetPackage(
+            AssetContext.Package, Mesh, AssetContext.AssetPath.PackagePath,
+            TEXT("DsonMeshBuilder[companion]"))
+        ? Mesh : nullptr;
 }

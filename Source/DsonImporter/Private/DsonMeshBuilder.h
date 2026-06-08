@@ -21,6 +21,15 @@ public:
         UMaterial* DefaultMaterial,
         const FString& UvSetDsfPath);
 
+    // Builds one companion geometry DSF as its own USkeletalMesh bound to the body
+    // USkeleton by bone name. No materials (Slice C); sections get DefaultMaterial.
+    // Permissive (R7): logs and returns nullptr on failure without aborting other imports.
+    static USkeletalMesh* BuildCompanion(
+        const FString& AssetName,
+        const FString& GeometryDsfPath,
+        USkeleton* Skeleton,
+        UMaterial* DefaultMaterial);
+
 private:
     // Converts parser geometry into a skeletal mesh asset.
     // MaterialsByGroup is keyed by DAZ polygon material group name, because those

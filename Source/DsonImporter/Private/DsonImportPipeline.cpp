@@ -123,6 +123,23 @@ FDsonImportResult FDsonImportPipeline::Run(
     {
         Result.Mesh = FDsonMeshBuilder::Build(
             Settings, Result.Skeleton, MaterialsByGroup, DefaultMaterial, UvSetAbsPath);
+
+        for (const FDsonCompanionSource& Companion : Settings.CompanionFigures)
+        {
+            if (Companion.GeometryDsfUrl.IsEmpty())
+            {
+                UE_LOG(LogDsonImporter, Warning,
+                    TEXT("[companion] skipping '%s': no geometry DSF"), *Companion.AssetName);
+                continue;
+            }
+            USkeletalMesh* CompanionMesh = FDsonMeshBuilder::BuildCompanion(
+                Companion.AssetName, Companion.GeometryDsfUrl, Result.Skeleton, DefaultMaterial);
+            if (CompanionMesh)
+                Result.CompanionMeshes.Add(CompanionMesh);
+            else
+                UE_LOG(LogDsonImporter, Warning,
+                    TEXT("[companion] skipped (build failed): %s"), *Companion.AssetName);
+        }
     }
 
     return Result;

@@ -66,12 +66,15 @@ The plugin is an Unreal Editor module:
 - Reads figure nodes from the resolved base figure DSF.
 - Converts node transforms into UE reference skeleton bones.
 - Saves the skeleton asset.
+- `MergeCompanionBonesIntoSkeleton`: merges companion-exclusive bones into the body
+  skeleton (e.g. tongue01–05 under `lowerteeth`) and re-saves; called by `BuildCompanion`.
 
 `DsonMeshBuilder.*`
 
 - Loads geometry DSF and optional UV-set DSF.
 - Converts vertices, faces, UVs, polygon groups, and material slots into a `USkeletalMesh`.
 - Calls `FDsonSkinWeightsBuilder` before committing mesh data.
+- `BuildCompanion`: builds a companion geometry DSF as a separate `USkeletalMesh` bound to the body `USkeleton` by bone name (Slice B+).
 
 `DsonSkinWeightsBuilder.*`
 
@@ -134,11 +137,12 @@ The plugin is an Unreal Editor module:
 `DsonImportPipeline.*`
 
 - Top-level import orchestrator: `FDsonImportPipeline::Run` sequences material/texture
-  build, the diagnostic dump and `M_DazDefault` gate, then skeleton and mesh.
+  build, the diagnostic dump and `M_DazDefault` gate, then skeleton, body mesh, and companion
+  meshes (via `FDsonMeshBuilder::BuildCompanion`; permissive — failures skip, don't abort).
 
 `DsonImportTypes.h`
 
-- Inter-stage types: `EGenesisGeneration` (moved here from `DsonValidator.h` to break circular include), `FDsonCompanionSource` (resolved companion-figure record, Slice A+), `FDsonImportSettings`, `FDsonImportResult`.
+- Inter-stage types: `EGenesisGeneration` (moved here from `DsonValidator.h` to break circular include), `FDsonCompanionSource` (resolved companion-figure record, Slice A+), `FDsonImportSettings`, `FDsonImportResult` (carries `Skeleton`, `Mesh`, and `CompanionMeshes` TArray from Slice B+).
 
 `DsonLoadedDocument.*`
 
@@ -161,6 +165,7 @@ The plugin is an Unreal Editor module:
 - Import dialog behavior: edit `SDsonImportWindow.*`.
 - Path/dependency failures: start in `DsonContentRoots.*`, then `DsonValidator.*`.
 - G9 companion-figure discovery or resolution failures: `DsonValidator.*` (`DiscoverCompanionFigures`).
+- G9 companion mesh build failures: `DsonImportPipeline.*` (companion loop) → `DsonMeshBuilder.*` (`BuildCompanion`).
 - Bad bone hierarchy or transforms: start in `DsonSkeletonBuilder.*`.
 - Bad geometry, UVs, material slots, or mesh asset save: start in `DsonMeshBuilder.*`.
 - Bad skin weights: start in `DsonSkinWeightsBuilder.*`.

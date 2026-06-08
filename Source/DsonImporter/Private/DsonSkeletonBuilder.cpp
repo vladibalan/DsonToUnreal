@@ -355,6 +355,61 @@ FTransform FDsonSkeletonBuilder::MakeBoneTransform(uint64_t DsfHandle, int32 Nod
 }
 
 // ---------------------------------------------------------------------------
+// MergeCompanionBonesIntoSkeleton
+// ---------------------------------------------------------------------------
+
+int32 FDsonSkeletonBuilder::MergeCompanionBonesIntoSkeleton(
+    uint64_t CompanionDsfHandle, USkeleton* BodySkeleton)
+{
+    if (!BodySkeleton)
+    {
+        UE_LOG(LogDsonImporter, Warning,
+            TEXT("DsonSkeletonBuilder[companion]: null body skeleton, skipping bone merge"));
+        return 0;
+    }
+
+    // Build the companion's full reference skeleton (type="bone" nodes only, topologically
+    // sorted, world→local transforms). Reuses the same coordinate flip and rotation-order
+    // handling as the body skeleton builder — no re-implementation.
+    FReferenceSkeleton CompanionRefSkel;
+    BuildReferenceSkeletonFromDsf(CompanionDsfHandle, CompanionRefSkel);
+
+    if (CompanionRefSkel.GetRawBoneNum() == 0)
+        return 0;
+
+    // Count companion bones absent from the body skeleton.
+    const FReferenceSkeleton& BodyRefSkel = BodySkeleton->GetReferenceSkeleton();
+    int32 MissingCount = 0;
+    for (int32 b = 0; b < CompanionRefSkel.GetRawBoneNum(); ++b)
+    {
+        if (BodyRefSkel.FindRawBoneIndex(CompanionRefSkel.GetBoneName(b)) == INDEX_NONE)
+            ++MissingCount;
+    }
+
+    if (MissingCount == 0)
+        return 0;
+
+    // MergeAllBonesToBoneTree (UE 5.4 USkeleton.h:846) adds bones absent from the body
+    // skeleton and skips those already present. Companion-exclusive bones (e.g. tongue01–05)
+    // land under their DSF parent (e.g. lowerteeth), which IS already in the body skeleton,
+    // so IsCompatibleMesh passes and each new bone's parent resolves by name.
+    MergeReferenceSkeletonIntoSkeleton(BodySkeleton, CompanionRefSkel);
+
+    // Re-save the expanded body skeleton so downstream companion mesh builds and UE
+    // asset registry see the added bones.
+    UPackage* SkeletonPackage = BodySkeleton->GetPackage();
+    FDsonAssetUtils::SaveAssetPackage(
+        SkeletonPackage, BodySkeleton, SkeletonPackage->GetName(),
+        TEXT("DsonSkeletonBuilder[companion]"));
+
+    UE_LOG(LogDsonImporter, Log,
+        TEXT("DsonSkeletonBuilder: merged %d companion bone(s) into '%s'"),
+        MissingCount, *BodySkeleton->GetName());
+
+    return MissingCount;
+}
+
+// ---------------------------------------------------------------------------
 // CreateSkeletonAsset
 // ---------------------------------------------------------------------------
 

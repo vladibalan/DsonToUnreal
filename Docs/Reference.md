@@ -191,3 +191,23 @@ The parser exposes this manifest as of **DsonParser 1.1.0** —
 `DsonDocument_GetScenePostLoadAddon{Count,Slot,AssetName,AssetFile,MatPreset}` (paths only;
 resolving against content roots and loading the referenced files stay importer work). Import
 status + slicing: [`Roadmap.md`](Roadmap.md) → "Genesis 9 companion figures".
+
+**Companion rigging (verified from `Genesis9Eyes.dsf`, 2026-06-08).** Each companion is a
+`figure` DSF carrying a *partial copy* of the Genesis 9 skeleton (the eyes' `node_library` =
+1 figure + 13 bones: `hip → pelvis/spine1‑4 → l_/r_shoulder, neck1‑2 → head → l_eye/r_eye`)
+and a `SkinBinding` weighting the geometry to a **subset of those body bones by identical
+name** (eyes → `l_eye, r_eye, head, neck1‑2, spine1‑4, hip`). Companions therefore **share
+the body's Genesis 9 skeleton** — bind each companion mesh to the same `USkeleton` and
+leader-pose it to the body, no per-companion skeleton. The `AssetFile` loader is a `wearable`
+*preset* (no `scene.nodes`), so resolve a companion through its geometry DSF, not loader nodes.
+
+**Companion-introduced bones (verified from `Genesis9Mouth.dsf`).**
+Most companions' joints are a pure subset of the body skeleton (eyes above), but the Mouth's
+`SkinBinding` references a tongue chain `tongue01→…→tongue05` (parented under the shared
+`lowerteeth`) that the body skeleton does **not** have — `upperteeth`/`lowerjaw`/`lowerteeth`
+themselves *are* on the body. `FDsonSkeletonBuilder::MergeCompanionBonesIntoSkeleton` (called by
+`BuildCompanion` before the companion mesh is built) detects absent companion bones, builds their
+full ref skeleton via `BuildReferenceSkeletonFromDsf`, and merges it into the body skeleton via
+`MergeAllBonesToBoneTree` — so tongue verts bind to tongue01–05, not the root, and the body
+skeleton is re-saved with the +5 bones. General: any companion-introduced bone with a resolvable
+parent chain follows the same path; unresolvable parent chains log a warning and fall back.

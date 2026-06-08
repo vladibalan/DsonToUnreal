@@ -308,7 +308,27 @@ the above when the runtime delta is marginal.
 - **C — materials:** from each addon's `MatPreset` (`preset_hierarchical_material`), matched by
   geometry-id + group.
 
-Fiber eyebrows (`G9EyebrowFibers`) deferred → groom. **Open feasibility check for B** (Implementer
-to verify against real assets, not assume): that each companion rigs to the *same* Genesis 9
-skeleton as the body (a leader-pose prerequisite). Pre-implementation decision record; session
-logs append here as slices land.
+Fiber eyebrows (`G9EyebrowFibers`) deferred → groom. **Feasibility check for B — resolved
+2026-06-08:** confirmed each companion rigs to a *subset of the body's Genesis 9 skeleton*
+(verified from `Genesis9Eyes.dsf`: 13-bone partial skeleton, `SkinBinding` weights to 10 body
+bones by name; details in `Docs/Reference.md` → "Genesis 9 companion figures"), so the
+leader-pose / shared-skeleton plan holds.
+
+**Assembly — decided 2026-06-08: standalone.** The importer emits each companion as its own
+`USkeletalMesh` sharing the body `USkeleton`; it does **not** wire runtime leader-pose or emit
+an actor/Blueprint. Rationale: the importer is a data pump that stays agnostic — predictable
+asset paths/names, consumers attach + `SetLeaderPoseComponent` themselves (same principle as the
+Designer split). Declined: an assembled actor/BP (most turnkey, but a new importer output type)
+and editor-preview-only attachment — both are importer-side coupling beyond data-pump scope.
+
+**Two axes, don't conflate (clarified 2026-06-08).** "Standalone" is the *mesh* axis — separate
+`USkeletalMesh` assets, no actor/BP wiring. The *skeleton* is deliberately **shared**: every
+companion binds to the one `Genesis9_Skeleton`, and a companion carrying bones the body lacks (the
+Mouth's tongue chain) **merges them into that shared skeleton**, not a private one — the standard
+UE modular pattern that keeps leader-pose clean. So the Slice-B tongue-bone merge is on the
+skeleton axis and does **not** breach mesh-standalone; the shared skeleton is an intentional
+coupling chosen for animate-as-one-character (the price of not giving each companion its own
+skeleton). Consequence: `Genesis9_Skeleton` is the union of body + whatever companions imported
+together — the body mesh references bones it doesn't use, which is harmless/standard in UE.
+
+Session logs append here as slices land.
