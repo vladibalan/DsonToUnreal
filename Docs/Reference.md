@@ -220,3 +220,16 @@ read like the body's — so wire companion materials by reusing `FDsonMaterialBu
 preset, keyed by `groups` → surface. Mixed shaders within one preset (eyes: `Eye L/R` = PBRSkin,
 `EyeMoisture L/R` = IrayUber); some surfaces reference `material_library` via a `#fragment` url
 rather than inline channels (verify those channels resolve).
+
+**`scene.animations` key-0 binding (verified from `Genesis 9 Mouth MAT.duf`, 2026-06-08) — the
+parser's blind spot.** A `preset_hierarchical_material` may **declare** channels in
+`scene.materials` as bare `{id,type}` with placeholder values, then bind the *real* values **and
+`image_file`s** in a separate **`scene.animations`** array of `{url, keys}` keyframes (`url` = a
+DSON pointer, e.g. `<node>#materials/<matId>:?diffuse/image_file`; `keys` = `[[0, <value>]]`). The
+parser reads `image_library` + `scene.materials` but **does not apply `scene.animations`**, so it
+silently drops them — the root cause of the companion Mouth/Teeth "metallic" import (they actually
+carry `Genesis9_Mouth_D_1001.jpg` + 0.3 roughness + 0.8 translucency, all under `animations`).
+General rule: **DAZ parks initialization data at `scene.animations` key 0 — never skip it**, and
+don't trust a parser/importer "textureless" conclusion without checking it. (When a PostLoadAddon
+has a `Presets→Mat→PresetFile`, that preset is the operative material source, overriding the
+`AssetFile` parent.) Fix status/plan → [`DecisionLog.md`](DecisionLog.md).

@@ -344,14 +344,26 @@ together — the body mesh references bones it doesn't use, which is harmless/st
   (`preset_hierarchical_material`, standard `scene.materials`); MICs wired by surface group; 7
   companion surfaces added to `GetNonSkinSurfaceGroups()`.
 
-**Open — Mouth/Teeth metallic (handoff's main TODO).** Companion `Mouth`/`Teeth` (the `Mouth`
-surface carries the tongue) render metallic: `Mouth`/`Teeth` were **omitted** from
-`GetNonSkinSurfaceGroups()` (the other 7 were added) → still treated as skin (`M_DazPBRSkin` +
-SubsurfaceProfile), and the `Mouth` surface is a flat gray diffuse value with **no texture** + sparse
-channels inheriting base `PBRSkin.dsf` → textureless gray through the skin master = metal. Fix =
-diagnose-then-fix: dump the importer's *resolved* Mouth/Teeth channels (cause isn't in the static
-files — it depends on base-shader inheritance), then add `Mouth`/`Teeth` to the non-skin handling
-and/or give textureless non-skin surfaces sensible roughness / route to `M_DazDefault`. **Not slice #3.**
+**Mouth/Teeth metallic — root cause found, fix deferred (corrected 2026-06-08, source-traced with
+the user).** The earlier diagnosis in this entry (Mouth/Teeth "omitted from
+`GetNonSkinSurfaceGroups()`" / "textureless gray inheriting base `PBRSkin.dsf`") was **wrong** and is
+superseded. The surfaces are **not** textureless: `Genesis 9 Mouth MAT.duf` binds a real
+`Genesis9_Mouth_D_1001.jpg` Base Color + 0.3 roughness + 0.8 translucency via **`scene.animations`
+key 0**, which the parser doesn't apply → importer gets gray + no map → metallic (mechanism + the
+`PresetFile`-overrides-`AssetFile` rule → [`Reference.md`](Reference.md) → "Companion materials").
+`Mouth`/`Teeth` have been in `GetNonSkinSurfaceGroups()` since slice #2; that set only gates SSS,
+never the master.
+- **Abandoned — do not redo:** "reroute textureless non-skin/oral surfaces to `M_DazDefault`" (would
+  discard the real mouth texture and mask the parser bug).
+- **Fix = parser-side (DsonParser repo `E:\Work\Code\DsonTest2`).** Add `scene.animations` processing:
+  resolve each `#materials/<id>:?<channel>/{value,image_file}` pointer onto its channel, apply the
+  key-0 value (v1 scope: `value` + `image_file`; defer `image_modification`/tiling + multi-key).
+  Workflow: Director writes the Implementer task-file; Implementer builds
+  (`msbuild DsonTest2.sln /p:Configuration=Release /p:Platform=x64`); Director re-runs to verify; **user
+  commits**; rebuild the DLL → plugin `Source/ThirdParty/DsonParser/Libs/Win64/`; re-import Nancy G9 to
+  confirm textured mouth/teeth.
+- **Resume:** (1) confirm the parser ignores `scene.animations` (`DsonTypes.cpp`); (2) write the
+  task-file; (3) on fix, correct `Roadmap.md` "Known issues". **Not slice #3.**
 
 **Slice #3 heads-up.** EyeMoisture `L/R` import but their channels reference `material_library` via a
 `#fragment` url the parser doesn't resolve → the interim `M_DazIrayUber` MICs are near
