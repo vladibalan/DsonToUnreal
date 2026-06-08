@@ -223,8 +223,8 @@ brow mesh. **Unblocks** slice #3 on G9 (`EyeMoisture Left/Right` live only in th
   real Base Color texture + roughness/translucency via **`scene.animations` key 0**, which the parser
   doesn't apply, so they import textureless → metallic. Mechanism → [`Reference.md`](Reference.md) →
   "Companion materials"; corrected diagnosis + fix plan/next steps → `DecisionLog.md`. **Parser-side
-  fix (DsonParser repo) — scoped and handed off to a DsonParser Director session 2026-06-08; awaiting
-  the parser fix + rebuilt DLL, then plugin re-import verification and correction of this line.**
+  fix landed (DsonParser 1.2.0 → `DsonDocument_GetSceneAnimation*`, vendored + bound 2026-06-08).
+  Remaining: consume key 0 in `DsonMaterialBuilder` + re-import verification, then clear this line.**
 
 ## Cleanup backlog
 

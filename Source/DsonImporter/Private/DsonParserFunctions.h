@@ -177,7 +177,21 @@ typedef void* DsonDocumentHandle;
     X(0, const char*, GetScenePostLoadAddonSlot,      DsonDocument_GetScenePostLoadAddonSlot,      (DsonDocumentHandle, int)) \
     X(0, const char*, GetScenePostLoadAddonAssetName, DsonDocument_GetScenePostLoadAddonAssetName, (DsonDocumentHandle, int)) \
     X(0, const char*, GetScenePostLoadAddonAssetFile, DsonDocument_GetScenePostLoadAddonAssetFile, (DsonDocumentHandle, int)) \
-    X(0, const char*, GetScenePostLoadAddonMatPreset,  DsonDocument_GetScenePostLoadAddonMatPreset,  (DsonDocumentHandle, int))
+    X(0, const char*, GetScenePostLoadAddonMatPreset,  DsonDocument_GetScenePostLoadAddonMatPreset,  (DsonDocumentHandle, int)) \
+    \
+    /* Scene animations: scene.animations keyframe channels (DsonParser >= 1.2.0; optional). Each entry */ \
+    /* carries the verbatim DSON property url pointer + the first key's typed value; the parser does NOT */ \
+    /* apply these onto scene.materials (faithful passthrough) — the consumer reads both and decides.    */ \
+    /* ValueKind: 0 null, 1 number, 2 bool, 3 string, 4 color; -1 = invalid. animIndex in [0, Count).    */ \
+    X(0, int,         GetSceneAnimationCount,     DsonDocument_GetSceneAnimationCount,     (DsonDocumentHandle)) \
+    X(0, const char*, GetSceneAnimationUrl,       DsonDocument_GetSceneAnimationUrl,       (DsonDocumentHandle, int)) \
+    X(0, int,         GetSceneAnimationValueKind, DsonDocument_GetSceneAnimationValueKind, (DsonDocumentHandle, int)) \
+    X(0, double,      GetSceneAnimationFloat,     DsonDocument_GetSceneAnimationFloat,     (DsonDocumentHandle, int)) \
+    X(0, bool,        GetSceneAnimationBool,      DsonDocument_GetSceneAnimationBool,      (DsonDocumentHandle, int)) \
+    X(0, const char*, GetSceneAnimationString,    DsonDocument_GetSceneAnimationString,    (DsonDocumentHandle, int)) \
+    X(0, double,      GetSceneAnimationColorR,    DsonDocument_GetSceneAnimationColorR,    (DsonDocumentHandle, int)) \
+    X(0, double,      GetSceneAnimationColorG,    DsonDocument_GetSceneAnimationColorG,    (DsonDocumentHandle, int)) \
+    X(0, double,      GetSceneAnimationColorB,    DsonDocument_GetSceneAnimationColorB,    (DsonDocumentHandle, int))
 
 struct FDsonParserAPI
 {
