@@ -355,22 +355,29 @@ key 0**, which the parser doesn't apply → importer gets gray + no map → meta
 never the master.
 - **Abandoned — do not redo:** "reroute textureless non-skin/oral surfaces to `M_DazDefault`" (would
   discard the real mouth texture and mask the parser bug).
-- **Fix = parser-side (DsonParser repo `E:\Work\Code\DsonTest2`).** Add `scene.animations` processing:
-  resolve each `#materials/<id>:?<channel>/{value,image_file}` pointer onto its channel, apply the
-  key-0 value (v1 scope: `value` + `image_file`; defer `image_modification`/tiling + multi-key).
-  Workflow: Director writes the Implementer task-file; Implementer builds
-  (`msbuild DsonTest2.sln /p:Configuration=Release /p:Platform=x64`); Director re-runs to verify; **user
-  commits**; rebuild the DLL → plugin `Source/ThirdParty/DsonParser/Libs/Win64/`; re-import Nancy G9 to
-  confirm textured mouth/teeth.
-- **Resume:** (1) confirm the parser ignores `scene.animations` (`DsonTypes.cpp`); (2) write the
-  task-file; (3) on fix, correct `Roadmap.md` "Known issues". **Not slice #3.**
+- **Resolved — importer-side, not parser-side (corrected 2026-06-08).** The earlier "fix = parser-side
+  (add `scene.animations` processing that resolves pointers onto channels)" plan was **dropped**. The
+  parser instead exposes `scene.animations` *faithfully* (DsonParser 1.2.0 `DsonDocument_GetSceneAnimation*`
+  — verbatim url + key-0 typed value) and deliberately does **not** apply it onto `scene.materials` (its
+  "faithful, no cross-section merge" stance) — the consumer merges. The importer now consumes key 0 in
+  `DsonMaterialBuilder::ApplySceneAnimationOverrides` (commit `e4002b7`, 2026-06-08): after the base
+  scene.materials pass, each key-0 `value`/`image_file` whose matId matches the scene material and whose
+  channel is a key in the active mapping table overrides the placeholder. Scope held to v1 (`value` +
+  `image_file`, key 0; `image_modification`/tiling + multi-key deferred). **Compiles; awaiting re-import
+  visual verification on Nancy G9 before the `Roadmap.md` Known-issues line is cleared.**
 
 **Slice #3 heads-up.** EyeMoisture `L/R` import but their channels reference `material_library` via a
 `#fragment` url the parser doesn't resolve → the interim `M_DazIrayUber` MICs are near
 parameter-free. `M_DazEyeMoisture` (slice #3) must handle those EyeMoisture channels (may need
-parser-side `material_library` `#fragment` resolution).
+parser-side `material_library` `#fragment` resolution). Also: the key-0 override pass
+(`ApplySceneAnimationOverrides`) is a **no-op on the eyes companion** today — eye material ids carry
+spaces + a uniquifying suffix (`Eye Left`, `EyeMoisture Left-1`) while the animation urls reference them
+percent-encoded and **unsuffixed** (`#materials/EyeMoisture%20Left:?…`), so the raw matId compare never
+matches; slice #3 must reconcile that (UrlDecode + suffix) before eyes get key-0 values. Harmless until
+then — no regression (eyes already import without key-0).
 
-**Next:** (1) Mouth/Teeth metallic fix (Slice C follow-up), then (2) slice #3 (`M_DazEyeMoisture`).
+**Next:** (1) Mouth/Teeth metallic fix — ✅ importer key-0 consumption landed 2026-06-08 (`e4002b7`),
+awaiting re-import visual verification; then (2) slice #3 (`M_DazEyeMoisture`).
 
 ## Director/Implementer handoff — file-based `.handoff/`, Director-defers, option D doc fold (2026-06-08)
 
