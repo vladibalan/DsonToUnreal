@@ -1,6 +1,7 @@
 #include "DsonMaterialBuilder.h"
 #include "DsonImporter.h"
 #include "DsonAssetUtils.h"
+#include "DsonContentRoots.h"
 #include "DsonParserFunctions.h"
 #include "DsonImportUtils.h"
 #include "DsonLoadedDocument.h"
@@ -561,6 +562,181 @@ static void CaptureFirstUvSetUrl(uint64_t DsonHandle, int32 SceneMatIdx, FString
 }
 
 // ---------------------------------------------------------------------------
+// Scene animation (key-0) override helpers
+// ---------------------------------------------------------------------------
+
+// Parses one scene.animations url into (matId, channelId, leaf).
+// Accepts top-level form (<channel>/<leaf>, 2 segments) and extra form
+// (extra/studio_material_channels/channels/<Name>/<leaf>, 5 segments).
+// Returns false and leaves out-params untouched for anything else.
+static bool ParseAnimationUrl(
+    const FString& Url,
+    FString& OutMatId,
+    FString& OutChannelId,
+    FString& OutLeaf)
+{
+    // Require "#materials/" marker
+    static const FString MaterialsMarker(TEXT("#materials/"));
+    const int32 MatSegIdx = Url.Find(MaterialsMarker, ESearchCase::CaseSensitive);
+    if (MatSegIdx == INDEX_NONE)
+        return false;
+
+    // matId runs from after "#materials/" up to the ":?" separator
+    const int32 AfterMarker = MatSegIdx + MaterialsMarker.Len();
+    const int32 SepIdx = Url.Find(TEXT(":?"), ESearchCase::CaseSensitive,
+        ESearchDir::FromStart, AfterMarker);
+    if (SepIdx == INDEX_NONE)
+        return false;
+
+    FString MatId = Url.Mid(AfterMarker, SepIdx - AfterMarker);
+    const FString PropertyPath = Url.Mid(SepIdx + 2); // skip ":?"
+
+    // Split on "/"; encoded channel names use %20 for spaces, no literal "/"
+    TArray<FString> Segs;
+    PropertyPath.ParseIntoArray(Segs, TEXT("/"), /*bCullEmpty=*/true);
+
+    FString ChannelId;
+    FString Leaf;
+
+    if (Segs.Num() == 2)
+    {
+        // Top-level: <channel>/<leaf>
+        ChannelId = Segs[0];
+        Leaf = Segs[1];
+    }
+    else if (Segs.Num() == 5
+        && Segs[0] == TEXT("extra")
+        && Segs[1] == TEXT("studio_material_channels")
+        && Segs[2] == TEXT("channels"))
+    {
+        // Extra: extra/studio_material_channels/channels/<Name>/<leaf>
+        ChannelId = FDsonContentRoots::UrlDecode(Segs[3]);
+        Leaf = Segs[4];
+    }
+    else
+    {
+        return false;
+    }
+
+    if (Leaf != TEXT("value") && Leaf != TEXT("image_file"))
+        return false;
+
+    OutMatId    = MoveTemp(MatId);
+    OutChannelId = MoveTemp(ChannelId);
+    OutLeaf     = MoveTemp(Leaf);
+    return true;
+}
+
+// Applies scene.animations key-0 values for the given matId onto MIC,
+// overriding any placeholders set by the base scene.materials pass.
+static void ApplySceneAnimationOverrides(
+    uint64_t H,
+    const FString& MatId,
+    const TMap<FString, FDazParamBinding>& Mapping,
+    UMaterialInstanceConstant* MIC,
+    FDsonTextureImporter& TextureImporter)
+{
+    // Animation accessors use DsonDocumentHandle (not uint64_t) as first param.
+    const DsonDocumentHandle Doc = reinterpret_cast<DsonDocumentHandle>(H);
+
+    const int32 AnimCount = GDsonParser.GetSceneAnimationCount
+        ? GDsonParser.GetSceneAnimationCount(Doc) : 0;
+    if (AnimCount == 0)
+        return;
+
+    int32 MatchedForMat = 0;
+    int32 AppliedTextures = 0;
+    int32 AppliedColors = 0;
+    int32 AppliedScalars = 0;
+
+    for (int32 i = 0; i < AnimCount; ++i)
+    {
+        // R3: copy const char* to FString before the next parser call
+        const FString UrlStr = S(GDsonParser.GetSceneAnimationUrl
+            ? GDsonParser.GetSceneAnimationUrl(Doc, i) : nullptr);
+        if (UrlStr.IsEmpty())
+            continue;
+
+        FString ParsedMatId, ChannelId, Leaf;
+        if (!ParseAnimationUrl(UrlStr, ParsedMatId, ChannelId, Leaf))
+            continue;
+        if (ParsedMatId != MatId)
+            continue;
+
+        ++MatchedForMat;
+
+        const FDazParamBinding* Binding = Mapping.Find(ChannelId);
+        if (!Binding)
+            continue;
+
+        const int32 ValueKind = GDsonParser.GetSceneAnimationValueKind
+            ? GDsonParser.GetSceneAnimationValueKind(Doc, i) : -1;
+
+        if (Leaf == TEXT("image_file"))
+        {
+            if (Binding->TextureParam != NAME_None && ValueKind == 3)
+            {
+                // R3: copy string result before next parser call
+                const FString TextureRef = S(GDsonParser.GetSceneAnimationString
+                    ? GDsonParser.GetSceneAnimationString(Doc, i) : nullptr);
+                if (!TextureRef.IsEmpty())
+                {
+                    if (UTexture2D* Tex = TextureImporter.ImportOrFind(TextureRef, Binding->bSRGB))
+                    {
+                        MIC->SetTextureParameterValueEditorOnly(
+                            FMaterialParameterInfo(Binding->TextureParam), Tex);
+                        if (Binding->UseFlag != NAME_None)
+                        {
+                            MIC->SetScalarParameterValueEditorOnly(
+                                FMaterialParameterInfo(Binding->UseFlag), 1.0f);
+                        }
+                        ++AppliedTextures;
+                    }
+                }
+            }
+        }
+        else if (Leaf == TEXT("value"))
+        {
+            if (ValueKind == 4 && Binding->ColorParam != NAME_None)
+            {
+                const float R = static_cast<float>(GDsonParser.GetSceneAnimationColorR
+                    ? GDsonParser.GetSceneAnimationColorR(Doc, i) : 0.0);
+                const float G = static_cast<float>(GDsonParser.GetSceneAnimationColorG
+                    ? GDsonParser.GetSceneAnimationColorG(Doc, i) : 0.0);
+                const float B = static_cast<float>(GDsonParser.GetSceneAnimationColorB
+                    ? GDsonParser.GetSceneAnimationColorB(Doc, i) : 0.0);
+                MIC->SetVectorParameterValueEditorOnly(
+                    FMaterialParameterInfo(Binding->ColorParam),
+                    FLinearColor(R, G, B, 1.0f));
+                ++AppliedColors;
+            }
+            else if (ValueKind == 1 && Binding->ScalarParam != NAME_None)
+            {
+                const float Val = static_cast<float>(GDsonParser.GetSceneAnimationFloat
+                    ? GDsonParser.GetSceneAnimationFloat(Doc, i) : 0.0);
+                MIC->SetScalarParameterValueEditorOnly(
+                    FMaterialParameterInfo(Binding->ScalarParam), Val);
+                ++AppliedScalars;
+            }
+        }
+    }
+
+    if (MatchedForMat > 0)
+    {
+        UE_LOG(LogDsonImporter, Verbose,
+            TEXT("[mat-anim] '%s': textures=%d colors=%d scalars=%d (%d matched)"),
+            *MatId, AppliedTextures, AppliedColors, AppliedScalars, MatchedForMat);
+
+        if ((AppliedTextures + AppliedColors + AppliedScalars) == 0)
+        {
+            UE_LOG(LogDsonImporter, Warning,
+                TEXT("[mat-anim] '%s': %d entries matched but nothing applied - channel mapping may be incomplete"),
+                *MatId, MatchedForMat);
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Construction
 // ---------------------------------------------------------------------------
 
@@ -872,13 +1048,20 @@ UMaterialInstanceConstant* FDsonMaterialBuilder::BuildSceneMaterial(
 
     // Step 5 - iterate channels and apply parameters from the active mapping table.
     // Default shader has no defined mapping so no parameter overrides are applied.
-    if (const TMap<FString, FDazParamBinding>* Mapping = GetMappingForShader(Kind))
+    const TMap<FString, FDazParamBinding>* Mapping = GetMappingForShader(Kind);
+    if (Mapping)
     {
         ApplyMappedSceneMaterialChannels(H, SceneMatIdx, *Mapping, MIC, TextureImporter);
     }
     if (Kind == EDazShaderKind::IrayUber)
     {
         ApplyIrayUberNormalChannels(H, SceneMatIdx, MIC, TextureImporter);
+    }
+    // Apply scene.animations key-0 values after the base pass so they win over placeholders.
+    // Guard is the same as the base pass: Default shader (null Mapping) is skipped.
+    if (Mapping)
+    {
+        ApplySceneAnimationOverrides(H, Metadata.MatId, *Mapping, MIC, TextureImporter);
     }
     ImportStandaloneChannelTextures(H, SceneMatIdx, TextureImporter);
     ApplySubsurfaceProfileSettings(H, SceneMatIdx, Kind, MIC);

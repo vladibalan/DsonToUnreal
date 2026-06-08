@@ -219,12 +219,11 @@ brow mesh. **Unblocks** slice #3 on G9 (`EyeMoisture Left/Right` live only in th
   see `Docs/Reference.md` → "LIE (layered-image) composition". Every real
   texture still resolves and imports; cosmetic only. Cleanup: have the texture
   importer skip `#`-prefixed refs before resolving.
-- **Companion `Mouth`/`Teeth` (incl. tongue) render metallic** — `Genesis 9 Mouth MAT.duf` binds the
-  real Base Color texture + roughness/translucency via **`scene.animations` key 0**, which the parser
-  doesn't apply, so they import textureless → metallic. Mechanism → [`Reference.md`](Reference.md) →
-  "Companion materials"; corrected diagnosis + fix plan/next steps → `DecisionLog.md`. **Parser-side
-  fix landed (DsonParser 1.2.0 → `DsonDocument_GetSceneAnimation*`, vendored + bound 2026-06-08).
-  Remaining: consume key 0 in `DsonMaterialBuilder` + re-import verification, then clear this line.**
+- **Companion `Mouth`/`Teeth` (incl. tongue) render metallic** — `Genesis 9 Mouth MAT.duf` parks real
+  Base Color / roughness / translucency in **`scene.animations` key 0**. Importer-side key-0
+  consumption implemented (`ApplySceneAnimationOverrides` in `DsonMaterialBuilder.cpp`); **compiles**.
+  Visual verification (re-import Nancy G9 → textured, non-metallic Mouth/Teeth) pending the user;
+  clear this line once verified. Mechanism → [`Reference.md`](Reference.md) → "Companion materials".
 
 ## Cleanup backlog
 
@@ -250,7 +249,7 @@ IrayUber SSS-binding (`SetParentEditorOnly`) and PBRSkin darkening (inline
 translucency restored tuned → Base Color, B1); rationale →
 [`SubsurfaceProfileV2.md`](SubsurfaceProfileV2.md) §Revision + `DecisionLog.md`.
 **Next: slice #3 — eye-moisture / cornea master** (`M_DazEyeMoisture`) — buildable on
-G8/G8.1/G3 and G9 (companion Slice C ✅ 2026-06-08 — eyes/mouth/eyelashes/tear import with MICs; **Mouth/Teeth metallic fix handed off to the DsonParser repo 2026-06-08 — see Known issues**). Then Phase 7 v2.
+G8/G8.1/G3 and G9 (companion Slice C ✅ 2026-06-08 — eyes/mouth/eyelashes/tear import with MICs; Mouth/Teeth key-0 override implemented 2026-06-08, visual verification pending — see Known issues). Then Phase 7 v2.
 
 **Phase 7 v2 — formula evaluation/composed character shape** (queued behind
 Phase 6 v2). The discovery-only portion is done: formula-reachable `?value`
