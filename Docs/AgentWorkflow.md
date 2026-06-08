@@ -32,12 +32,14 @@ launch the Implementer — the user launches it:
 - Reads project files and the docs to build the context for a task or answer.
 - Writes **documentation, instruction, and configuration files** (anything that is
   not C++ source under `Source/DsonImporter/`).
-- For a source change, **writes a task-file** (`.handoff/task-<id>.md`) and hands
-  the user a one-line launch instruction. A task-file may ask the Implementer for
-  feedback (feasibility, trade-offs, a counter-proposal) before any code is written.
+- For a source change, **creates the task branch** (`task/<id>` off `Base`, default
+  `main`) and **writes a task-file** (`.handoff/task-<id>.md`), then hands the user a
+  one-line launch instruction. A task-file may ask the Implementer for feedback
+  (feasibility, trade-offs, a counter-proposal) before any code is written.
 - **After the run, verifies against the repo** — `git diff` for what changed and a
   [`CodeReviewRules.md`](CodeReviewRules.md) pass over the finished diff — then
-  reports (see Reporting). The repo is ground truth; the feedback-file is advisory.
+  **commits and squash-merges the task branch into `Base`** and reports (see
+  Reporting). The repo is ground truth; the feedback-file is advisory.
 - Answers the user's questions directly when no code change is required.
 - Keeps `Docs/Roadmap.md` and the orientation docs current **and tight** when a
   doc-only change is the whole task (R8/R9/R10).
@@ -58,7 +60,8 @@ feedback-file* — so it holds for any agent:
 - Performs the code change, and **self-audits each edit** against
   `CodeReviewRules.md` (R1–R11) per [`../AGENTS.md`](../AGENTS.md) "Before editing
   source".
-- **Builds and verifies** its own change and reports the real result.
+- **Builds and verifies** its own change and reports the real result; it **never runs
+  git** — it edits the checked-out branch and leaves the tree dirty for the Director.
 - Keeps `Docs/Roadmap.md` and the orientation docs in sync **in the same change**
   (R8/R9) when the edit moves status or changes code layout.
 - **Writes its report to `.handoff/feedback-<id>.md`** (template below). **On a
@@ -74,10 +77,13 @@ feedback-file* — so it holds for any agent:
   build-risky change (parser-ABI / X-macro list, a `*.Build.cs`, public headers,
   added or removed `.cpp`) or an unconvincing build claim. Never claim a build or
   run you didn't actually do.
-- **The user handles git commits and pushes.** Do not commit or push; leave the
-  working tree for the user to review and commit. Plugin git lives in this repo
-  (`Plugins/DsonToUnreal`), not the host root — see [`../AGENTS.md`](../AGENTS.md)
-  "Version Control".
+- **Git is the Director's; the Implementer never runs it; push stays with the user.**
+  Per task the Director branches `task/<id>` off `Base`, commits, and squash-merges
+  back after verifying — one reviewed commit (the gate is the merge, not the commit);
+  the Implementer just leaves the tree dirty. Doc/config-only Director changes commit
+  straight to `main`. Mechanics in [`Tooling.md`](Tooling.md); plugin git lives in
+  this repo (`Plugins/DsonToUnreal`), not the host root — see
+  [`../AGENTS.md`](../AGENTS.md) "Version Control".
 - **Missing inputs — ask for the file *first*, before engineering around its
   absence.** If the task needs a fact that lives in a file you don't have (a
   `.duf`/`.dsf` asset, a log, a header), **ask the user to upload it**. Ask *before*
@@ -122,18 +128,18 @@ All Director↔Implementer traffic for a change travels through two files:
 
 1. **User → Director:** instruction or query.
 2. **Director:** gathers context, then either answers directly (no code change) or
-   writes `.handoff/task-<id>.md`. For a **substantial** task it asks the user to
-   review the task-file before launching; for a **minor** one it just reports the
-   task-file is ready.
+   **creates `task/<id>` off `Base`** and writes `.handoff/task-<id>.md`. For a
+   **substantial** task it asks the user to review the task-file before launching; for
+   a **minor** one it just reports the task-file is ready.
 3. **Director → User:** the one-line launch instruction — *"Read and follow
    `.handoff/task-<id>.md`."*
 4. **User → Implementer:** pastes that into whichever agent. The agent edits the
    tree, builds, self-audits, and writes `.handoff/feedback-<id>.md`.
 5. **User → Director:** "done, `<id>`."
 6. **Director:** reads the feedback-file (advisory), **verifies against the repo**
-   (`git diff` + review pass; build per the deferral rule above), and **reports**
-   two-tier.
-7. **User:** reviews and commits — git stays with the user.
+   (`git diff` + review pass; build per the deferral rule above), then **commits and
+   squash-merges `task/<id>` into `Base`** and **reports** two-tier.
+7. **User:** reviews the integrated result and **pushes** — pushing stays with the user.
 8. **Director:** on task-close, archives the pair to `.handoff/history/`.
 
 Because the user launches every run, **every task-file is on disk and reviewable
@@ -160,8 +166,8 @@ skipped `Docs/Roadmap.md` (R9). The Director reviews; it does not hand-fix sourc
 - **Smooth → short after-action report.** "Smooth" = completed as written, the
   Implementer's build clean, review clean, no ambiguity or assumption hit. A few
   lines: what changed and which files; the **Implementer's real build line** +
-  result (a summary, not an unverified "looks good"); "in your working tree,
-  uncommitted, ready to review/commit"; any **new** warnings; "Director review:
+  result (a summary, not an unverified "looks good"); "committed and squash-merged into
+  `<Base>`, ready for you to review and push"; any **new** warnings; "Director review:
   clean."
 - **Block → full details, the user decides.** A block is anything that isn't clean
   completion: build failure, an ambiguity or missing input, an assumption the
@@ -181,6 +187,9 @@ workflow expects):
 Role: You are the **Implementer** for the DsonToUnreal plugin — the role that
       edits source. Read ../AGENTS.md and Docs/CodeReviewRules.md first, then make
       the change below. You may be any coding agent; these rules still apply.
+
+Branch: `task/<id>` is checked out (off `<Base>`). Do **not** run git — leave the tree
+        dirty; the Director commits and squash-merges after verifying.
 
 Goal: <what the change should accomplish>
 

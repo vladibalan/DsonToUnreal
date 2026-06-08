@@ -407,3 +407,45 @@ Considered B (split into `Docs/HandoffProtocol.md`) and rejected it.
 `AGENTS.md`, `.gitignore`, `Docs/CodeReviewRules.md` (R10), and
 `.claude/hooks/dson-doc-guard.ps1` updated; `.handoff/` ignore verified via
 `git check-ignore`.
+
+## Director commits — branch-per-task, squash-merge, gate-at-merge (2026-06-08)
+
+**Decision.** Granted the **Director** git-commit authority (previously "user handles
+all commits/pushes"), wired into the task system as a **branch-per-task** flow. Per
+task the Director branches `task/<id>` off `Base` (default `main`) before writing the
+task-file; the Implementer edits that checked-out branch and leaves the tree dirty (it
+never runs git); after verifying, the Director **squash-merges into `Base`** — one
+reviewed commit per task. **Push stays with the user.**
+
+**Forks settled** (rationale):
+- **Gate at the merge, not the commit.** Task-branch commits may be WIP; the invariant
+  is that nothing reaches a parent without passing the Director's verification — which
+  is what lets nested tasks carry checkpoints without weakening the gate.
+- **Squash-merge per task** (vs `--no-ff` / rebase) — one reviewed commit per task maps
+  to the `task/<id>` unit and the LLM-changelog style; collapses intra-task WIP.
+- **Push stays with the user** (vs delegating) — commits/merges are local and
+  reversible; push is outward-facing, so the user reviews the local history first.
+- **Source merge conflicts route back through the handoff** (vs Director hand-resolve)
+  — resolving a source conflict is a source edit, outside the Director's boundary; only
+  non-source (docs/config) conflicts the Director resolves. Serialized integration
+  (branch off current `main`, integrate before the next task) keeps the common case
+  conflict-free.
+- **Nested exception** — a minor task spawned mid-task branches off the in-progress
+  parent *only if it depends on that parent's unmerged changes*, else off `main`;
+  children merge up (minor → major → main).
+- **Director-authored doc/config-only changes** (no Implementer, no handoff) commit
+  straight to `main` — no task branch.
+
+**Doc placement (R10).** `AgentWorkflow.md` was at 222/240 with a standing directive
+not to grow it toward the ceiling, so only the **policy** landed there (boundary
+bullet, role bodies, flow steps, template `Branch:` line); the **command mechanics**
+went to `Docs/Tooling.md` (57 → ~78/80), mirroring how build mechanics already live
+there. `AGENTS.md` lines 16/35 repointed (net-neutral).
+
+**Consequences.**
+- The sibling `DsonParser` repo and its `docs/handoff-system-port-guide.md` still say
+  "never commit" — the two repos' workflows now diverge; porting is a separate call.
+- Bootstrap: this doc change itself was left in the working tree for the **user** to
+  commit (not self-applied), since it is the change that grants the authority.
+
+**Status:** decided 2026-06-08; docs updated in the working tree, pending user commit.

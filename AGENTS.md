@@ -13,9 +13,9 @@ declares the role; **if unstated, ask** before doing role-specific work — and
 confirm it applies to *this* plugin, since this repo sits beside the separate
 `DsonParser` repo and roles do **not** carry across repos.
 
-Both roles share hard boundaries: **never commit/push, and ask the user to upload
-a missing file rather than guess its contents.** Builds: the Implementer builds and
-verifies its own changes; the Director defers.
+Both roles share hard boundaries: **never guess a missing file — ask the user to upload
+it.** Git: the Director commits/squash-merges per task, the Implementer never runs git,
+push stays with the user. Builds: the Implementer builds and verifies; the Director defers.
 
 Full role definitions, shared boundaries, the handoff sequence, and the
 task-file / feedback-file templates are owned by
@@ -33,7 +33,7 @@ from here (`Plugins/DsonToUnreal`), not from the host root.
 - Default branch: `main`.
 
 All source edits in this guide's scope live inside this repo, so commits/PRs for them
-belong here.
+belong here; the Director commits per the branch-per-task workflow (`Docs/AgentWorkflow.md`).
 
 ## Read Order
 

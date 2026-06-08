@@ -1,8 +1,8 @@
 # DsonToUnreal Editor Tooling
 
-Build/index tooling for working on this plugin: how to **build & verify** it
-(below) and how to (re)generate the clangd compile database. Build responsibility
-is a role split — see `Docs/AgentWorkflow.md`.
+Build/git/index tooling for working on this plugin: how to **build & verify** it,
+the **git branch-per-task workflow**, and how to (re)generate the clangd compile
+database. Build and git are a role split — see `Docs/AgentWorkflow.md`.
 
 ## Build & verify (read before building)
 
@@ -30,6 +30,27 @@ Gotchas:
   separate install). No LLVM/Clang needed.
 - Rider equivalent: the `DsonHostEditor | Win64 | Development` build configuration
   (it calls the same UBT under the hood).
+
+## Git workflow (branch-per-task)
+
+Branch/commit/merge mechanics for the **Director** (policy + role split:
+`Docs/AgentWorkflow.md`). The Implementer never runs git — it edits the checked-out
+branch and leaves the tree dirty. `<id>` is the handoff id; the branch is `task/<id>`.
+
+- **Open** a task off `Base` (default `main`): `git switch -c task/<id> <Base>`.
+- **Base / nesting.** A minor task spawned mid-task branches off the in-progress
+  parent **only if it needs that parent's unmerged changes**, else off `main`;
+  children merge up (minor → major → main). The task-file's `Branch:` line records it.
+- **Integrate** once the Director has verified (`git diff` + review pass):
+  `git switch <Base>` → `git merge --squash task/<id>` → `git commit` (one reviewed
+  commit, message from the task) → `git branch -D task/<id>`.
+- **Serialize** — open off current `main` and integrate before the next task, so the
+  common merge is a conflict-free fast path.
+- **Conflicts** — the Director resolves only non-source (docs/config); a **source**
+  conflict is a source edit: abort and route it back via a merge task-file (or
+  escalate), never hand-resolved.
+- **Doc/config-only Director changes** commit straight to `main` (no branch).
+- **Push stays with the user** — the Director commits and merges locally only.
 
 ## clangd index (read before regenerating it)
 
