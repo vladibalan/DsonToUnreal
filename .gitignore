@@ -26,6 +26,13 @@ Thumbs.db
 compile_commands.json
 .cache/
 
+# ---- Agent handoff scratch (Director <-> Implementer task/feedback files) ----
+# Per-task task-<id>.md / feedback-<id>.md live here during a run and move to
+# .handoff/history/ on close. Local-only workflow scratch: never tracked, kept out
+# of the git diff the Director verifies against and out of agent discovery
+# (see AGENTS.md Generated Folders and Docs/AgentWorkflow.md).
+.handoff/
+
 # -------------------------------------------------------
 # ThirdParty binaries — commit these (precompiled DsonParser)
 # -------------------------------------------------------

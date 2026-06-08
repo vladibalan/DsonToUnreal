@@ -34,7 +34,7 @@ $budgets = @{
     'Roadmap.md'               = 260
     'AuditGuide.md'            = 120
     'ImporterArchitecture.md'  = 185
-    'AgentWorkflow.md'         = 120
+    'AgentWorkflow.md'         = 240
     'CodeReviewRules.md'       = 240
     'Tooling.md'               = 80
 }

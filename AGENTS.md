@@ -5,9 +5,10 @@
 ## Operating model (two-agent workflow)
 
 This plugin is worked through two human-mediated roles — a **Director**
-(coordination: reads, writes docs/config, authors Implementer prompts; no source
+(coordination: reads, writes docs/config, authors Implementer task-files; no source
 edits) and an **Implementer** (makes the source changes per the code-review
-rules), with the user passing prompts between them. At session start the user
+rules). The handoff travels through files in `.handoff/`; the user launches each
+run by hand. At session start the user
 declares the role; **if unstated, ask** before doing role-specific work — and
 confirm it applies to *this* plugin, since this repo sits beside the separate
 `DsonParser` repo and roles do **not** carry across repos.
@@ -17,7 +18,7 @@ a missing file rather than guess its contents.** Builds: the Implementer builds 
 verifies its own changes; the Director defers.
 
 Full role definitions, shared boundaries, the handoff sequence, and the
-Director's prompt template are owned by
+task-file / feedback-file templates are owned by
 **[`Docs/AgentWorkflow.md`](Docs/AgentWorkflow.md)**.
 
 ## Version Control
@@ -117,7 +118,10 @@ push a hot-path doc past its line budget — relocate or split instead.
 
 Do not inspect these during normal discovery: `Binaries/`, `Intermediate/`, `.git/`.
 For audits/diagnostics they can be evidence (editor logs, crashes, build output) —
-see `Docs/AuditGuide.md` (Evidence Sources) for when and what.
+see `Docs/AuditGuide.md` (Evidence Sources) for when and what. Never browse
+`.handoff/` either (Director↔Implementer task/feedback scratch, gitignored): read
+only the one `task-<id>.md` you are explicitly handed — see
+[`Docs/AgentWorkflow.md`](Docs/AgentWorkflow.md).
 
 ## Build & tooling
 
