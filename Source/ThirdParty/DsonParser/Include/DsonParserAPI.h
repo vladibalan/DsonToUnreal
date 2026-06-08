@@ -10,8 +10,9 @@
 #include "DsonParserVersion.h"
 
 // Public C ABI orientation:
-// v1.1.0 — runtime: DsonParser_GetVersion(); compile-time: DSONPARSER_VERSION_*.
+// v1.2.0 — runtime: DsonParser_GetVersion(); compile-time: DSONPARSER_VERSION_*.
 // Release history: CHANGELOG.md; SemVer/C-ABI policy: docs/versioning.md.
+// What's new in 1.2.0: DsonDocument_GetSceneAnimation* — scene.animations keyframe channels exposed faithfully (per R6.4, never applied onto scene.materials).
 // What's new in 1.1.0: DsonDocument_GetScenePostLoadAddon* — "Character Addon Loader" companion figures (not in scene.nodes).
 //
 // This header exposes a parsed DSON/DSF/DUF document through an opaque handle and
@@ -313,6 +314,30 @@ DSONPARSER_API const char* DsonDocument_GetScenePostLoadAddonSlot(DsonDocumentHa
 DSONPARSER_API const char* DsonDocument_GetScenePostLoadAddonAssetName(DsonDocumentHandle handle, int index);
 DSONPARSER_API const char* DsonDocument_GetScenePostLoadAddonAssetFile(DsonDocumentHandle handle, int index);
 DSONPARSER_API const char* DsonDocument_GetScenePostLoadAddonMatPreset(DsonDocumentHandle handle, int index);
+
+// Scene animations (scene.animations): one entry per keyframe channel.
+// Each entry carries the verbatim DSON property pointer (url) and the first key's
+// typed value. Per R6.4 this surface is a raw passthrough — the parser does NOT
+// apply these onto scene.materials. The consumer reads both surfaces and decides.
+// @since 1.2.0
+DSONPARSER_API int         DsonDocument_GetSceneAnimationCount(DsonDocumentHandle handle);
+DSONPARSER_API const char* DsonDocument_GetSceneAnimationUrl(DsonDocumentHandle handle, int animIndex);
+// Returns the ValueKind of keys[0][1]: 0=null, 1=number, 2=bool, 3=string, 4=color.
+// Returns -1 when handle is invalid or animIndex is out of range (value/index family).
+// @since 1.2.0
+DSONPARSER_API int         DsonDocument_GetSceneAnimationValueKind(DsonDocumentHandle handle, int animIndex);
+// @since 1.2.0
+DSONPARSER_API double      DsonDocument_GetSceneAnimationFloat(DsonDocumentHandle handle, int animIndex);
+// @since 1.2.0
+DSONPARSER_API bool        DsonDocument_GetSceneAnimationBool(DsonDocumentHandle handle, int animIndex);
+// @since 1.2.0
+DSONPARSER_API const char* DsonDocument_GetSceneAnimationString(DsonDocumentHandle handle, int animIndex);
+// @since 1.2.0
+DSONPARSER_API double      DsonDocument_GetSceneAnimationColorR(DsonDocumentHandle handle, int animIndex);
+// @since 1.2.0
+DSONPARSER_API double      DsonDocument_GetSceneAnimationColorG(DsonDocumentHandle handle, int animIndex);
+// @since 1.2.0
+DSONPARSER_API double      DsonDocument_GetSceneAnimationColorB(DsonDocumentHandle handle, int animIndex);
 
 // ---- F. Morph Targets ----
 // morphIndex is an index into the filtered list of modifiers where type == "morph"
