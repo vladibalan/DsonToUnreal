@@ -13,6 +13,7 @@ Contents (newest decisions appended):
 - Materials v2 slice #2 (Subsurface Profile pipeline) — decisions & verification (2026-06-07)
 - Parser version-awareness gate — consume DsonParser versioning; keep the four ABI checks (2026-06-07)
 - Genesis 9 companion figures — packaging decision (separate meshes, leader-pose) + import plan (2026-06-08)
+- Director/Implementer handoff — file-based `.handoff/`, Director-defers, option D doc fold (2026-06-08)
 
 ## IrayUber bump-map seam — root cause & fix decision (2026-06-06)
 
@@ -358,3 +359,51 @@ parameter-free. `M_DazEyeMoisture` (slice #3) must handle those EyeMoisture chan
 parser-side `material_library` `#fragment` resolution).
 
 **Next:** (1) Mouth/Teeth metallic fix (Slice C follow-up), then (2) slice #3 (`M_DazEyeMoisture`).
+
+## Director/Implementer handoff — file-based `.handoff/`, Director-defers, option D doc fold (2026-06-08)
+
+**Decision.** Ported the Director/Implementer **file-based handoff** (from the
+DsonParser repo's `docs/handoff-system-port-guide.md`) into this plugin: a change
+now travels through `.handoff/task-<id>.md` / `feedback-<id>.md` on disk rather than
+a chat-pasted prompt, so the Implementer can be any LLM agent and every task-file is
+on disk and reviewable before it runs. Spec folded into `Docs/AgentWorkflow.md`
+(roles, id convention, two-tier reporting, review gate, history, both templates).
+
+**Build ownership — kept "Director defers," diverging from the port guide.** The
+guide bakes in "Implementer builds; **Director re-runs the build** to confirm" and
+flags it non-negotiable. We deliberately did **not** adopt that. Grounding it in
+cost vs. coverage:
+- The Director's ground-truth check splits into `git diff` (what changed) + a
+  `CodeReviewRules.md` review pass (compliance) — both cheap — and an independent
+  recompile (does it build) — **expensive here**: `Build.bat DsonHostEditor` needs
+  the UE Editor closed plus a slow link, unlike DsonParser's fast `msbuild` DLL +
+  console-harness build the guide was written for.
+- The recompile is also **redundant**: the user builds and opens the editor to use
+  the import, so a bad compile fails loudly and immediately — a natural second
+  verifier DsonParser lacks.
+- So the Director keeps the two cheap checks and **defers the recompile**,
+  re-building only at its discretion for a build-risky change (parser-ABI / X-macro
+  list, `*.Build.cs`, public headers, added/removed `.cpp`) or an unconvincing build
+  claim. `BUILD_OWNERSHIP` is thus an adaptation slot for this repo, not the guide's
+  constant.
+
+**Doc architecture — option D (one doc + raised budget), not a split.** The fold
+pushed `Docs/AgentWorkflow.md` from 119 → 222 lines, over its R10 soft budget of
+120. Chose to **raise that budget to 240** (in R10 and the mirrored `dson-doc-guard`
+hook) rather than split the mechanics/templates into a companion doc: the content is
+one cohesive topic (roles + their handoff), and a split would leave a thin index
+pointing at a fat companion — gaming the line metric, not serving the reader.
+Considered B (split into `Docs/HandoffProtocol.md`) and rejected it.
+
+**Consequences.**
+- `.handoff/` is gitignored and listed do-not-browse in `AGENTS.md`; the dirs are
+  created on first task; history pruned > 30 days.
+- **No `settings.json` edit** — the budget lives in the hook *script*, referenced by
+  both the in-repo and global settings via path, so R11's mirror stays intact.
+- Future workflow additions should still route to their owning tier (rationale here,
+  status → `Roadmap.md`), not grow `AgentWorkflow.md` toward the new ceiling.
+
+**Status:** ✅ done & committed 2026-06-08 — `Docs/AgentWorkflow.md` rewritten;
+`AGENTS.md`, `.gitignore`, `Docs/CodeReviewRules.md` (R10), and
+`.claude/hooks/dson-doc-guard.ps1` updated; `.handoff/` ignore verified via
+`git check-ignore`.
