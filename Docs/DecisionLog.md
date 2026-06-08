@@ -374,8 +374,20 @@ never the master.
   `DsonMaterialBuilder::ApplySceneAnimationOverrides` (commit `e4002b7`, 2026-06-08): after the base
   scene.materials pass, each key-0 `value`/`image_file` whose matId matches the scene material and whose
   channel is a key in the active mapping table overrides the placeholder. Scope held to v1 (`value` +
-  `image_file`, key 0; `image_modification`/tiling + multi-key deferred). **Compiles; awaiting re-import
-  visual verification on Nancy G9 before the `Roadmap.md` Known-issues line is cleared.**
+  `image_file`, key 0; `image_modification`/tiling + multi-key deferred). **Verified on Nancy G9
+  re-import 2026-06-08: textures apply and (with the companion UV-set fix) UVs are correct; the residual
+  over-shininess is a separate PBRSkin-master issue (below + `Roadmap.md` Known issues).**
+
+**PBRSkin over-shininess — investigation note (2026-06-08).** After the key-0 + companion-UV fixes made
+textures visible, all `M_DazPBRSkin` surfaces (G9 Nancy body skin + Mouth/Teeth/tongue) read too
+glossy/reflective vs DAZ. Lead found while diagnosing the Mouth: DAZ `Specular Lobe 2 Roughness Mult`
+(~0.025 on the Mouth — the *second* dual-lobe's roughness **relative to lobe 1**, the sharp highlight)
+is mapped (`GetPBRSkinMapping`) to the master's **global** `SpecularRoughnessMult`. The master computes
+Roughness = `SpecularRoughness × SpecularRoughnessMap × SpecularRoughnessMult`, so a ~0.025 global
+multiplier collapses roughness toward a mirror. Root question: how the v1 single-lobe approximation
+should treat DAZ's two specular lobes (lobe-1 roughness + lobe-2 relative mult + dual-lobe weight) — a
+fidelity-vs-runtime-cost call (`MaterialMastersV1.md` §M_DazPBRSkin). Not yet scoped; tracked in
+`Roadmap.md` Known issues.
 
 **Slice #3 heads-up.** EyeMoisture `L/R` import but their channels reference `material_library` via a
 `#fragment` url the parser doesn't resolve → the interim `M_DazIrayUber` MICs are near
@@ -387,8 +399,9 @@ percent-encoded and **unsuffixed** (`#materials/EyeMoisture%20Left:?…`), so th
 matches; slice #3 must reconcile that (UrlDecode + suffix) before eyes get key-0 values. Harmless until
 then — no regression (eyes already import without key-0).
 
-**Next:** (1) Mouth/Teeth metallic fix — ✅ importer key-0 consumption landed 2026-06-08 (`e4002b7`),
-awaiting re-import visual verification; then (2) slice #3 (`M_DazEyeMoisture`).
+**Next:** (1) Mouth/Teeth metallic fix — ✅ key-0 consumption (`e4002b7`) + companion UV-set fix
+(`3f60375`) verified on Nancy G9 2026-06-08; then (2) slice #3 (`M_DazEyeMoisture`) and the
+PBRSkin-shininess investigation (Roadmap Known issues).
 
 ## Director/Implementer handoff — file-based `.handoff/`, Director-defers, option D doc fold (2026-06-08)
 

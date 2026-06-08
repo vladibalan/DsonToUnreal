@@ -219,11 +219,11 @@ brow mesh. **Unblocks** slice #3 on G9 (`EyeMoisture Left/Right` live only in th
   see `Docs/Reference.md` → "LIE (layered-image) composition". Every real
   texture still resolves and imports; cosmetic only. Cleanup: have the texture
   importer skip `#`-prefixed refs before resolving.
-- **Companion `Mouth`/`Teeth` (incl. tongue) render metallic** — `Genesis 9 Mouth MAT.duf` parks real
-  Base Color / roughness / translucency in **`scene.animations` key 0**. Importer-side key-0
-  consumption implemented (`ApplySceneAnimationOverrides` in `DsonMaterialBuilder.cpp`); **compiles**.
-  Visual verification (re-import Nancy G9 → textured, non-metallic Mouth/Teeth) pending the user;
-  clear this line once verified. Mechanism → [`Reference.md`](Reference.md) → "Companion materials".
+- **PBRSkin surfaces render too shiny** (investigate) — all `M_DazPBRSkin` surfaces, body skin
+  included, read glossier than DAZ. Lead: DAZ `Specular Lobe 2 Roughness Mult` (a dual-lobe *relative*
+  roughness, ~0.025 on G9 Mouth) is mapped to the master's **global** `SpecularRoughnessMult`, crushing
+  Roughness toward a mirror — a master/mapping-semantics mismatch under the v1 single-lobe approx.
+  Surfaced on Nancy G9 2026-06-08 (after key-0 + UV fixes made textures visible); decision → `DecisionLog.md`.
 
 ## Cleanup backlog
 
@@ -249,7 +249,7 @@ IrayUber SSS-binding (`SetParentEditorOnly`) and PBRSkin darkening (inline
 translucency restored tuned → Base Color, B1); rationale →
 [`SubsurfaceProfileV2.md`](SubsurfaceProfileV2.md) §Revision + `DecisionLog.md`.
 **Next: slice #3 — eye-moisture / cornea master** (`M_DazEyeMoisture`) — buildable on
-G8/G8.1/G3 and G9 (companion Slice C ✅ 2026-06-08 — eyes/mouth/eyelashes/tear import with MICs; Mouth/Teeth key-0 override implemented 2026-06-08, visual verification pending — see Known issues). Then Phase 7 v2.
+G8/G8.1/G3 and G9 (companion Slice C ✅ 2026-06-08; Mouth/Teeth key-0 + companion UV-set fixes ✅ verified 2026-06-08 on Nancy G9). Then the PBRSkin-shininess investigation (Known issues) and Phase 7 v2.
 
 **Phase 7 v2 — formula evaluation/composed character shape** (queued behind
 Phase 6 v2). The discovery-only portion is done: formula-reachable `?value`
