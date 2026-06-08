@@ -1,8 +1,35 @@
 # DsonToUnreal Editor Tooling
 
-Build/index tooling for working on this plugin in an editor. Currently this covers
-the clangd compile database. Builds themselves are run by the user — see
-`Docs/AgentWorkflow.md` (shared boundaries).
+Build/index tooling for working on this plugin: how to **build & verify** it
+(below) and how to (re)generate the clangd compile database. Build responsibility
+is a role split — see `Docs/AgentWorkflow.md`.
+
+## Build & verify (read before building)
+
+The plugin compiles as part of the **host project's editor target**
+(`DsonHostEditor`), not standalone. From a terminal (shell-only — no Rider build
+action needed), against the source-build engine at `D:\UE_5.4`:
+
+```
+"D:\UE_5.4\Engine\Build\BatchFiles\Build.bat" DsonHostEditor Win64 Development -Project="D:\Unreal Projects\DsonHost\DsonHost.uproject" -WaitMutex
+```
+
+Verified 2026-06-08: clean incremental build of `UnrealEditor-DsonImporter.dll`,
+exit 0, no warnings. An "up-to-date" result also counts as success; a full clean
+rebuild takes considerably longer.
+
+Gotchas:
+- **Close the UE Editor first.** If it is running with the plugin loaded, the link
+  step fails with a file-in-use error on `UnrealEditor-DsonImporter.dll` — the most
+  common failure.
+- **No GenerateProjectFiles needed to compile** — UBT builds directly; that step
+  only refreshes Rider/VS IntelliSense and the clangd `.rsp` inputs below.
+- `-WaitMutex` queues behind a running UBT (e.g. Rider's own build) instead of
+  failing; `-FromMsBuild` is not needed for a terminal invocation.
+- Requires the **VS2022 C++ toolchain**; the engine's bundled .NET SDK is used (no
+  separate install). No LLVM/Clang needed.
+- Rider equivalent: the `DsonHostEditor | Win64 | Development` build configuration
+  (it calls the same UBT under the hood).
 
 ## clangd index (read before regenerating it)
 

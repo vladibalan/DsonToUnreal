@@ -12,8 +12,9 @@ declares the role; **if unstated, ask** before doing role-specific work — and
 confirm it applies to *this* plugin, since this repo sits beside the separate
 `DsonParser` repo and roles do **not** carry across repos.
 
-Both roles share hard boundaries: **never run builds, never commit/push, and ask
-the user to upload a missing file rather than guess its contents.**
+Both roles share hard boundaries: **never commit/push, and ask the user to upload
+a missing file rather than guess its contents.** Builds: the Implementer builds and
+verifies its own changes; the Director defers.
 
 Full role definitions, shared boundaries, the handoff sequence, and the
 Director's prompt template are owned by
@@ -118,11 +119,11 @@ Do not inspect these during normal discovery: `Binaries/`, `Intermediate/`, `.gi
 For audits/diagnostics they can be evidence (editor logs, crashes, build output) —
 see `Docs/AuditGuide.md` (Evidence Sources) for when and what.
 
-## Editor Tooling
+## Build & tooling
 
-clangd compile-database setup — how to regenerate the index without installing an
-LLVM/Clang toolchain — lives in **[`Docs/Tooling.md`](Docs/Tooling.md)**; read it
-before regenerating.
+**Build & verify** the plugin (compile the host `DsonHostEditor` target — close the
+UE Editor first) and clangd compile-database regeneration both live in
+**[`Docs/Tooling.md`](Docs/Tooling.md)**; read it before building or regenerating.
 
 ## Code Notes
 

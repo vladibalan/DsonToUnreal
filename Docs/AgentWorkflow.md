@@ -59,8 +59,8 @@ The Implementer executes the prompts the user passes in from the Director:
 
 ## Shared boundaries (both roles)
 
-- **The user handles binary builds.** Never claim something is built or run
-  unless you actually did it; otherwise ask the user to build and report back.
+- **Builds: the Implementer builds and verifies its own changes** and reports the
+  real result; the Director defers. Never claim a build or run you didn't actually do.
 - **The user handles git commits and pushes.** Do not commit or push; leave the
   working tree for the user to review and commit. Plugin git lives in this
   repo (`Plugins/DsonToUnreal`), not the host root — see [`../AGENTS.md`](../AGENTS.md)
