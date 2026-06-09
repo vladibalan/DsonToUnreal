@@ -78,6 +78,7 @@ private:
     TWeakObjectPtr<UMaterial> CachedIrayUberMaster;
     TWeakObjectPtr<UMaterial> CachedPBRSkinMaster;
     TWeakObjectPtr<UMaterial> CachedDefaultMaster;
+    TWeakObjectPtr<UMaterial> CachedEyeMoistureMaster;
     TWeakObjectPtr<USubsurfaceProfile> CachedSubsurfaceProfile;
     TSet<FString> WarnedUnknownSubsurfaceGroups;
 

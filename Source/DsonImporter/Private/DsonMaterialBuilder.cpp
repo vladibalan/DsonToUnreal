@@ -28,9 +28,10 @@
 // Master material asset paths
 // ---------------------------------------------------------------------------
 
-static const TCHAR* kIrayUberMasterPath = TEXT("/DsonToUnreal/Materials/M_DazIrayUber");
-static const TCHAR* kPBRSkinMasterPath  = TEXT("/DsonToUnreal/Materials/M_DazPBRSkin");
-static const TCHAR* kDefaultMasterPath  = TEXT("/DsonToUnreal/Materials/M_DazDefault");
+static const TCHAR* kIrayUberMasterPath    = TEXT("/DsonToUnreal/Materials/M_DazIrayUber");
+static const TCHAR* kPBRSkinMasterPath     = TEXT("/DsonToUnreal/Materials/M_DazPBRSkin");
+static const TCHAR* kDefaultMasterPath     = TEXT("/DsonToUnreal/Materials/M_DazDefault");
+static const TCHAR* kEyeMoistureMasterPath = TEXT("/DsonToUnreal/Materials/M_DazEyeMoisture");
 static constexpr float kSkinSubsurfaceWeight = 0.85f;
 static constexpr float kSssTintStrength = 0.4f;
 static constexpr float kSssMeanFreePathDistance = 2.6f;
@@ -82,9 +83,17 @@ struct FStandaloneTextureImportCounts
     int32 LieLayers = 0;
 };
 
+// Identifies which parser channel family to read: scene_material[MatIdx] or material_library[MatIdx].
+struct FDazChannelSource
+{
+    bool  bLibrary = false;
+    int32 MatIdx   = 0;
+};
+
 enum class EDsonSurfaceClass : uint8
 {
     Skin,
+    EyeMoisture,
     NonSkin,
     Unknown,
 };
@@ -158,6 +167,30 @@ static const TMap<FString, FDazParamBinding>& GetPBRSkinMapping()
     return Map;
 }
 
+static const TMap<FString, FDazParamBinding>& GetEyeMoistureMapping()
+{
+    // DAZ channel id -> Unreal master parameter binding for eye-moisture (wet-eye) surfaces.
+    // All channels are pure parametric (no textures). Feed raw DAZ values; the master handles
+    // translucency tuning (same pattern as PBRSkin decision B1).
+    // Parameter names define the M_DazEyeMoisture contract (MaterialMastersV1.md).
+    static const TMap<FString, FDazParamBinding> Map = []()
+    {
+        TMap<FString, FDazParamBinding> M;
+        M.Add(TEXT("diffuse"),
+            { FName(TEXT("BaseColor")),    NAME_None,                       NAME_None, NAME_None, false });
+        M.Add(TEXT("Glossy Reflectivity"),
+            { NAME_None,  FName(TEXT("Specular")),      NAME_None, NAME_None, false });
+        M.Add(TEXT("Glossy Roughness"),
+            { NAME_None,  FName(TEXT("Roughness")),     NAME_None, NAME_None, false });
+        M.Add(TEXT("Refraction Index"),
+            { NAME_None,  FName(TEXT("RefractionIOR")), NAME_None, NAME_None, false });
+        M.Add(TEXT("Cutout Opacity"),
+            { NAME_None,  FName(TEXT("Opacity")),       NAME_None, NAME_None, false });
+        return M;
+    }();
+    return Map;
+}
+
 static const TMap<FString, FDazParamBinding>* GetMappingForShader(EDazShaderKind Kind)
 {
     switch (Kind)
@@ -193,6 +226,18 @@ static const TSet<FString>& GetSkinSurfaceGroups()
     return Groups;
 }
 
+static const TSet<FString>& GetEyeMoistureSurfaceGroups()
+{
+    static const TSet<FString> Groups = {
+        TEXT("EyeMoisture"),
+        TEXT("EyeMoisture Left"),
+        TEXT("EyeMoisture Right"),
+        TEXT("Cornea"),
+        TEXT("Tear"),
+    };
+    return Groups;
+}
+
 static const TSet<FString>& GetNonSkinSurfaceGroups()
 {
     static const TSet<FString> Groups = {
@@ -201,19 +246,14 @@ static const TSet<FString>& GetNonSkinSurfaceGroups()
         TEXT("Mouth Cavity"),
         TEXT("Tongue"),
         TEXT("EyeSocket"),
-        TEXT("EyeMoisture"),
-        TEXT("EyeMoisture Left"),
-        TEXT("EyeMoisture Right"),
         TEXT("Eye Left"),
         TEXT("Eye Right"),
-        TEXT("Cornea"),
         TEXT("Pupils"),
         TEXT("Irises"),
         TEXT("Sclera"),
         TEXT("Eyelashes"),
         TEXT("Eyelashes Lower"),
         TEXT("Eyelashes Upper"),
-        TEXT("Tear"),
         TEXT("Fingernails"),
         TEXT("Toenails"),
     };
@@ -224,6 +264,8 @@ static EDsonSurfaceClass ClassifySurfaceGroup(const FString& GroupName)
 {
     if (GetSkinSurfaceGroups().Contains(GroupName))
         return EDsonSurfaceClass::Skin;
+    if (GetEyeMoistureSurfaceGroups().Contains(GroupName))
+        return EDsonSurfaceClass::EyeMoisture;
     if (GetNonSkinSurfaceGroups().Contains(GroupName))
         return EDsonSurfaceClass::NonSkin;
     return EDsonSurfaceClass::Unknown;
@@ -296,35 +338,42 @@ static FMaterialInstanceAssetContext CreateMaterialInstanceAsset(
     return AssetContext;
 }
 
-static void ApplySceneMaterialChannel(
-    uint64_t DsonHandle,
-    int32 SceneMatIdx,
-    int32 ChannelIdx,
+static void ApplyMaterialChannel(
+    uint64_t H,
+    const FDazChannelSource& Src,
+    int32 c,
     const FDazParamBinding& Binding,
     UMaterialInstanceConstant* MIC,
     FDsonTextureImporter& TextureImporter)
 {
-    const bool bHasColor = GDsonParser.GetSceneMaterialChannelHasColor
-        ? GDsonParser.GetSceneMaterialChannelHasColor(DsonHandle, SceneMatIdx, ChannelIdx) : false;
+    const bool bLib = Src.bLibrary;
+    const int32 Mid = Src.MatIdx;
 
-    // Color or scalar: both get applied even when a texture is also present.
-    // The master multiplies the constant by the texture sample when UseFlag=1.
+    const bool bHasColor = bLib
+        ? (GDsonParser.GetMaterialChannelHasColor    ? GDsonParser.GetMaterialChannelHasColor(H, Mid, c)    : false)
+        : (GDsonParser.GetSceneMaterialChannelHasColor ? GDsonParser.GetSceneMaterialChannelHasColor(H, Mid, c) : false);
+
+    // Color or scalar: both applied even when a texture is also present.
     if (bHasColor && Binding.ColorParam != NAME_None)
     {
-        const double R = GDsonParser.GetSceneMaterialChannelColorR
-            ? GDsonParser.GetSceneMaterialChannelColorR(DsonHandle, SceneMatIdx, ChannelIdx) : 0.0;
-        const double G = GDsonParser.GetSceneMaterialChannelColorG
-            ? GDsonParser.GetSceneMaterialChannelColorG(DsonHandle, SceneMatIdx, ChannelIdx) : 0.0;
-        const double B = GDsonParser.GetSceneMaterialChannelColorB
-            ? GDsonParser.GetSceneMaterialChannelColorB(DsonHandle, SceneMatIdx, ChannelIdx) : 0.0;
+        const double R = bLib
+            ? (GDsonParser.GetMaterialChannelColorR    ? GDsonParser.GetMaterialChannelColorR(H, Mid, c)    : 0.0)
+            : (GDsonParser.GetSceneMaterialChannelColorR ? GDsonParser.GetSceneMaterialChannelColorR(H, Mid, c) : 0.0);
+        const double G = bLib
+            ? (GDsonParser.GetMaterialChannelColorG    ? GDsonParser.GetMaterialChannelColorG(H, Mid, c)    : 0.0)
+            : (GDsonParser.GetSceneMaterialChannelColorG ? GDsonParser.GetSceneMaterialChannelColorG(H, Mid, c) : 0.0);
+        const double B = bLib
+            ? (GDsonParser.GetMaterialChannelColorB    ? GDsonParser.GetMaterialChannelColorB(H, Mid, c)    : 0.0)
+            : (GDsonParser.GetSceneMaterialChannelColorB ? GDsonParser.GetSceneMaterialChannelColorB(H, Mid, c) : 0.0);
         MIC->SetVectorParameterValueEditorOnly(
             FMaterialParameterInfo(Binding.ColorParam),
             FLinearColor(static_cast<float>(R), static_cast<float>(G), static_cast<float>(B), 1.0f));
     }
     else if (!bHasColor && Binding.ScalarParam != NAME_None)
     {
-        const double Val = GDsonParser.GetSceneMaterialChannelValue
-            ? GDsonParser.GetSceneMaterialChannelValue(DsonHandle, SceneMatIdx, ChannelIdx) : 0.0;
+        const double Val = bLib
+            ? (GDsonParser.GetMaterialChannelValue    ? GDsonParser.GetMaterialChannelValue(H, Mid, c)    : 0.0)
+            : (GDsonParser.GetSceneMaterialChannelValue ? GDsonParser.GetSceneMaterialChannelValue(H, Mid, c) : 0.0);
         MIC->SetScalarParameterValueEditorOnly(
             FMaterialParameterInfo(Binding.ScalarParam),
             static_cast<float>(Val));
@@ -333,8 +382,13 @@ static void ApplySceneMaterialChannel(
     // Texture + UseFlag: orthogonal to color/scalar, applied when an image path exists.
     if (Binding.TextureParam != NAME_None)
     {
-        const FString TextureRef =
-            ReadSceneMaterialChannelTextureRef(DsonHandle, SceneMatIdx, ChannelIdx);
+        const FString TexPath = bLib
+            ? S(GDsonParser.GetMaterialChannelTexturePath    ? GDsonParser.GetMaterialChannelTexturePath(H, Mid, c)    : nullptr)
+            : S(GDsonParser.GetSceneMaterialChannelTexturePath ? GDsonParser.GetSceneMaterialChannelTexturePath(H, Mid, c) : nullptr);
+        const FString ImgUrl = bLib
+            ? S(GDsonParser.GetMaterialChannelImageUrl    ? GDsonParser.GetMaterialChannelImageUrl(H, Mid, c)    : nullptr)
+            : S(GDsonParser.GetSceneMaterialChannelImageUrl ? GDsonParser.GetSceneMaterialChannelImageUrl(H, Mid, c) : nullptr);
+        const FString TextureRef = !TexPath.IsEmpty() ? TexPath : ImgUrl;
         if (!TextureRef.IsEmpty())
         {
             UTexture2D* Tex = TextureImporter.ImportOrFind(TextureRef, Binding.bSRGB);
@@ -352,26 +406,31 @@ static void ApplySceneMaterialChannel(
     }
 }
 
-static void ApplyMappedSceneMaterialChannels(
-    uint64_t DsonHandle,
-    int32 SceneMatIdx,
+static void ApplyMappedMaterialChannels(
+    uint64_t H,
+    const FDazChannelSource& Src,
     const TMap<FString, FDazParamBinding>& Mapping,
     UMaterialInstanceConstant* MIC,
     FDsonTextureImporter& TextureImporter)
 {
-    const int32 ChCount = GDsonParser.GetSceneMaterialChannelCount
-        ? GDsonParser.GetSceneMaterialChannelCount(DsonHandle, SceneMatIdx) : 0;
+    const bool bLib = Src.bLibrary;
+    const int32 Mid = Src.MatIdx;
+
+    const int32 ChCount = bLib
+        ? (GDsonParser.GetMaterialChannelCount      ? GDsonParser.GetMaterialChannelCount(H, Mid)      : 0)
+        : (GDsonParser.GetSceneMaterialChannelCount ? GDsonParser.GetSceneMaterialChannelCount(H, Mid) : 0);
 
     for (int32 c = 0; c < ChCount; ++c)
     {
-        const FString ChId = S(GDsonParser.GetSceneMaterialChannelId
-            ? GDsonParser.GetSceneMaterialChannelId(DsonHandle, SceneMatIdx, c) : nullptr);
+        const FString ChId = bLib
+            ? S(GDsonParser.GetMaterialChannelId      ? GDsonParser.GetMaterialChannelId(H, Mid, c)      : nullptr)
+            : S(GDsonParser.GetSceneMaterialChannelId ? GDsonParser.GetSceneMaterialChannelId(H, Mid, c) : nullptr);
 
         const FDazParamBinding* Binding = Mapping.Find(ChId);
         if (!Binding)
             continue;
 
-        ApplySceneMaterialChannel(DsonHandle, SceneMatIdx, c, *Binding, MIC, TextureImporter);
+        ApplyMaterialChannel(H, Src, c, *Binding, MIC, TextureImporter);
     }
 }
 
@@ -567,6 +626,51 @@ static void CaptureFirstUvSetUrl(uint64_t DsonHandle, int32 SceneMatIdx, FString
     }
 }
 
+// Strips a trailing -<digits> uniquifying suffix (e.g. "EyeMoisture Left-1" -> "EyeMoisture Left").
+// Only strips when the entire tail after the last '-' is digits and the dash is not at position 0.
+static FString StripUniquifyingSuffix(const FString& Id)
+{
+    const int32 Len = Id.Len();
+    int32 i = Len - 1;
+    while (i >= 0 && FChar::IsDigit(Id[i]))
+        --i;
+    if (i < 0 || i == Len - 1 || Id[i] != TEXT('-') || i == 0)
+        return Id;
+    return Id.Left(i);
+}
+
+// Returns the channel source for a scene material: if its url is a bare #fragment with
+// zero inline channels, resolve the fragment to a material_library index and return it;
+// otherwise return the scene-material index. Permissive: logs a warning and falls back to
+// the scene source (zero channels) when the fragment is not found in the library.
+static FDazChannelSource ResolveChannelSource(uint64_t H, int32 SceneMatIdx, const FString& Url)
+{
+    const FDazChannelSource SceneDefault = { false, SceneMatIdx };
+
+    if (!Url.StartsWith(TEXT("#")))
+        return SceneDefault;
+
+    const int32 SceneChCount = GDsonParser.GetSceneMaterialChannelCount
+        ? GDsonParser.GetSceneMaterialChannelCount(H, SceneMatIdx) : 0;
+    if (SceneChCount != 0)
+        return SceneDefault;
+
+    // Bare #fragment — resolve to material_library entry (UrlDecode: %20 -> space etc.).
+    const FString FragmentId = FDsonContentRoots::UrlDecode(Url.Mid(1));
+    const int32 MatCount = GDsonParser.GetMaterialCount ? GDsonParser.GetMaterialCount(H) : 0;
+    for (int32 i = 0; i < MatCount; ++i)
+    {
+        const FString LibId = S(GDsonParser.GetMaterialId ? GDsonParser.GetMaterialId(H, i) : nullptr);
+        if (LibId == FragmentId)
+            return { true, i };
+    }
+
+    UE_LOG(LogDsonImporter, Warning,
+        TEXT("[mat] bare #fragment url '%s' not resolved in material_library (decoded: '%s')"),
+        *Url, *FragmentId);
+    return SceneDefault;
+}
+
 // ---------------------------------------------------------------------------
 // Scene animation (key-0) override helpers
 // ---------------------------------------------------------------------------
@@ -666,7 +770,13 @@ static void ApplySceneAnimationOverrides(
         FString ParsedMatId, ChannelId, Leaf;
         if (!ParseAnimationUrl(UrlStr, ParsedMatId, ChannelId, Leaf))
             continue;
-        if (ParsedMatId != MatId)
+
+        // UrlDecode the parsed matId (e.g. "EyeMoisture%20Left" -> "EyeMoisture Left") then
+        // match against both the raw scene id and the scene id with its uniquifying -<n> suffix
+        // stripped (e.g. "EyeMoisture Left-1" -> "EyeMoisture Left"). Regular surface ids like
+        // "Face" are unchanged by both transforms, so there is no regression on them.
+        const FString DecodedParsedMatId = FDsonContentRoots::UrlDecode(ParsedMatId);
+        if (DecodedParsedMatId != MatId && DecodedParsedMatId != StripUniquifyingSuffix(MatId))
             continue;
 
         ++MatchedForMat;
@@ -784,13 +894,30 @@ EDazShaderKind FDsonMaterialBuilder::DetectShader(
 }
 
 // ---------------------------------------------------------------------------
-// LoadMasterForShader
+// LoadAndCacheMaster / LoadMasterForShader
 // ---------------------------------------------------------------------------
+
+// Master materials are plugin content assets. Cache only weak references so UE can
+// still unload/reload assets during editor workflows.
+static UMaterial* LoadAndCacheMaster(TWeakObjectPtr<UMaterial>& Cache, const TCHAR* Path)
+{
+    if (Cache.IsValid())
+        return Cache.Get();
+
+    UMaterial* Master = LoadObject<UMaterial>(nullptr, Path);
+    if (!Master)
+    {
+        UE_LOG(LogDsonImporter, Error,
+            TEXT("DsonMaterialBuilder: failed to load master material '%s'"), Path);
+        return nullptr;
+    }
+
+    Cache = Master;
+    return Master;
+}
 
 UMaterial* FDsonMaterialBuilder::LoadMasterForShader(EDazShaderKind Kind)
 {
-    // Master materials are plugin content assets. Cache only weak references so UE can
-    // still unload/reload assets during editor workflows.
     TWeakObjectPtr<UMaterial>* Cached = nullptr;
     const TCHAR* Path = nullptr;
 
@@ -801,19 +928,7 @@ UMaterial* FDsonMaterialBuilder::LoadMasterForShader(EDazShaderKind Kind)
         case EDazShaderKind::Default:  Cached = &CachedDefaultMaster;  Path = kDefaultMasterPath;  break;
     }
 
-    if (Cached->IsValid())
-        return Cached->Get();
-
-    UMaterial* Master = LoadObject<UMaterial>(nullptr, Path);
-    if (!Master)
-    {
-        UE_LOG(LogDsonImporter, Error,
-            TEXT("DsonMaterialBuilder: failed to load master material '%s'"), Path);
-        return nullptr;
-    }
-
-    *Cached = Master;
-    return Master;
+    return LoadAndCacheMaster(*Cached, Path);
 }
 
 void FDsonMaterialBuilder::RecordShaderKind(EDazShaderKind Kind)
@@ -1028,18 +1143,51 @@ UMaterialInstanceConstant* FDsonMaterialBuilder::BuildSceneMaterial(
     const EDazShaderKind Kind = DetectShader(Metadata.Url, Metadata.ShaderType);
     RecordShaderKind(Kind);
 
-    // Step 2 - load master; do NOT substitute a different master on failure
-    UMaterial* Master = LoadMasterForShader(Kind);
-    if (!Master)
+    // Step 2 - classify surface; choose per-material inputs up front.
+    FString GroupName;
+    ReadFirstSceneMaterialGroupName(H, SceneMatIdx, GroupName);
+    const EDsonSurfaceClass SurfaceClass = ClassifySurfaceGroup(GroupName);
+    const bool bIsEyeMoisture = (SurfaceClass == EDsonSurfaceClass::EyeMoisture);
+
+    UMaterial* Master = nullptr;
+    const TMap<FString, FDazParamBinding>* Mapping = nullptr;
+    FDazChannelSource Src;
+
+    if (bIsEyeMoisture)
     {
-        UE_LOG(LogDsonImporter, Error,
-            TEXT("DsonMaterialBuilder: aborting build for scene material '%s' - master load failed"),
-            *Metadata.MatId);
-        RecordFailure();
-        return nullptr;
+        // Eye-moisture uses its own master; channels may live in material_library when the
+        // scene url is a bare #fragment (ResolveChannelSource handles the lookup).
+        // No SSS and no IrayUber normal/bump pass (pure parametric, no texture maps).
+        Master = LoadAndCacheMaster(CachedEyeMoistureMaster, kEyeMoistureMasterPath);
+        if (!Master)
+        {
+            UE_LOG(LogDsonImporter, Error,
+                TEXT("DsonMaterialBuilder: aborting eye material '%s' - M_DazEyeMoisture master missing"),
+                *Metadata.MatId);
+            RecordFailure();
+            return nullptr;
+        }
+        Mapping = &GetEyeMoistureMapping();
+        Src = ResolveChannelSource(H, SceneMatIdx, Metadata.Url);
+    }
+    else
+    {
+        // Standard path: do NOT substitute a different master on failure.
+        Master = LoadMasterForShader(Kind);
+        if (!Master)
+        {
+            UE_LOG(LogDsonImporter, Error,
+                TEXT("DsonMaterialBuilder: aborting build for scene material '%s' - master load failed"),
+                *Metadata.MatId);
+            RecordFailure();
+            return nullptr;
+        }
+        // Default shader has no defined mapping so no parameter overrides are applied.
+        Mapping = GetMappingForShader(Kind);
+        Src = {false, SceneMatIdx};
     }
 
-    // Step 3 - create and fully load MIC package
+    // Single create -> SetParent -> apply channels -> conditional passes -> save tail.
     const FMaterialInstanceAssetContext AssetContext =
         CreateMaterialInstanceAsset(Metadata.MatId, OutputFolder);
     if (!AssetContext.IsValid())
@@ -1049,17 +1197,14 @@ UMaterialInstanceConstant* FDsonMaterialBuilder::BuildSceneMaterial(
     }
     UMaterialInstanceConstant* MIC = AssetContext.MIC;
 
-    // Step 4 - assign parent
     MIC->SetParentEditorOnly(Master, /*RecacheShader=*/true);
 
-    // Step 5 - iterate channels and apply parameters from the active mapping table.
-    // Default shader has no defined mapping so no parameter overrides are applied.
-    const TMap<FString, FDazParamBinding>* Mapping = GetMappingForShader(Kind);
     if (Mapping)
     {
-        ApplyMappedSceneMaterialChannels(H, SceneMatIdx, *Mapping, MIC, TextureImporter);
+        ApplyMappedMaterialChannels(H, Src, *Mapping, MIC, TextureImporter);
     }
-    if (Kind == EDazShaderKind::IrayUber)
+    // IrayUber normal/bump pass: standard path only (eye-moisture is pure parametric).
+    if (!bIsEyeMoisture && Kind == EDazShaderKind::IrayUber)
     {
         ApplyIrayUberNormalChannels(H, SceneMatIdx, MIC, TextureImporter);
     }
@@ -1070,12 +1215,13 @@ UMaterialInstanceConstant* FDsonMaterialBuilder::BuildSceneMaterial(
         ApplySceneAnimationOverrides(H, Metadata.MatId, *Mapping, MIC, TextureImporter);
     }
     ImportStandaloneChannelTextures(H, SceneMatIdx, TextureImporter);
-    ApplySubsurfaceProfileSettings(H, SceneMatIdx, Kind, MIC);
+    if (!bIsEyeMoisture)
+    {
+        ApplySubsurfaceProfileSettings(H, SceneMatIdx, Kind, MIC);
+    }
 
-    // Step 6 - finalise parameter override arrays before save
     MIC->PostEditChange();
 
-    // Step 7 - save (mirrors DsonTextureImporter exactly)
     if (!FDsonAssetUtils::SaveAssetPackage(
             AssetContext.Package, MIC, AssetContext.AssetPath.PackagePath, TEXT("DsonMaterialBuilder")))
     {
@@ -1083,7 +1229,6 @@ UMaterialInstanceConstant* FDsonMaterialBuilder::BuildSceneMaterial(
         return nullptr;
     }
 
-    // Step 8 - notify asset registry
     ++BuiltCount;
     return MIC;
 }

@@ -38,7 +38,7 @@ _Last updated: 2026-06-09._
 | 6 | Materials — per-section MIC wiring, 3 masters, texture import | ✅ Done (v1) |
 | 6.x | UV-set import (seams) | ✅ Done — verified G8.1 + Laura, zero fallbacks |
 | 6.y | Material polish (IrayUber washy fix; multi-UDIM resolved as not-needed) | ✅ Done |
-| 6 v2 | Materials v2 — faithful makeup + LIE import, SSS Profile, eye-moisture | 🔄 In progress — slices #1 ✅ + #2 ✅ done (full acceptance set verified 2026-06-07); **slice #3 (eye-moisture master) not started — no `M_DazEyeMoisture` master or eye routing exists yet** |
+| 6 v2 | Materials v2 — faithful makeup + LIE import, SSS Profile, eye-moisture | ✅ Done — slices #1 + #2 (2026-06-07) + #3 eye-moisture (runtime-verified G9 Nancy 2026-06-09) |
 | 7 | Morph targets (`UMorphTarget` per morph) | ✅ Done — delta-bearing morphs, including formula-reachable `?value` leaf files, via MeshDescription morph attributes |
 | 8 | Save to Content Browser (`/Game/DazImports/`) | ✅ Implemented per-phase, working |
 
@@ -87,7 +87,7 @@ parameter-contract format, `MaterialMastersV1.md` remains the source of record;
 its "Open follow-ups" subset is now superseded by the slice list below.
 
 Slices are sized to ship independently and are taken in order; each one updates
-this section as it lands. **Current: slice #3 (eye-moisture / cornea).**
+this section as it lands. **All three slices shipped — #3 (eye-moisture) runtime-verified on G9 Nancy 2026-06-09.**
 
 ### Planned slices
 
@@ -108,15 +108,17 @@ this section as it lands. **Current: slice #3 (eye-moisture / cornea).**
    evaluated-node master audit (cost-when-disabled paths removed), and the "profile
    redistributes, doesn't add light" finding →
    [`SubsurfaceProfileV2.md`](SubsurfaceProfileV2.md) §Revision + `DecisionLog.md`.
-3. **Eye-moisture / cornea master** (`M_DazEyeMoisture`) — **Not started; the
-   eye-moisture material does not exist yet.** No `M_DazEyeMoisture` master and no
-   eye-surface routing/mapping — eye surfaces currently fall back to `M_DazDefault`.
-   Scope: new translucent master + eye-surface detection + mapping (translucent cost
-   absorbed by eyes' small pixel footprint, ~1% on close-ups). G8/G8.1/G3 carry eyes
-   on the body mesh; **G9 unblocked but unbuilt** — companion Slice C (✅ 2026-06-08)
-   only *routes* `EyeMoisture L/R` to the fallback master; building the master is
-   still slice #3's job. Open gotchas (`#fragment` channel resolution; key-0 matId
-   reconciliation) → `DecisionLog.md` "Slice #3 heads-up".
+3. **Eye-moisture / cornea master** (`M_DazEyeMoisture`) — ✅ **Done; runtime-verified
+   on G9 Nancy 2026-06-09.** `EyeMoisture L/R` / `Cornea` / `Tear` route to a translucent
+   `M_DazEyeMoisture` (Surface ForwardShading; Fresnel-weighted opacity). Importer:
+   `EDsonSurfaceClass::EyeMoisture` + `GetEyeMoistureSurfaceGroups()` (single source,
+   removed from NonSkin); `GetEyeMoistureMapping()`
+   (BaseColor/Specular/Roughness/RefractionIOR/Opacity); channels read from
+   `material_library` via the scene-material's bare `#fragment` (`ResolveChannelSource`
+   — no parser change); key-0 matId reconciliation (UrlDecode + strip `-<n>` suffix).
+   Master spec → `MaterialMastersV1.md`; resolution detail → `DecisionLog.md` "Slice #3
+   heads-up". **Note:** the now-transparent shell exposed the **untextured G9 eyeball**
+   (`Eye L/R`, PBRSkin) — separate, see Known issues.
 
 ### Dropped from v2 — runtime cost > visual-fidelity gain
 
@@ -204,6 +206,11 @@ brow mesh. **Unblocks** slice #3 on G9 (`EyeMoisture Left/Right` live only in th
   see `Docs/Reference.md` → "LIE (layered-image) composition". Every real
   texture still resolves and imports; cosmetic only. Cleanup: have the texture
   importer skip `#`-prefixed refs before resolving.
+- **G9 eyeball (`Eye L/R`) imports untextured (grey)** — surfaced once slice #3 made the
+  eye-moisture shell transparent. The generic Genesis 9 Eyes preset's `Eye L/R` PBRSkin
+  material has no textures; the real iris/sclera detail likely comes from a character
+  file/override the companion import doesn't apply. Separate from eye-moisture; own
+  Director ticket open.
 
 ## Cleanup backlog
 
@@ -224,9 +231,7 @@ brow mesh. **Unblocks** slice #3 on G9 (`EyeMoisture Left/Right` live only in th
 
 ## Next up
 
-**Phase 6 v2 — Materials v2 (active): slice #3 — eye-moisture / cornea master**
-(`M_DazEyeMoisture`). Slices #1–#2 done (see "Phase 6 v2 — Materials v2" above);
-buildable on G8/G8.1/G3 and G9 (companion Slices A–C ✅ 2026-06-08; Mouth/Teeth
-key-0 + companion UV-set fixes verified on Nancy G9). **Then Phase 7 v2 — formula
-evaluation/composed shape** (queued; discovery-only portion done — see "Deferred to
-v2" → [`FormulaMorphsV2.md`](FormulaMorphsV2.md)).
+**Phase 7 v2 — formula evaluation / composed dialed shape** (queued; discovery-only
+portion done — see "Deferred to v2" → [`FormulaMorphsV2.md`](FormulaMorphsV2.md)).
+Phase 6 v2 (Materials v2) closed with slice #3 (eye-moisture) runtime-verified on G9
+Nancy 2026-06-09; the open thread off it is the untextured G9 eyeball (Known issues).
