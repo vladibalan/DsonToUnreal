@@ -396,6 +396,170 @@ UTexture2D* FDsonTextureImporter::ImportOrFind(const FString& ImageUrl, bool bSR
     return Texture;
 }
 
+// ---------------------------------------------------------------------------
+// CompositeImageLayers
+// ---------------------------------------------------------------------------
+
+UTexture2D* FDsonTextureImporter::CompositeImageLayers(
+    const TArray<FString>& LayerPaths,
+    const FString& ImageId,
+    bool bSRGB)
+{
+    // Cache by image id + sRGB so Eye Left and Eye Right sharing the same image composite once.
+    const FString CacheKey = FString::Printf(
+        TEXT("composite|%s|srgb=%d"), *ImageId, static_cast<int32>(bSRGB));
+
+    if (TObjectPtr<UTexture2D>* Found = CompositeCache.Find(CacheKey))
+    {
+        ++CacheHitCount;
+        UE_LOG(LogDsonImporter, VeryVerbose,
+            TEXT("DsonTextureImporter: composite cache hit '%s'"), *ImageId);
+        return Found->Get();
+    }
+
+    if (LayerPaths.Num() == 0)
+    {
+        UE_LOG(LogDsonImporter, Warning,
+            TEXT("DsonTextureImporter: CompositeImageLayers: no layers for image '%s'"), *ImageId);
+        return nullptr;
+    }
+
+    // Single layer: delegate to ImportOrFind (no pixel work needed).
+    if (LayerPaths.Num() == 1)
+    {
+        UTexture2D* Tex = ImportOrFind(LayerPaths[0], bSRGB);
+        if (Tex)
+            CompositeCache.Add(CacheKey, Tex);
+        return Tex;
+    }
+
+    // Multi-layer: resolve, decode, source-over composite in sRGB space (matches DAZ image-space compositing).
+    TArray<FDecodedImage> Layers;
+    Layers.Reserve(LayerPaths.Num());
+    for (const FString& LayerPath : LayerPaths)
+    {
+        const FString ResolvedPath = FDsonContentRoots::ResolveUrl(LayerPath, ContentRoots);
+        if (ResolvedPath.IsEmpty())
+        {
+            UE_LOG(LogDsonImporter, Warning,
+                TEXT("DsonTextureImporter: CompositeImageLayers: could not resolve layer '%s' for image '%s'"),
+                *LayerPath, *ImageId);
+            return nullptr;
+        }
+
+        FDecodedImage Decoded;
+        if (!DecodeImageFile(ResolvedPath, Decoded))
+        {
+            UE_LOG(LogDsonImporter, Warning,
+                TEXT("DsonTextureImporter: CompositeImageLayers: failed to decode '%s' for image '%s'"),
+                *ResolvedPath, *ImageId);
+            return nullptr;
+        }
+        Layers.Add(MoveTemp(Decoded));
+    }
+
+    // Output size = bottom layer (layer 0). Warn if any overlay differs (nearest-neighbour resamples it).
+    const int32 OutW = Layers[0].Width;
+    const int32 OutH = Layers[0].Height;
+    for (int32 k = 1; k < Layers.Num(); ++k)
+    {
+        if (Layers[k].Width != OutW || Layers[k].Height != OutH)
+        {
+            UE_LOG(LogDsonImporter, Warning,
+                TEXT("DsonTextureImporter: CompositeImageLayers: layer %d size %dx%d differs from "
+                     "base %dx%d for image '%s'; resampling nearest-neighbour to base size"),
+                k, Layers[k].Width, Layers[k].Height, OutW, OutH, *ImageId);
+        }
+    }
+
+    // Start with bottom layer pixels; source-over each subsequent layer on top.
+    TArray<FColor> OutPixels = Layers[0].Pixels;
+    for (int32 k = 1; k < Layers.Num(); ++k)
+    {
+        const FDecodedImage& Top = Layers[k];
+        for (int32 y = 0; y < OutH; ++y)
+        {
+            for (int32 x = 0; x < OutW; ++x)
+            {
+                // Nearest-neighbour sample from Top onto output coordinate (identity when same size).
+                const int32 SrcX = (OutW > 1)
+                    ? FMath::Clamp(
+                        FMath::RoundToInt(
+                            static_cast<float>(x) * static_cast<float>(Top.Width  - 1)
+                                                   / static_cast<float>(OutW - 1)),
+                        0, Top.Width - 1)
+                    : 0;
+                const int32 SrcY = (OutH > 1)
+                    ? FMath::Clamp(
+                        FMath::RoundToInt(
+                            static_cast<float>(y) * static_cast<float>(Top.Height - 1)
+                                                   / static_cast<float>(OutH - 1)),
+                        0, Top.Height - 1)
+                    : 0;
+
+                const FColor& Src = Top.Pixels[SrcY * Top.Width + SrcX];
+                FColor& Dst = OutPixels[y * OutW + x];
+
+                // source-over in sRGB (DAZ composites in image space): out = lerp(dst, src, src.a)
+                const float A = static_cast<float>(Src.A) / 255.0f;
+                Dst.R = static_cast<uint8>(FMath::Clamp(FMath::RoundToInt(Dst.R * (1.0f - A) + Src.R * A), 0, 255));
+                Dst.G = static_cast<uint8>(FMath::Clamp(FMath::RoundToInt(Dst.G * (1.0f - A) + Src.G * A), 0, 255));
+                Dst.B = static_cast<uint8>(FMath::Clamp(FMath::RoundToInt(Dst.B * (1.0f - A) + Src.B * A), 0, 255));
+                Dst.A = 255;
+            }
+        }
+    }
+
+    // Asset path: /Game/DazImports/Textures/Composites/T_<sanitized ImageId>
+    const FString SanitizedId = ObjectTools::SanitizeObjectName(ImageId);
+    const FString AssetName   = TEXT("T_") + SanitizedId;
+    const FString PackagePath = FDsonAssetUtils::ImportRootPath() / TEXT("Textures") / TEXT("Composites") / AssetName;
+
+    // Check for an existing asset at this path (re-import may recreate without build).
+    if (FPackageName::DoesPackageExist(PackagePath))
+    {
+        UTexture2D* Existing = LoadObject<UTexture2D>(nullptr, *PackagePath, nullptr, LOAD_NoWarn);
+        if (Existing && (Existing->SRGB != 0) == bSRGB)
+        {
+            CompositeCache.Add(CacheKey, Existing);
+            ++CacheHitCount;
+            return Existing;
+        }
+    }
+
+    UPackage* Package = FDsonAssetUtils::CreateLoadedPackage(PackagePath, TEXT("DsonTextureImporter"));
+    if (!Package)
+        return nullptr;
+
+    UTexture2D* Texture = NewObject<UTexture2D>(Package, *AssetName, RF_Public | RF_Standalone);
+    if (!Texture)
+    {
+        UE_LOG(LogDsonImporter, Error,
+            TEXT("DsonTextureImporter: NewObject<UTexture2D> failed for composite '%s'"), *PackagePath);
+        return nullptr;
+    }
+
+    // OutPixels is an array of FColor (R,G,B,A named fields); on Win64/LE FColor memory layout is BGRA,
+    // which is what TSF_BGRA8 expects — same convention as the bump-bake path above.
+    Texture->Source.Init(OutW, OutH, /*NumSlices=*/1, /*NumMips=*/1,
+        TSF_BGRA8, reinterpret_cast<const uint8*>(OutPixels.GetData()));
+    Texture->CompressionSettings = TC_Default;
+    Texture->SRGB = bSRGB;
+    Texture->UpdateResource();
+
+    if (!FDsonAssetUtils::SaveAssetPackage(Package, Texture, PackagePath, TEXT("DsonTextureImporter")))
+        return nullptr;
+
+    CompositeCache.Add(CacheKey, Texture);
+    ++ImportedCount;
+
+    UE_LOG(LogDsonImporter, Verbose,
+        TEXT("DsonTextureImporter: composited '%s' from %d layers (sRGB=%d)"),
+        *PackagePath, LayerPaths.Num(), static_cast<int32>(bSRGB));
+
+    return Texture;
+}
+
 UTexture2D* FDsonTextureImporter::ImportBumpAsNormal(
     const FString& BumpUrl,
     float BumpStrength,

@@ -24,6 +24,17 @@ public:
         const FString& NormalUrl,
         float NormalStrength);
 
+    // Alpha-composites a LIE layer stack (from image_library) into a single UTexture2D.
+    // LayerPaths are the DSON URLs for each textured layer, layer 0 = bottom.
+    // N==0 -> null+warn. N==1 -> ImportOrFind on the single path (no pixel work).
+    // N>=2 -> decode, source-over composite (sRGB space), save under
+    //   /Game/DazImports/Textures/Composites/T_<sanitized ImageId>.
+    // Cached by ImageId so Eye Left and Eye Right sharing a color entry composite once.
+    UTexture2D* CompositeImageLayers(
+        const TArray<FString>& LayerPaths,
+        const FString& ImageId,
+        bool bSRGB);
+
     int32 GetImportedCount()  const { return ImportedCount;  }
     int32 GetCacheHitCount()  const { return CacheHitCount;  }
     int32 GetFailureCount()   const { return FailureCount;   }
@@ -39,8 +50,9 @@ private:
     void RecordFailure(const FString& ImageUrl);
 
     TArray<FString>                     ContentRoots;
-    TMap<FString, TObjectPtr<UTexture2D>> Cache;   // key: resolved absolute path + sRGB + optional asset suffix
+    TMap<FString, TObjectPtr<UTexture2D>> Cache;          // key: resolved absolute path + sRGB + optional asset suffix
     TMap<FString, TObjectPtr<UTexture2D>> BakedNormalCache; // key: resolved paths + strengths
+    TMap<FString, TObjectPtr<UTexture2D>> CompositeCache;   // key: image id + sRGB
     int32                               ImportedCount = 0;
     int32                               CacheHitCount = 0;
     int32                               FailureCount  = 0;

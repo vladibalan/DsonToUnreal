@@ -728,7 +728,7 @@ static bool ParseAnimationUrl(
         return false;
     }
 
-    if (Leaf != TEXT("value") && Leaf != TEXT("image_file"))
+    if (Leaf != TEXT("value") && Leaf != TEXT("image_file") && Leaf != TEXT("image"))
         return false;
 
     OutMatId    = MoveTemp(MatId);
@@ -798,6 +798,74 @@ static void ApplySceneAnimationOverrides(
                 if (!TextureRef.IsEmpty())
                 {
                     if (UTexture2D* Tex = TextureImporter.ImportOrFind(TextureRef, Binding->bSRGB))
+                    {
+                        MIC->SetTextureParameterValueEditorOnly(
+                            FMaterialParameterInfo(Binding->TextureParam), Tex);
+                        if (Binding->UseFlag != NAME_None)
+                        {
+                            MIC->SetScalarParameterValueEditorOnly(
+                                FMaterialParameterInfo(Binding->UseFlag), 1.0f);
+                        }
+                        ++AppliedTextures;
+                    }
+                }
+            }
+        }
+        else if (Leaf == TEXT("image"))
+        {
+            if (Binding->TextureParam != NAME_None && ValueKind == 3)
+            {
+                // R3: copy string before next parser call
+                const FString ImageRef = S(GDsonParser.GetSceneAnimationString
+                    ? GDsonParser.GetSceneAnimationString(Doc, i) : nullptr);
+                if (!ImageRef.IsEmpty())
+                {
+                    UTexture2D* Tex = nullptr;
+                    if (ImageRef.StartsWith(TEXT("#")))
+                    {
+                        // Resolve #fragment to image_library entry by id
+                        const FString ImageId = FDsonContentRoots::UrlDecode(ImageRef.Mid(1));
+                        const int32 ImgCount = GDsonParser.GetImageCount
+                            ? GDsonParser.GetImageCount(Doc) : 0;
+                        int32 ImageIndex = INDEX_NONE;
+                        for (int32 j = 0; j < ImgCount; ++j)
+                        {
+                            // R3: copy each id before the next parser call
+                            const FString EntryId = S(GDsonParser.GetImageId
+                                ? GDsonParser.GetImageId(Doc, j) : nullptr);
+                            if (EntryId == ImageId)
+                            {
+                                ImageIndex = j;
+                                break;
+                            }
+                        }
+                        if (ImageIndex == INDEX_NONE)
+                        {
+                            UE_LOG(LogDsonImporter, Warning,
+                                TEXT("[mat-anim] '%s': image_library entry '%s' not found (ref='%s')"),
+                                *MatId, *ImageId, *ImageRef);
+                        }
+                        else
+                        {
+                            const int32 LayerCount = GDsonParser.GetImageLayerCount
+                                ? GDsonParser.GetImageLayerCount(Doc, ImageIndex) : 0;
+                            TArray<FString> LayerPaths;
+                            LayerPaths.Reserve(LayerCount);
+                            for (int32 k = 0; k < LayerCount; ++k)
+                            {
+                                // R3: copy each path before the next parser call
+                                LayerPaths.Add(S(GDsonParser.GetImageLayerTexturePath
+                                    ? GDsonParser.GetImageLayerTexturePath(Doc, ImageIndex, k) : nullptr));
+                            }
+                            Tex = TextureImporter.CompositeImageLayers(LayerPaths, ImageId, Binding->bSRGB);
+                        }
+                    }
+                    else
+                    {
+                        Tex = TextureImporter.ImportOrFind(ImageRef, Binding->bSRGB);
+                    }
+
+                    if (Tex)
                     {
                         MIC->SetTextureParameterValueEditorOnly(
                             FMaterialParameterInfo(Binding->TextureParam), Tex);

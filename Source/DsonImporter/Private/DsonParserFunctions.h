@@ -191,7 +191,14 @@ typedef void* DsonDocumentHandle;
     X(0, const char*, GetSceneAnimationString,    DsonDocument_GetSceneAnimationString,    (DsonDocumentHandle, int)) \
     X(0, double,      GetSceneAnimationColorR,    DsonDocument_GetSceneAnimationColorR,    (DsonDocumentHandle, int)) \
     X(0, double,      GetSceneAnimationColorG,    DsonDocument_GetSceneAnimationColorG,    (DsonDocumentHandle, int)) \
-    X(0, double,      GetSceneAnimationColorB,    DsonDocument_GetSceneAnimationColorB,    (DsonDocumentHandle, int))
+    X(0, double,      GetSceneAnimationColorB,    DsonDocument_GetSceneAnimationColorB,    (DsonDocumentHandle, int)) \
+    \
+    /* Image library (image_library by index; layer accessors since DsonParser 1.3.0; all optional). */ \
+    X(0, int,         GetImageCount,            DsonDocument_GetImageCount,            (DsonDocumentHandle)) \
+    X(0, const char*, GetImageId,               DsonDocument_GetImageId,               (DsonDocumentHandle, int)) \
+    X(0, int,         GetImageLayerCount,       DsonDocument_GetImageLayerCount,       (DsonDocumentHandle, int)) \
+    X(0, const char*, GetImageLayerTexturePath, DsonDocument_GetImageLayerTexturePath, (DsonDocumentHandle, int, int)) \
+    X(0, const char*, GetImageLayerLabel,       DsonDocument_GetImageLayerLabel,       (DsonDocumentHandle, int, int))
 
 struct FDsonParserAPI
 {
