@@ -181,20 +181,9 @@ skeleton** (not merged) — rationale in [`DecisionLog.md`](DecisionLog.md). Wor
 **Deferred:** fiber eyebrows (`G9EyebrowFibers`) → groom; some characters (Nancy) have no
 brow mesh. **Unblocks** slice #3 on G9 (`EyeMoisture Left/Right` live only in the Eyes companion).
 
-## Programmatic import entry point — in progress
+## Programmatic import entry point — ✅ Done
 
-Today an import can be driven only interactively (the `SDsonImportWindow` Slate
-dialog), and the import pipeline (`FDsonImportPipeline`) is module-private. This adds
-a small **public** entry point on the `DsonImporter` module that runs the same import
-from a source DAZ asset path + the existing import options, returning a **structured
-result** (assets produced + success/failure + a diagnostics summary). It makes imports
-scriptable and testable — editor automation, commandlets/headless runs, pipeline
-tests — behind a stable surface decoupled from the private pipeline internals.
-
-Additive and DRY: the interactive window and the new entry point funnel through the
-**one** `FDsonImportPipeline::Run`, with the path→settings preparation single-sourced
-and shared; the window's behavior is unchanged. Scope is the entry point and its
-result type only. Status: **in progress** (Director→Implementer).
+`FDsonImporterModule::ImportDazAsset(FDsonImportRequest)` → `FDsonImportReport`; public types in `Public/DsonImportRequest.h`. Funnels through `FDsonImportPipeline::Run`; path→settings shared via `FDsonValidator::ToImportSettings` (R4/DRY). Rationale → `Docs/DecisionLog.md`.
 
 ## Deferred to v2 (morph follow-ups)
 

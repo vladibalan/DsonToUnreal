@@ -146,6 +146,29 @@ FDsonValidationResult FDsonValidator::Validate(
     return Result;
 }
 
+FDsonImportSettings FDsonValidator::ToImportSettings(
+    const FString& SourceAssetPath,
+    const FDsonValidationResult& Validation,
+    bool bDumpMaterialDiagnostics)
+{
+    FDsonImportSettings Settings;
+    Settings.DsonFilePath = SourceAssetPath;
+    Settings.Generation = Validation.Generation;
+    Settings.bDumpMaterialDiagnostics = bDumpMaterialDiagnostics;
+    Settings.CompanionFigures = Validation.CompanionFigures;
+
+    for (const FDsonDependency& Dep : Validation.Dependencies)
+    {
+        if (Dep.bResolved)
+        {
+            Settings.ResolvedFigureDsfPath = Dep.ResolvedPath;
+            break;
+        }
+    }
+
+    return Settings;
+}
+
 EDsonAssetType FDsonValidator::ParseAssetType(const char* TypeStr)
 {
     if (!TypeStr || TypeStr[0] == '\0')

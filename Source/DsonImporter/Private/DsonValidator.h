@@ -53,6 +53,13 @@ public:
         const FString& FilePath,
         const TArray<FString>& ContentRoots);
 
+    // Assembles FDsonImportSettings from a validated result. Single source used by
+    // both SDsonImportWindow and ImportDazAsset — call only when Validation.bIsValid.
+    static FDsonImportSettings ToImportSettings(
+        const FString& SourceAssetPath,
+        const FDsonValidationResult& Validation,
+        bool bDumpMaterialDiagnostics);
+
 private:
     // Maps parser asset_info.type strings onto the plugin's import categories.
     static EDsonAssetType ParseAssetType(const char* TypeStr);

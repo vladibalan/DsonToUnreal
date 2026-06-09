@@ -84,6 +84,7 @@ relocate or split instead.
 
 - Module startup, menu registration, parser DLL loading: `Source/DsonImporter/Private/DsonImporter.cpp`
 - Import dialog, validation UI, selected file settings: `Source/DsonImporter/Private/SDsonImportWindow.*`
+- Programmatic/headless import entry point + public request/result types: `Source/DsonImporter/Public/DsonImportRequest.h` + `FDsonImporterModule::ImportDazAsset` in `Source/DsonImporter/Private/DsonImporter.cpp`
 - DAZ content root discovery and DSON URL resolution: `Source/DsonImporter/Private/DsonContentRoots.*`
 - File validation, Genesis generation detection, dependency resolution: `Source/DsonImporter/Private/DsonValidator.*`
 - Top-level import orchestration and build sequencing (`Run`), abort-before-build gate: `Source/DsonImporter/Private/DsonImportPipeline.*`

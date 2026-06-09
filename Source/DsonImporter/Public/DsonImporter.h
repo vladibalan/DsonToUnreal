@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Modules/ModuleManager.h"
+#include "DsonImportRequest.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogDsonImporter, Log, All);
 
@@ -20,6 +21,10 @@ public:
     {
         return FModuleManager::Get().IsModuleLoaded("DsonImporter");
     }
+
+    // Runs a DAZ import headlessly from a source asset path.
+    // Callers: FDsonImporterModule::Get().ImportDazAsset(Request).
+    DSONIMPORTER_API FDsonImportReport ImportDazAsset(const FDsonImportRequest& Request);
 
 private:
     void RegisterMenus();

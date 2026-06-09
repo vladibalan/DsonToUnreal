@@ -17,6 +17,7 @@ Contents (newest decisions appended):
 - Importer scope codified — bring-everything, translate-don't-interpret, consumer-agnostic docs (2026-06-09)
 - G9 untextured eyeball — anim-bound LIE composite, baked at import (2026-06-09)
 - Importer discovery boundary — reference-graph-only; authoring presets out of scope (2026-06-09)
+- Programmatic import entry point — public `ImportDazAsset`; report decoupled from the private pipeline result (2026-06-09)
 
 ## IrayUber bump-map seam — root cause & fix decision (2026-06-06)
 
@@ -688,3 +689,32 @@ and `CodeReviewRules.md` (R8 doc-sync list); the cleanup item removed from `Road
 Net: ~17 hot-path lines removed (`ImporterArchitecture.md` 190 → ~173).
 
 **Status:** ✅ done 2026-06-09. Doc-only Director change → commit to `main`; push with the user.
+
+## Programmatic import entry point — public report decoupled from the private pipeline result (2026-06-09)
+
+**Decision (user-approved).** Expose imports programmatically via a thin public module entry
+point — `FDsonImporterModule::ImportDazAsset(FDsonImportRequest) → FDsonImportReport`, types in
+`Public/DsonImportRequest.h` — so imports are scriptable/testable (editor automation, commandlets,
+pipeline tests) without the Slate window. Purely additive; the interactive window is unchanged.
+
+**Why a new public report, not the existing `FDsonImportResult`.** The private `FDsonImportResult`
+(and the `FDsonImportSettings` it carries) hold inter-stage staging detail — `ResolvedFigureDsfPath`,
+`Generation`, the `FDsonCompanionSource` list. Re-exposing those as public ABI would couple callers
+to pipeline internals and widen the breaking-change surface (R7), against P3 (a generic,
+consumer-agnostic surface). So `FDsonImportReport` carries only what a caller needs — produced
+assets (skeleton / mesh / companions), a success flag + `EDsonImportStatus`, and a diagnostics
+summary — and the `FDsonImportResult → FDsonImportReport` mapping stays behind the module boundary
+in `DsonImporter.cpp`.
+
+**DRY (R4).** No second import path: both the window and `ImportDazAsset` funnel through the one
+`FDsonImportPipeline::Run`, and the path→settings preparation is single-sourced in
+`FDsonValidator::ToImportSettings` (the window's former `RefreshPendingSettingsFromValidation` body).
+
+**Status.** ✅ Shipped 2026-06-09 via Director→Implementer task `20260609-142930-programmatic-import-api`;
+Director-verified build clean (`DsonHostEditor`), squash-merged to `main` as one reviewed commit (push
+with the user). One verification loop: the first Implementer pass did **not** compile — brace-less
+`UE_LOG` in an `if`/`else` (C2181) — wrote no feedback-file, and skipped the R8 doc-sync. Caught on the
+Director's build (no build claim existed to trust); the user applied the brace fix and the Director
+completed the orientation-doc updates during integration. **Lesson:** `UE_LOG` expands to a braced
+block, so it cannot be the brace-less body of an `if`/`else` — and an Implementer "smooth" without an
+actual build is not trustworthy (the standing reason the Director re-runs the build).

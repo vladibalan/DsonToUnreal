@@ -12,6 +12,10 @@
 #include "DsonParserVersion.h"  // compile-time DSONPARSER_VERSION_*
 #include "DsonImportUtils.h"    // DsonImportUtils::FromUtf8
 #include "SDsonImportWindow.h"
+#include "DsonContentRoots.h"
+#include "DsonValidator.h"
+#include "DsonImportPipeline.h"
+#include "DsonImportTypes.h"
 
 /*
  * Intent:
@@ -205,6 +209,92 @@ void FDsonImporterModule::RegisterMenus()
         FSlateIcon(),
         FUIAction(FExecuteAction::CreateStatic(&OpenDsonImportWindow))
     );
+}
+
+FDsonImportReport FDsonImporterModule::ImportDazAsset(const FDsonImportRequest& Request)
+{
+    FDsonImportReport Report;
+
+    FString Path = FPaths::ConvertRelativePathToFull(Request.SourceAssetPath);
+    FPaths::NormalizeFilename(Path);
+
+    const TArray<FString> Roots = FDsonContentRoots::Detect();
+    const FDsonValidationResult Validation = FDsonValidator::Validate(Path, Roots);
+
+    if (!Validation.bIsValid)
+    {
+        Report.Status = EDsonImportStatus::ValidationFailed;
+        Report.DiagnosticSummary = Validation.ErrorMessage.IsEmpty()
+            ? TEXT("Validation failed") : Validation.ErrorMessage;
+        UE_LOG(LogDsonImporter, Error,
+            TEXT("ImportDazAsset: validation failed for '%s': %s"),
+            *Path, *Report.DiagnosticSummary);
+        return Report;
+    }
+
+    if (!Validation.AllDependenciesResolved())
+    {
+        TArray<FString> Unresolved;
+        for (const FDsonDependency& Dep : Validation.Dependencies)
+        {
+            if (!Dep.bResolved)
+                Unresolved.Add(FPaths::GetCleanFilename(Dep.Url));
+        }
+        Report.Status = EDsonImportStatus::DependenciesUnresolved;
+        Report.DiagnosticSummary = FString::Printf(
+            TEXT("Unresolved dependencies: %s"), *FString::Join(Unresolved, TEXT(", ")));
+        UE_LOG(LogDsonImporter, Error,
+            TEXT("ImportDazAsset: %s"), *Report.DiagnosticSummary);
+        return Report;
+    }
+
+    const FDsonImportSettings Settings =
+        FDsonValidator::ToImportSettings(Path, Validation, Request.bDumpMaterialDiagnostics);
+
+    const FDsonImportResult Result = FDsonImportPipeline::Run(Settings, Roots);
+
+    // Always copy assets (permissive: companion failures don't fail the import — R7).
+    Report.Skeleton = Result.Skeleton;
+    Report.Mesh = Result.Mesh;
+    Report.CompanionMeshes = Result.CompanionMeshes;
+
+    if (Result.bAbortedBeforeAssetBuild)
+    {
+        Report.Status = EDsonImportStatus::AbortedBeforeAssetBuild;
+        Report.DiagnosticSummary = TEXT("Aborted before asset build (master material missing)");
+    }
+    else if (!Result.Skeleton)
+    {
+        Report.Status = EDsonImportStatus::SkeletonFailed;
+        Report.DiagnosticSummary = TEXT("Skeleton build failed");
+    }
+    else if (!Result.Mesh)
+    {
+        Report.Status = EDsonImportStatus::MeshFailed;
+        Report.DiagnosticSummary = FString::Printf(
+            TEXT("Mesh build failed; skeleton: %s"), *Result.Skeleton->GetPathName());
+    }
+    else
+    {
+        Report.Status = EDsonImportStatus::Succeeded;
+        Report.bSucceeded = true;
+        Report.DiagnosticSummary = FString::Printf(
+            TEXT("Succeeded: skeleton=%s mesh=%s companions=%d"),
+            *Result.Skeleton->GetPathName(),
+            *Result.Mesh->GetPathName(),
+            Result.CompanionMeshes.Num());
+    }
+
+    if (Report.bSucceeded)
+    {
+        UE_LOG(LogDsonImporter, Log,  TEXT("ImportDazAsset: %s"), *Report.DiagnosticSummary);
+    }
+    else
+    {
+        UE_LOG(LogDsonImporter, Error, TEXT("ImportDazAsset: %s"), *Report.DiagnosticSummary);
+    }
+
+    return Report;
 }
 
 #undef LOCTEXT_NAMESPACE

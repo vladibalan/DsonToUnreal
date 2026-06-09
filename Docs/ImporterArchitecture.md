@@ -15,6 +15,8 @@ The plugin is an Unreal Editor module:
 - Module: `DsonImporter`
 - Plugin descriptor: `DsonToUnreal.uplugin`
 - Public module entry point: `Source/DsonImporter/Public/DsonImporter.h`
+  (module lifecycle + the programmatic `ImportDazAsset` entry point)
+- Public programmatic-import types: `Source/DsonImporter/Public/DsonImportRequest.h`
 - Implementation code: `Source/DsonImporter/Private/`
 - Bundled parser API: `Source/ThirdParty/DsonParser/`
 - Master material assets: `Content/Materials/`
@@ -32,6 +34,11 @@ The plugin is an Unreal Editor module:
    - `FDsonSkeletonBuilder` creates a `USkeleton` from figure DSF nodes.
    - `FDsonMeshBuilder` creates the skeletal mesh, UVs, polygon groups, and material slots, invoking `FDsonSkinWeightsBuilder` (DSF skin influences) and `FDsonMorphBuilder` (MeshDescription morph attributes) before mesh commit; `BuildSkeletalMesh` generates the `UMorphTarget`s.
 
+Two entry points funnel into step 6: the Slate window above, and the programmatic
+`FDsonImporterModule::ImportDazAsset(FDsonImportRequest) → FDsonImportReport`, which
+runs steps 3–6 headlessly (root detect, validate, gate on resolved deps, `Run`) and
+shares the path→settings assembly (`FDsonValidator::ToImportSettings`) with the window.
+
 ## Component Responsibilities
 
 `DsonImporter.cpp`
@@ -41,6 +48,7 @@ The plugin is an Unreal Editor module:
 - Populates `GDsonParser`.
 - Verifies the loaded DLL's reported version against the built-against header (`DsonParser_GetVersion` vs `DSONPARSER_VERSION_*`); refuses to register on a MAJOR mismatch.
 - Adds the File menu entry that launches the import dialog.
+- Exposes the public programmatic entry point `ImportDazAsset` (`FDsonImportRequest` → `FDsonImportReport`): detects roots, validates, gates on resolved dependencies, runs `FDsonImportPipeline::Run`, maps the result to the public report. Headless counterpart to the Slate window; both share `FDsonValidator::ToImportSettings`.
 
 `SDsonImportWindow.*`
 
@@ -60,6 +68,7 @@ The plugin is an Unreal Editor module:
 - Determines asset type and Genesis generation.
 - Resolves dependencies needed by the import.
 - Discovers G9 companion figures from scene.extra PostLoadAddons (`DiscoverCompanionFigures`): loads each addon's loader .duf (RAII), extracts geometry DSF URL + node id into `FDsonCompanionSource`, logs results.
+- `ToImportSettings`: assembles `FDsonImportSettings` from a validated result + the dump-diagnostics option — the single source used by both the Slate window and `ImportDazAsset`.
 
 `DsonSkeletonBuilder.*`
 
@@ -148,6 +157,10 @@ The plugin is an Unreal Editor module:
 `DsonImportTypes.h`
 
 - Inter-stage types: `EGenesisGeneration` (moved here from `DsonValidator.h` to break circular include), `FDsonCompanionSource` (resolved companion-figure record, Slice A+), `FDsonImportSettings`, `FDsonImportResult` (carries `Skeleton`, `Mesh`, and `CompanionMeshes` TArray from Slice B+).
+
+`DsonImportRequest.h`
+
+- Public, pipeline-decoupled programmatic-import surface: `FDsonImportRequest` (source path + options), `EDsonImportStatus`, `FDsonImportReport` (produced assets + success/diagnostics). References no Private type by design.
 
 `DsonLoadedDocument.*`
 

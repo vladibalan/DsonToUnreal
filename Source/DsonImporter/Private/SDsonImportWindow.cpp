@@ -35,17 +35,6 @@
 
 #define LOCTEXT_NAMESPACE "SDsonImportWindow"
 
-static FString FindFirstResolvedDependencyPath(const TArray<FDsonDependency>& Dependencies)
-{
-    for (const FDsonDependency& Dep : Dependencies)
-    {
-        if (Dep.bResolved)
-            return Dep.ResolvedPath;
-    }
-
-    return TEXT("");
-}
-
 static TArray<FString> GetMissingDependencyFileNames(const TArray<FDsonDependency>& Dependencies)
 {
     TArray<FString> Missing;
@@ -376,12 +365,8 @@ void SDsonImportWindow::SetSelectedFilePathAndValidate(const FString& FilePath)
 
 void SDsonImportWindow::RefreshPendingSettingsFromValidation()
 {
-    PendingSettings.DsonFilePath = SelectedFilePath;
-    PendingSettings.Generation = ValidationResult.Generation;
-    PendingSettings.ResolvedFigureDsfPath =
-        FindFirstResolvedDependencyPath(ValidationResult.Dependencies);
-    PendingSettings.bDumpMaterialDiagnostics = bDumpMaterialDiagnostics;
-    PendingSettings.CompanionFigures = ValidationResult.CompanionFigures;
+    PendingSettings = FDsonValidator::ToImportSettings(
+        SelectedFilePath, ValidationResult, bDumpMaterialDiagnostics);
 }
 
 EVisibility SDsonImportWindow::GetValidationSuccessVisibility() const
