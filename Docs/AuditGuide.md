@@ -32,9 +32,9 @@ Only inspect `Binaries/` or `Intermediate/` when the audit is specifically about
 
 Find the symptom, collect its evidence (the editor log first, then the **added
 evidence** column), then read the routed source. The **Source** column is the
-audit view of the same component routing owned by `Docs/ImporterArchitecture.md`
-("Common Change Areas") and `AGENTS.md` (Task Routing) — consult those for the
-canonical code layout; this table adds the per-symptom evidence and checks.
+audit view of the same component routing owned by `AGENTS.md` (Task Routing) —
+consult it for the canonical routing, and `Docs/ImporterArchitecture.md`
+(Component Responsibilities) for code layout; this table adds the per-symptom evidence and checks.
 
 | Symptom | Added evidence | Source | Key checks |
 |---|---|---|---|

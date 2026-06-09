@@ -164,27 +164,11 @@ The plugin is an Unreal Editor module:
 - Header-only shared leaf helpers: URL scheme/fragment stripping, UTF-8→`FString`, DAZ id
   normalization, unit-scale, and the load-bearing coordinate flip; list/rules: `CodeReviewRules.md` R3/R4.
 
-## Common Change Areas
-
-- Parser export missing or new parser function: update `DsonParserFunctions.h` and `DsonImporter.cpp`.
-- Import dialog behavior: edit `SDsonImportWindow.*`.
-- Path/dependency failures: start in `DsonContentRoots.*`, then `DsonValidator.*`.
-- G9 companion-figure discovery or resolution failures: `DsonValidator.*` (`DiscoverCompanionFigures`).
-- G9 companion mesh or material failures: `DsonImportPipeline.*` (companion loop) → `DsonMeshBuilder.*` (`BuildCompanion`) or `DsonMaterialBuilder.*` (`BuildAllSceneMaterials` on MAT preset).
-- Bad bone hierarchy or transforms: start in `DsonSkeletonBuilder.*`.
-- Bad geometry, UVs, material slots, or mesh asset save: start in `DsonMeshBuilder.*`.
-- Bad skin weights: start in `DsonSkinWeightsBuilder.*`.
-- Missing or wrong morph targets: start in `DsonMorphBuilder.*`, then `DsonParserFunctions.h` for morph, scene-modifier, and formula-output exports.
-- Bad shader detection or channel mapping: start in `DsonMaterialBuilder.*`, then `MaterialMastersV1.md`.
-- Missing or wrong textures: start in `DsonTextureImporter.*`.
-- Import sequencing, or the abort-before-build gate: `DsonImportPipeline.*`.
-- A new field carried between import stages: `DsonImportTypes.h`.
-- A parser-handle leak or hand-rolled `Create`/`Destroy`: `DsonLoadedDocument.*` (R3).
-- A duplicated URL/id/coordinate helper: `DsonImportUtils.h` (see `CodeReviewRules.md` R4).
-- Package/asset save or import-path naming: `DsonAssetUtils.*`.
-
 ## Discovery Rule
 
-When asked to change behavior, identify the component using the routing table first. Read the relevant header and top-of-file `.cpp` comment, then inspect only the function involved.
+Subsystem→file routing is owned by `AGENTS.md` (Task Routing) — this doc does not
+restate it (R10). When asked to change behavior, identify the owning component from
+that table, then read its entry in Component Responsibilities above plus the relevant
+header and top-of-file `.cpp` comment, and inspect only the function involved.
 
 For audits and diagnostics, identify the symptom first, collect the relevant log or asset evidence, then inspect the routed source component.

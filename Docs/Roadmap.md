@@ -219,10 +219,6 @@ brow mesh. **Unblocks** slice #3 on G9 (`EyeMoisture Left/Right` live only in th
   file's comments or log messages still claim "Genesis 3 → default" / "G3
   fallback", remove or correct them. Search `Source/DsonImporter/` for
   `Genesis 3` / `G3` references.
-- **Consolidate the duplicated subsystem→file routing** in `AGENTS.md` (Task Routing)
-  and `ImporterArchitecture.md` ("Common Change Areas") — two overlapping tables.
-  Deferred from the 2026-06-09 doc-diet pass as a structural call (which doc owns
-  routing); rationale in `Docs/DecisionLog.md`.
 
 ## Next up
 

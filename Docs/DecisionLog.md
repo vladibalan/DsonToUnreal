@@ -578,9 +578,9 @@ broadened the Importer's mandate but landed in **exempt** docs (`Principles.md`,
 so the hot path needed no bigger ceilings; nuance is preserved by relocating it into the budget-free
 cold docs (what R10 tiering is for). Net: hot-path read-load −~50 lines, ceilings ~flat.
 
-**Remaining follow-up.** `AGENTS.md` Task Routing and `ImporterArchitecture.md` "Common Change Areas"
-are overlapping subsystem→file tables; consolidating them is a structural call (which doc owns
-routing), deferred — now the lone doc-diet item in the Roadmap backlog.
+**Remaining follow-up — resolved 2026-06-09.** Those overlapping `AGENTS.md` Task Routing /
+`ImporterArchitecture.md` "Common Change Areas" subsystem→file tables were consolidated to a
+single owner (`AGENTS.md`); see "Routing consolidated to a single owner" below.
 
 **Status:** ✅ done 2026-06-09. Doc-only Director change → one squashed commit to `main`; push with the user.
 
@@ -663,3 +663,28 @@ the same reason — they live in unreferenced option presets (`0 Face Options` /
 `3 Lips`), not in the character file. The user flagged the broader "load separate authoring
 assets" need as **explicitly out of scope for now** (a future authoring-plugin concern), not a
 TODO. Not a bug — the documented boundary.
+
+## Routing consolidated to a single owner — `AGENTS.md` (Task Routing) (2026-06-09)
+
+**Decision (user).** The duplicated subsystem→file routing was consolidated to one owner:
+**`AGENTS.md` (Task Routing)**. `ImporterArchitecture.md`'s "Common Change Areas" table — the
+deferred doc-diet follow-up — was removed.
+
+**Why `AGENTS.md`.** R10's tier list already assigns `entry/routing → AGENTS.md`, and its
+26-row Task Routing was the superset of the 16-row "Common Change Areas" (it adds the parser
+ABI check, ThirdParty lib, `Sync-Parser`, the diagnostic dump, and the status/why/facts doc
+pointers). "Common Change Areas"'s only non-duplicated content — the companion mesh/material
+flow and the morph→`DsonParserFunctions.h` hop — already lives in `ImporterArchitecture.md`'s
+own Runtime Flow + Component Responsibilities, so removing the table lost no nuance.
+
+**Why not `ImporterArchitecture.md`.** Moving detailed routing there and leaning out the
+auto-loaded `AGENTS.md` was the alternative, but it contradicts R10's tier and
+`ImporterArchitecture.md` sat at 190/195 — it could not absorb the ~30-row union without
+breaching its budget.
+
+**Same-change cleanup.** `ImporterArchitecture.md`'s Discovery Rule repointed at `AGENTS.md`
+(Task Routing); stale "Common Change Areas" pointers fixed in `AuditGuide.md` (§Symptom Routing)
+and `CodeReviewRules.md` (R8 doc-sync list); the cleanup item removed from `Roadmap.md` (R9).
+Net: ~17 hot-path lines removed (`ImporterArchitecture.md` 190 → ~173).
+
+**Status:** ✅ done 2026-06-09. Doc-only Director change → commit to `main`; push with the user.

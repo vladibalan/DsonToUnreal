@@ -132,7 +132,7 @@ the file layout, a component's responsibility, the routing an agent follows, or
 the available tooling, update the relevant doc **in the same change**:
 - **A source file is added, removed, renamed, or its responsibility changes** →
   update the file map and component list in `Docs/ImporterArchitecture.md`
-  (Shape, Component Responsibilities, Common Change Areas) **and** the Read Order
+  (Shape, Component Responsibilities) **and** the Read Order
   + Task Routing table in `AGENTS.md`.
 - **A parser export or ABI detail changes** (see R2) → also keep the
   `DsonParserFunctions.h` description in `Docs/ImporterArchitecture.md` accurate.
