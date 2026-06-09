@@ -403,7 +403,12 @@ single-lobe). **No master-asset edit** — the master graph correctly implements
 approximation; the bug was purely the importer feeding gated-off inputs. **Option B' parked:** honor
 `Dual Lobe Specular Enable` (feed the two lobe-2 channels only when a character enables the dual lobe),
 revisit if such content appears. Code-complete + clean `Build.bat DsonHostEditor` (0 warnings / 0
-errors); **visual re-import confirmation on Nancy/Laura G9 is the remaining step.**
+errors). **Verified (2026-06-09):** Nancy G9 re-import confirmed the skin reads correctly (no longer
+crushed). The Mouth companion (`MI_Mouth`/`MI_Teeth`, also on `M_DazPBRSkin`) had minor residual gloss,
+resolved **per-character via a manual `SpecularRoughnessMult` > 1 MIC override** — deliberately *not*
+baked into the importer (an aesthetic correction, not a faithfulness fix; DAZ mouth interiors are
+genuinely wet — revisit as part of slice #3 wet-surface handling if a durable path is wanted). Laura not
+re-checked.
 
 **Slice #3 heads-up.** EyeMoisture `L/R` import but their channels reference `material_library` via a
 `#fragment` url the parser doesn't resolve → the interim `M_DazIrayUber` MICs are near
