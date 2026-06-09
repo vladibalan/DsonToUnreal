@@ -10,6 +10,7 @@ Contents:
 - Carry-forward lessons (hard-won; don't relearn)
 - Verified data facts (sanity checks for future work)
 - LIE (layered-image) composition — the makeup/overlay recipe + `#fragment` diagnostic
+- Genesis 9 companion figures & the `PostLoadAddons` discovery chain
 
 ## Carry-forward lessons (hard-won; don't relearn)
 
@@ -146,11 +147,9 @@ operations, not any single file.
 **Composition is out of importer scope.** Executing this recipe — compositing the
 ingredient layers per their blend ops / transparency / order into a faithful Diffuse,
 then baking out and rebinding the MIC — is *interpretation*, not translation, so the
-importer does not do it (`Docs/Principles.md` P1). The importer's obligation is to
-bring the ingredients and the recipe across **faithfully**: today it brings the
-ingredient layers (standalone `UTexture2D`s) but **drops the recipe**, because the
-parser's per-layer model keeps only `url` + `label`. Closing that gap is an additive
-parser exposure of the per-layer compositing metadata
+importer does not do it (`Docs/Principles.md` P1). The recipe must still be brought
+across **faithfully** (P2); closing the gap left by today's dropped recipe (above) is
+an additive parser exposure of the per-layer compositing metadata
 (operation/transparency/color/invert/transforms/active) — taken when a concrete need
 lands (`Docs/Principles.md` P4), not yet.
 

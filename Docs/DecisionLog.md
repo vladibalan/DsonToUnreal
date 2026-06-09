@@ -543,3 +543,37 @@ there. `AGENTS.md` lines 16/35 repointed (net-neutral).
   commit (not self-applied), since it is the change that grants the authority.
 
 **Status:** decided 2026-06-08; docs updated in the working tree, pending user commit.
+
+## Doc-diet / tiering pass — budgets retuned; scope-broadening went to exempt docs (2026-06-09)
+
+**Decision.** Ran the standalone Director doc-diet pass from the Roadmap backlog. Brought the
+hot-path orientation docs back within `CodeReviewRules.md` R10 by **deduplicating and relocating,
+not shaving nuance** — every compressed block was confirmed already owned by an exempt doc, or kept
+inline where it had no other home.
+
+**What changed.**
+- `Roadmap.md` 258 → 228: collapsed "Next up" (it duplicated the slice section), compressed
+  shipped-v1 detail, folded the gated-node audit into slice #2, trimmed "Dropped from v2" rationale
+  to a `MaterialMastersV1.md` pointer.
+- `AGENTS.md` 138 → 130: removed the Director/Implementer role + git/build re-enumeration (single
+  home `AgentWorkflow.md`) and the re-listed R10 tier map → pointers.
+- `Tooling.md` 78 → 77: dropped two policy restatements ("Implementer never runs git", "push stays
+  with the user"); git command mechanics stay (its tier).
+- `Reference.md`: fixed a stale Contents TOC + a doubled LIE "drops the recipe" sentence.
+
+**Budgets retuned** (R10 list + `dson-doc-guard` hook, kept in sync): `AGENTS.md` 140 → **135**
+(tightened — it auto-loads every session, so it earns the strictest ceiling); `ImporterArchitecture.md`
+185 → **195** (raised — pinned at ceiling by realized companion-builder growth + P2's forecast
+metadata-emission component). Other hot-path budgets held. `SubsurfaceProfileV2.md` added to the
+exempt list (a cold V2 design doc like `FormulaMorphsV2.md`).
+
+**Why budgets mostly held rather than rising with scope.** The 2026-06-09 scope codification (P1–P5)
+broadened the Importer's mandate but landed in **exempt** docs (`Principles.md`, this log) by design —
+so the hot path needed no bigger ceilings; nuance is preserved by relocating it into the budget-free
+cold docs (what R10 tiering is for). Net: hot-path read-load −~50 lines, ceilings ~flat.
+
+**Remaining follow-up.** `AGENTS.md` Task Routing and `ImporterArchitecture.md` "Common Change Areas"
+are overlapping subsystem→file tables; consolidating them is a structural call (which doc owns
+routing), deferred — now the lone doc-diet item in the Roadmap backlog.
+
+**Status:** ✅ done 2026-06-09. Doc-only Director change → one squashed commit to `main`; push with the user.

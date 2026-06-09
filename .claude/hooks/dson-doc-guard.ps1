@@ -3,8 +3,9 @@
 # MaterialMastersV1.md) and self-filters out everything else.
 #   PreToolUse  -> injects the R10 "tier + point-don't-duplicate" reminder.
 #   PostToolUse -> warns if a HOT-PATH doc crossed its soft line budget.
-# Cold/on-demand docs (DecisionLog, Reference, FormulaMorphsV2, MaterialMastersV1)
-# are intentionally absent from the budget table -> exempt; they absorb history.
+# Cold/on-demand docs (DecisionLog, Reference, FormulaMorphsV2, SubsurfaceProfileV2,
+# MaterialMastersV1, Principles) are absent from the budget table -> exempt (they
+# absorb history). Authoritative exempt list: Docs/CodeReviewRules.md R10.
 # Keep these budgets in sync with the R10 list in Docs/CodeReviewRules.md.
 # Targets Windows PowerShell 5.1 (no pwsh dependency). Reads the payload from stdin.
 $ErrorActionPreference = 'Stop'
@@ -30,10 +31,10 @@ $leaf = Split-Path $path -Leaf
 
 # Soft line budgets for hot-path docs only (mirror Docs/CodeReviewRules.md R10).
 $budgets = @{
-    'AGENTS.md'                = 140
+    'AGENTS.md'                = 135
     'Roadmap.md'               = 260
     'AuditGuide.md'            = 120
-    'ImporterArchitecture.md'  = 185
+    'ImporterArchitecture.md'  = 195
     'AgentWorkflow.md'         = 240
     'CodeReviewRules.md'       = 240
     'Tooling.md'               = 80
@@ -52,7 +53,7 @@ if ($event -eq 'PostToolUse') {
     try { $lines = @(Get-Content -LiteralPath $path -ErrorAction Stop).Count } catch { exit 0 }
     if ($lines -le $budget) { exit 0 }
 
-    $msg = "DsonToUnreal doc budget (Docs/CodeReviewRules.md R10): $leaf is now $lines lines, over its soft budget of $budget. This is the re-bloat signal. Relocate cold content rather than letting a hot-path doc grow: dated rationale/postmortems/handoff history -> Docs/DecisionLog.md; durable facts/lessons/gotchas -> Docs/Reference.md; or split the doc. Status docs hold CURRENT state only. (Cold archives DecisionLog/Reference/FormulaMorphsV2/MaterialMastersV1 are exempt.)"
+    $msg = "DsonToUnreal doc budget (Docs/CodeReviewRules.md R10): $leaf is now $lines lines, over its soft budget of $budget. This is the re-bloat signal. Relocate cold content rather than letting a hot-path doc grow: dated rationale/postmortems/handoff history -> Docs/DecisionLog.md; durable facts/lessons/gotchas -> Docs/Reference.md; or split the doc. Status docs hold CURRENT state only. (Cold/exempt docs absorb history — see Docs/CodeReviewRules.md R10 for the list.)"
     Write-Context 'PostToolUse' $msg
     exit 0
 }

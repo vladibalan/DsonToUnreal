@@ -33,9 +33,9 @@ Gotchas:
 
 ## Git workflow (branch-per-task)
 
-Branch/commit/merge mechanics for the **Director** (policy + role split:
-`Docs/AgentWorkflow.md`). The Implementer never runs git — it edits the checked-out
-branch and leaves the tree dirty. `<id>` is the handoff id; the branch is `task/<id>`.
+Branch/commit/merge mechanics for the **Director**; the git policy and role split
+(who runs git, push ownership) live in `Docs/AgentWorkflow.md`. `<id>` is the handoff
+id; the branch is `task/<id>`.
 
 - **Open** a task off `Base` (default `main`): `git switch -c task/<id> <Base>`.
 - **Base / nesting.** A minor task spawned mid-task branches off the in-progress
@@ -50,7 +50,6 @@ branch and leaves the tree dirty. `<id>` is the handoff id; the branch is `task/
   conflict is a source edit: abort and route it back via a merge task-file (or
   escalate), never hand-resolved.
 - **Doc/config-only Director changes** commit straight to `main` (no branch).
-- **Push stays with the user** — the Director commits and merges locally only.
 
 ## clangd index (read before regenerating it)
 

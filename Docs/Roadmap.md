@@ -25,7 +25,7 @@ Load-bearing invariants (coordinate flip, winding, scale) are owned by
 `CodeReviewRules.md` R4 / the `DazPointToUe` helper (and restated in
 `Docs/Reference.md`) — referenced here, never restated, so they cannot drift.
 
-_Last updated: 2026-06-08._
+_Last updated: 2026-06-09._
 
 ## Phase status
 
@@ -44,20 +44,16 @@ _Last updated: 2026-06-08._
 
 ## Phase 6 — what shipped (v1)
 
-- Per scene-material `UMaterialInstanceConstant`, parented to one of three
-  hand-authored masters in `Content/Materials/` (spec: `MaterialMastersV1.md`):
-  `M_DazIrayUber` (G8/G8.1/G3), `M_DazPBRSkin` (G9/Laura), `M_DazDefault` (fallback).
-- Shader detection: URL fragment first, then `shader_type`.
-- Channel→parameter mapping tables in `DsonMaterialBuilder.cpp`
-  (`GetIrayUberMapping()` / `GetPBRSkinMapping()`); textures imported via
-  `DsonTextureImporter` with per-channel sRGB.
-- IrayUber subsurface washy-skin fix: a `TranslucencyWeight` (default 0.1) gates
-  the translucency tint + SSS map into Subsurface Color.
-- Outputs: MICs `/Game/DazImports/Materials/<basename>/MI_<sceneMatId>`; textures
-  `/Game/DazImports/Textures/<mirrored DAZ path>/T_<filename>`.
-
-"v1" means materials look acceptable on the tested figures; the items under
-**Deferred to v2** are knowingly out of scope for now.
+Per scene-material `UMaterialInstanceConstant` parented to one of three hand-authored
+masters in `Content/Materials/` (spec: `MaterialMastersV1.md`): `M_DazIrayUber`
+(G8/G8.1/G3), `M_DazPBRSkin` (G9/Laura), `M_DazDefault` (fallback). Shader detection:
+URL fragment → `shader_type`; channel→parameter mapping in `DsonMaterialBuilder.cpp`
+(`GetIrayUberMapping()`/`GetPBRSkinMapping()`); textures via `DsonTextureImporter`
+(per-channel sRGB). IrayUber washy-skin fix: `TranslucencyWeight` (0.1) gates the
+translucency tint + SSS map into Subsurface Color. Outputs — MICs
+`/Game/DazImports/Materials/<basename>/MI_<sceneMatId>`, textures
+`…/Textures/<mirrored DAZ path>/T_<filename>`. "v1" = acceptable on tested figures;
+**Deferred to v2** items are knowingly out of scope.
 
 ## Figure / generation support
 
@@ -107,11 +103,10 @@ this section as it lands. **Current: slice #3 (eye-moisture / cornea).**
    Folds in the sRGB-cache-conflict fix in `DsonTextureImporter`.
 2. **Subsurface Profile pipeline** — ✅ **Done & verified 2026-06-07** (full
    acceptance set). Both skin masters → Subsurface Profile shading,
-   `SubsurfaceWeight`→Opacity, per-character `USubsurfaceProfile` on skin. Two
-   verification fixes: IrayUber SSS-binding (`SetParentEditorOnly`); PBRSkin
-   darkening → inline translucency restored **tuned → Base Color** (B1, profile
-   keeps the scatter), IrayUber translucency stays removed. Rationale + the
-   "profile redistributes, doesn't add light" finding →
+   `SubsurfaceWeight`→Opacity, per-character `USubsurfaceProfile` on skin. The two
+   verification fixes (IrayUber SSS-binding; PBRSkin darkening, B1), the gated-but-
+   evaluated-node master audit (cost-when-disabled paths removed), and the "profile
+   redistributes, doesn't add light" finding →
    [`SubsurfaceProfileV2.md`](SubsurfaceProfileV2.md) §Revision + `DecisionLog.md`.
 3. **Eye-moisture / cornea master** (`M_DazEyeMoisture`) — new translucent
    master + eye-surface detection + mapping. Translucent shading cost absorbed by
@@ -119,28 +114,16 @@ this section as it lands. **Current: slice #3 (eye-moisture / cornea).**
    G8/G8.1/G3 carry eyes on the body mesh; **G9 fully unblocked** (companion
    Slice C ✅ 2026-06-08 — `EyeMoisture Left/Right` import from the Eyes MAT preset).
 
-### Master-rework gated-node audit (slice #2 — done)
-
-(Mislabel fixed: this concerned slice #2's `M_DazPBRSkin`/IrayUber rework, not
-slice #3.) During that rework the masters were audited for the
-gated-but-evaluated-nodes pattern that motivated the IrayUber bump cleanup
-(`Docs/DecisionLog.md`) — parameters don't fold to zero at compile time, so gated
-branches still sample; cost-when-disabled paths were removed. ✅ done with slice #2.
-
 ### Dropped from v2 — runtime cost > visual-fidelity gain
 
-v1's approximation is the runtime answer; the full DAZ-faithful version is not
-pursued for game runtime. Same framing as the IrayUber bump decision
-(`Docs/DecisionLog.md`).
-
-- **Full dual-lobe specular** — adds a second specular GGX evaluation per skin
-  pixel per frame. v1's single-lobe approximation stands.
-- **Clear-coat split** — UE Clear Coat shading model adds clear-coat GGX +
-  transmission on top. v1's tinted-specular top-coat stands.
-- **Metallic Flakes (skin)** — procedural noise + size/density is non-trivial
-  runtime ALU. No current content needs it (Nancy ships flakes at weight 0).
-  If a future asset requires strong flakes, address per-character outside the
-  default skin pipeline.
+v1's approximation stands as the runtime answer (same framing as the IrayUber bump
+decision → `Docs/DecisionLog.md`):
+- **Full dual-lobe specular** (second GGX/pixel) and **clear-coat split** (clear-coat
+  GGX + transmission) — v1's single-lobe / tinted-top-coat approximations stand;
+  parameter detail in `MaterialMastersV1.md`.
+- **Metallic Flakes (skin)** — non-trivial procedural-noise ALU; no current content
+  needs it (Nancy ships flakes at weight 0). A future strong-flakes asset → handle
+  per-character outside the default skin pipeline.
 
 ### Out of importer scope (interpretation / authoring)
 
@@ -230,29 +213,16 @@ brow mesh. **Unblocks** slice #3 on G9 (`EyeMoisture Left/Right` live only in th
   file's comments or log messages still claim "Genesis 3 → default" / "G3
   fallback", remove or correct them. Search `Source/DsonImporter/` for
   `Genesis 3` / `G3` references.
-- **Doc-diet / tiering pass (Director — separate session).** The doc tier has grown
-  enough that ordinary tasks load near the context ceiling. Dedicated pass to bring the
-  docs back within `CodeReviewRules.md` R10 (one tier per doc, point don't duplicate,
-  no hot-path doc over its soft line budget): identify overweight docs, relocate or
-  split heavy sections into the tier that owns them, prune duplication, trim hot-path
-  docs toward pointers. Scope and execute in a standalone Director session.
+- **Consolidate the duplicated subsystem→file routing** in `AGENTS.md` (Task Routing)
+  and `ImporterArchitecture.md` ("Common Change Areas") — two overlapping tables.
+  Deferred from the 2026-06-09 doc-diet pass as a structural call (which doc owns
+  routing); rationale in `Docs/DecisionLog.md`.
 
 ## Next up
 
-**Phase 6 v2 — Materials v2.** Active. **Slice #1 (faithful makeup + LIE import)
-is done and signed off** — full acceptance regression passed 2026-06-07 (G8
-Jordina, G8.1 base, G9 Laura, G3 Victoria 7 HD, plus extra spot-checks).
-**Slice #2 (Subsurface Profile pipeline) — ✅ done & verified 2026-06-07** (full
-acceptance set: G8.1, Jordina, Nancy, Laura, V7HD). Two verification fixes landed —
-IrayUber SSS-binding (`SetParentEditorOnly`) and PBRSkin darkening (inline
-translucency restored tuned → Base Color, B1); rationale →
-[`SubsurfaceProfileV2.md`](SubsurfaceProfileV2.md) §Revision + `DecisionLog.md`.
-**Next: slice #3 — eye-moisture / cornea master** (`M_DazEyeMoisture`) — buildable on
-G8/G8.1/G3 and G9 (companion Slice C ✅ 2026-06-08; Mouth/Teeth key-0 + companion UV-set fixes ✅ verified 2026-06-08 on Nancy G9). Then Phase 7 v2.
-
-**Phase 7 v2 — formula evaluation/composed character shape** (queued behind
-Phase 6 v2). The discovery-only portion is done: formula-reachable `?value`
-files import their leaf morph targets at weight 0. Next is the evaluator/compose
-feature in [`Docs/FormulaMorphsV2.md`](FormulaMorphsV2.md): the parser already exposes
-the channel dial / `min`/`max`/`clamped` / `GetMorphId` it needs, so binding those
-(importer-side) plus the evaluator pass remain before a combined dialed shape can ship.
+**Phase 6 v2 — Materials v2 (active): slice #3 — eye-moisture / cornea master**
+(`M_DazEyeMoisture`). Slices #1–#2 done (see "Phase 6 v2 — Materials v2" above);
+buildable on G8/G8.1/G3 and G9 (companion Slices A–C ✅ 2026-06-08; Mouth/Teeth
+key-0 + companion UV-set fixes verified on Nancy G9). **Then Phase 7 v2 — formula
+evaluation/composed shape** (queued; discovery-only portion done — see "Deferred to
+v2" → [`FormulaMorphsV2.md`](FormulaMorphsV2.md)).

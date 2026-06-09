@@ -4,22 +4,17 @@
 
 ## Operating model (two-agent workflow)
 
-This plugin is worked through two human-mediated roles — a **Director**
-(coordination: reads, writes docs/config, authors Implementer task-files; no source
-edits) and an **Implementer** (makes the source changes per the code-review
-rules). The handoff travels through files in `.handoff/`; the user launches each
-run by hand. At session start the user
-declares the role; **if unstated, ask** before doing role-specific work — and
-confirm it applies to *this* plugin, since this repo sits beside the separate
-`DsonParser` repo and roles do **not** carry across repos.
+This plugin is worked through two human-mediated roles — a **Director** (coordination
++ docs/config; no source edits) and an **Implementer** (source edits; any LLM agent the
+user launches) — with a file-based handoff through `.handoff/`. At session start the
+user declares the role; **if unstated, ask** before role-specific work, and confirm it
+applies to *this* plugin — this repo sits beside the separate `DsonParser` repo and
+roles do **not** carry across repos.
 
-Both roles share hard boundaries: **never guess a missing file — ask the user to upload
-it.** Git: the Director commits/squash-merges per task, the Implementer never runs git,
-push stays with the user. Builds: the Implementer builds and verifies; the Director defers.
-
-Full role definitions, shared boundaries, the handoff sequence, and the
-task-file / feedback-file templates are owned by
-**[`Docs/AgentWorkflow.md`](Docs/AgentWorkflow.md)**.
+The full role definitions, the shared hard boundaries (build/git ownership; never guess
+a missing file — ask the user to upload it), the handoff sequence, and the task-file /
+feedback-file templates are owned by **[`Docs/AgentWorkflow.md`](Docs/AgentWorkflow.md)**
+— read it before role-specific work.
 
 ## Version Control
 
@@ -71,22 +66,19 @@ These rules govern *authoring*, not just review. Before you edit any file under
    state the result.** Name the rules you checked and confirm the diff satisfies
    them, or flag what doesn't — do not say "looks fine".
 
-This applies even to small or comment-only edits; the parser-ABI (R2),
-RAII/string-lifetime (R3), and breaking-change (R7) rules are most often violated
-by "minor" tweaks. (A `PreToolUse` hook in `.claude/settings.json` also surfaces
-this checklist on each plugin-source edit, but treat that as a backstop — the
-self-audit is your responsibility, and only an end-of-change review over the whole
-diff catches cross-file issues like a duplicated helper or an export drifting from
-the X-macro list.)
+This applies even to small or comment-only edits — the parser-ABI (R2),
+RAII/string-lifetime (R3), and breaking-change (R7) rules are most often broken by
+"minor" tweaks. A `PreToolUse` hook surfaces this checklist on save, but that's a
+backstop: the self-audit, and an end-of-change review over the whole diff (catching
+cross-file issues like a duplicated helper or an X-macro-list drift), are your job.
 
 ## Before editing docs
 
-Editing an orientation doc (`AGENTS.md`, `Docs/*.md`, `MaterialMastersV1.md`) —
-even doc-only as the Director — follow **[`Docs/CodeReviewRules.md`](Docs/CodeReviewRules.md)
-R10**: keep them tight and tiered. Put content in the tier that owns it (status →
-`Docs/Roadmap.md`, rationale/postmortems → `Docs/DecisionLog.md`, durable
-facts/lessons → `Docs/Reference.md`), **point instead of duplicating**, and don't
-push a hot-path doc past its line budget — relocate or split instead.
+Editing an orientation doc (`AGENTS.md`, `Docs/*.md`, `MaterialMastersV1.md`) — even
+doc-only as the Director — follow **[`Docs/CodeReviewRules.md`](Docs/CodeReviewRules.md)
+R10**: keep docs tight and tiered (put content in the tier that owns it), **point
+instead of duplicating**, and don't push a hot-path doc past its line budget —
+relocate or split instead.
 
 ## Task Routing
 
