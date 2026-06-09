@@ -97,12 +97,17 @@ feedback-file* — so it holds for any agent:
 
 ## Requesting parser features (cross-repo)
 
-The parser is a separate repo with its own workflow (note at top). When a task needs a
-fact it doesn't yet expose, the Director raises a **parser request** stating *what*, not
-*how*: name the **DSON data needed** and the importer behaviour that needs it — never the
-C ABI to add (names, signatures, return contracts). Surface design is the Parser
-Director's, and a "how" request risks re-specifying an accessor that already ships. Name
-the need (e.g. "each modifier channel's dial value"); let the Parser Director answer it.
+The parser is a separate repo with its own workflow (note at top). **First, is it a
+parser ask at all?** The parser **opens one file** and **relays each section
+faithfully, never merging across sections** — so a request is warranted **only when
+the datum is in the open file but exposed nowhere** (raw data dropped on the floor).
+If it is derivable from what already ships — by *joining two exposed sections* (a
+same-file `#fragment` into `material_library`; `scene.animations` key-0 onto a
+material) or it needs a *second file* (`path#fragment`, companion chain) — it is
+**importer work**; grep the published accessors first. When a request *is* warranted,
+state *what*, not *how*: name the **DSON data needed** and the importer behaviour,
+never the C ABI — a "how" risks re-specifying an accessor that already ships. Worked
+precedent: `Docs/DecisionLog.md` (slice #3).
 
 ## The handoff is file-based (`.handoff/`)
 

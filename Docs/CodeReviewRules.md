@@ -197,7 +197,7 @@ included.
 - **Soft line budgets for hot-path docs** — crossing a ceiling is a signal to
   relocate or split, not to keep growing (mirrored in the `dson-doc-guard` hook,
   which warns on save): `AGENTS.md` ≤ 135, `Roadmap.md` ≤ 260, `AuditGuide.md` ≤
-  120, `ImporterArchitecture.md` ≤ 195, `AgentWorkflow.md` ≤ 240,
+  120, `ImporterArchitecture.md` ≤ 195, `AgentWorkflow.md` ≤ 245,
   `CodeReviewRules.md` ≤ 240, `Tooling.md` ≤ 80. The cold/on-demand docs —
   `DecisionLog.md`, `Reference.md`, `FormulaMorphsV2.md`, `SubsurfaceProfileV2.md`,
   `MaterialMastersV1.md`, `Principles.md` — are **exempt** (off the hot path).

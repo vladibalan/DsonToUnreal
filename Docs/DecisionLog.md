@@ -411,10 +411,14 @@ baked into the importer (an aesthetic correction, not a faithfulness fix; DAZ mo
 genuinely wet — revisit as part of slice #3 wet-surface handling if a durable path is wanted). Laura not
 re-checked.
 
-**Slice #3 heads-up.** EyeMoisture `L/R` import but their channels reference `material_library` via a
-`#fragment` url the parser doesn't resolve → the interim `M_DazIrayUber` MICs are near
-parameter-free. `M_DazEyeMoisture` (slice #3) must handle those EyeMoisture channels (may need
-parser-side `material_library` `#fragment` resolution). Also: the key-0 override pass
+**Slice #3 heads-up.** EyeMoisture `L/R` scene-materials carry zero inline channels — their `url` is a bare
+same-file `#fragment` (`#EyeMoisture%20Left`) into this file's `material_library`, where the `uber_iray`
+channels actually live. **Determined importer-side (2026-06-09), no parser change:** the parser already
+relays `material_library` faithfully via the `GetMaterial*` family (distinct from `GetSceneMaterial*`), so
+slice #3 resolves the bare `#fragment` in the importer (UrlDecode → match `GetMaterialId`) and reads the
+wet-eye channels (Glossy, Refraction IOR, Cutout Opacity) from there. **Worked precedent** for the
+parser-request gate in [`AgentWorkflow.md`](AgentWorkflow.md) ("Requesting parser features"): a
+cross-section join of already-exposed data is importer work, not a parser ask. Also: the key-0 override pass
 (`ApplySceneAnimationOverrides`) is a **no-op on the eyes companion** today — eye material ids carry
 spaces + a uniquifying suffix (`Eye Left`, `EyeMoisture Left-1`) while the animation urls reference them
 percent-encoded and **unsuffixed** (`#materials/EyeMoisture%20Left:?…`), so the raw matId compare never
