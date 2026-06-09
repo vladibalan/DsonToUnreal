@@ -6,17 +6,14 @@ database. Build and git are a role split — see `Docs/AgentWorkflow.md`.
 
 ## Build & verify (read before building)
 
-The plugin compiles as part of the **host project's editor target**
-(`DsonHostEditor`), not standalone. From a terminal (shell-only — no Rider build
-action needed), against the source-build engine at `D:\UE_5.4`:
+The plugin compiles only as part of the **host editor target** (`DsonHostEditor`),
+from a terminal against the source-build engine at `D:\UE_5.4` (no Rider action needed):
 
 ```
 "D:\UE_5.4\Engine\Build\BatchFiles\Build.bat" DsonHostEditor Win64 Development -Project="D:\Unreal Projects\DsonHost\DsonHost.uproject" -WaitMutex
 ```
 
-Verified 2026-06-08: clean incremental build of `UnrealEditor-DsonImporter.dll`,
-exit 0, no warnings. An "up-to-date" result also counts as success; a full clean
-rebuild takes considerably longer.
+A clean incremental build of `UnrealEditor-DsonImporter.dll` exits 0 with no warnings; an "up-to-date" result also counts as success (a full clean rebuild is much slower).
 
 Gotchas:
 - **Close the UE Editor first.** If it is running with the plugin loaded, the link
@@ -28,8 +25,7 @@ Gotchas:
   failing; `-FromMsBuild` is not needed for a terminal invocation.
 - Requires the **VS2022 C++ toolchain**; the engine's bundled .NET SDK is used (no
   separate install). No LLVM/Clang needed.
-- Rider equivalent: the `DsonHostEditor | Win64 | Development` build configuration
-  (it calls the same UBT under the hood).
+- Rider equivalent: the `DsonHostEditor | Win64 | Development` configuration (same UBT under the hood).
 
 ## Sync the vendored parser (read before updating it)
 
@@ -80,10 +76,8 @@ id; the branch is `task/<id>`.
 
 A clangd compile database already exists for this plugin. If you need to
 (re)generate it, **do not reach for UBT's `Build.bat -mode=GenerateClangDatabase`** —
-that mode aborts immediately with "Clang x64 must be installed" because this
-machine has **no LLVM/Clang toolchain installed** (only `clang-format`/`clang-tidy`
-ship with VS; there is no `clang-cl.exe`/`clang.exe`). clangd itself needs no such
-install — it has its own frontend — so the toolchain is not worth installing.
+that mode aborts with "Clang x64 must be installed" — this machine has **no LLVM/Clang**
+(only `clang-format`/`clang-tidy` ship with VS). clangd has its own frontend, so don't install one.
 
 The working, no-install approach (already set up):
 

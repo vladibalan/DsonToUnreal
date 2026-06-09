@@ -27,7 +27,7 @@ The plugin is an Unreal Editor module:
 4. `FDsonValidator` parses basic metadata and resolves figure/material/geometry dependencies.
 5. Import confirmation produces `FDsonImportSettings`.
 6. `FDsonImportPipeline::Run(Settings, ContentRoots)` orchestrates asset creation and returns `FDsonImportResult` (skeleton, mesh, abort flag), in this order:
-   - `FDsonMaterialBuilder` builds material instances from scene material channels, driving image import through `FDsonTextureImporter`. It also creates one per-character `USubsurfaceProfile` for skin MICs (Subsurface Profile masters) and imports makeup base textures and non-base LIE layers as standalone `UTexture2D` assets without MIC binding; composition is deferred to authoring tools.
+   - `FDsonMaterialBuilder` builds material instances from scene material channels, driving image import through `FDsonTextureImporter`. It also creates one per-character `USubsurfaceProfile` for skin MICs (Subsurface Profile masters) and imports makeup base textures and non-base LIE layers as standalone `UTexture2D` assets without MIC binding; **variant**-LIE composition is deferred to authoring tools — except the fixed-factory eye-albedo LIE (animation-bound `#fragment`), which is composited and baked at import (`DecisionLog.md` owns the fixed-vs-variant scope rule).
    - Optional `FDsonMaterialDiagnostic` channel dump, then the `M_DazDefault` master loads — a missing master aborts before any asset is built.
    - `FDsonSkeletonBuilder` creates a `USkeleton` from figure DSF nodes.
    - `FDsonMeshBuilder` creates the skeletal mesh, UVs, polygon groups, and material slots, invoking `FDsonSkinWeightsBuilder` (DSF skin influences) and `FDsonMorphBuilder` (MeshDescription morph attributes) before mesh commit; `BuildSkeletalMesh` generates the `UMorphTarget`s.
@@ -97,6 +97,8 @@ The plugin is an Unreal Editor module:
   skin color, and assigns it to skin MICs while gating known non-skin groups off.
 - Imports unmapped makeup base images and non-base LIE layer images as standalone
   textures under the normal texture-import convention, without MIC parameter binding.
+- Resolves the animation-bound `#fragment` eye-albedo LIE to an `image_library`
+  entry and composites it through `FDsonTextureImporter` (fixed-factory bake only).
 - For IrayUber, bakes bump maps into the normal input and leaves the master's
   `BumpStrength`/`BumpMap`/`UseBumpMap` parameters unset.
 - Imports textures through `FDsonTextureImporter`.
@@ -108,6 +110,8 @@ The plugin is an Unreal Editor module:
 - Imports or reuses `UTexture2D` assets.
 - Bakes IrayUber bump height maps into tangent-space normal textures and combines
   them with the surface normal map when present.
+- Composites a fixed-factory LIE layer stack into one baked `UTexture2D`
+  (`CompositeImageLayers`) at native size on the `map_size` canvas; cached by image id.
 - Sets sRGB according to material channel needs.
 - Caches ordinary imports by resolved absolute path, sRGB mode, and optional
   asset-name suffix so color and linear variants can coexist.
