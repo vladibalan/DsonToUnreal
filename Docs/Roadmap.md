@@ -118,7 +118,9 @@ this section as it lands. **All three slices shipped — #3 (eye-moisture) runti
    — no parser change); key-0 matId reconciliation (UrlDecode + strip `-<n>` suffix).
    Master spec → `MaterialMastersV1.md`; resolution detail → `DecisionLog.md` "Slice #3
    heads-up". **Note:** the now-transparent shell exposed the **untextured G9 eyeball**
-   (`Eye L/R`, PBRSkin) — separate, see Known issues.
+   (`Eye L/R`, PBRSkin) — a separate issue, since fixed by baking the anim-bound eye
+   LIE to one albedo at import (runtime-verified G9 Nancy 2026-06-09); see
+   `DecisionLog.md` "G9 untextured eyeball".
 
 ### Dropped from v2 — runtime cost > visual-fidelity gain
 
@@ -227,7 +229,5 @@ brow mesh. **Unblocks** slice #3 on G9 (`EyeMoisture Left/Right` live only in th
 ## Next up
 
 **Phase 7 v2 — formula evaluation / composed dialed shape** (queued; discovery-only
-portion done — see "Deferred to v2" → [`FormulaMorphsV2.md`](FormulaMorphsV2.md)).
-Phase 6 v2 (Materials v2) closed with slice #3 (eye-moisture) runtime-verified on G9
-Nancy 2026-06-09; the untextured-G9-eyeball albedo bake (generic-eyes LIE) shipped and is
-**runtime-verified on Nancy 2026-06-09** (commits `c636ada`→`480f234`) — see `Docs/DecisionLog.md`.
+portion done — see "Deferred to v2" → [`FormulaMorphsV2.md`](FormulaMorphsV2.md)). This is
+the active front now that Phase 6 v2 (Materials v2) has closed (see Phase status).
