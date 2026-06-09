@@ -1,6 +1,6 @@
 # Material Masters v1
 
-Reference spec for the three `UMaterial` master assets that back the DsonToUnreal material pipeline. Author these in UE5; the plugin's `DsonMaterialBuilder` instances them per scene material. _(Skin masters reworked for Materials v2 / slice #2 — Subsurface Profile shading; see per-master notes + `Docs/SubsurfaceProfileV2.md`.)_
+Reference spec for the four `UMaterial` master assets that back the DsonToUnreal material pipeline. Author these in UE5; the plugin's `DsonMaterialBuilder` instances them per scene material. _(Skin masters reworked for Materials v2 / slice #2 — Subsurface Profile shading; see per-master notes + `Docs/SubsurfaceProfileV2.md`.)_
 
 **Repo location for masters:** `/DsonToUnreal/Materials/`
 **Runtime MIC location (created by builder):** `/Game/DazImports/Materials/`
@@ -105,6 +105,49 @@ Reference spec for the three `UMaterial` master assets that back the DsonToUnrea
 - `DualLobeWeight` is the single-lobe dual-lobe approximation: the master reduces roughness by `(1 − 0.3 × DualLobeWeight)` (no second GGX evaluation). **The importer leaves it unbound at default `0`** — DAZ's `Dual Lobe Specular Weight` is gated by `Dual Lobe Specular Enable` (off by default + on all verified content), so feeding it would crush roughness with the lobe disabled. Honoring that gate for dual-lobe-on characters is parked — see `Docs/DecisionLog.md`.
 - `AOWeight` × `AOMap` → multiply with Base Color, or feed AO input if using a workflow that exposes it.
 - `TopCoat*` is scalar-only here (no colour, no map) — drives Clear Coat strength, roughness, and the clear-coat-specific bump. If Clear Coat + Subsurface conflicts, treat top coat as a roughness modifier in v1.
+
+---
+
+## M_DazEyeMoisture
+
+**Shading model:** Default Lit — **Lighting Mode: Surface ForwardShading** (so a translucent surface still takes a real specular highlight — the wet glint)
+**Blend mode:** Translucent
+**Purpose:** Genesis eye-moisture / wet-eye surfaces (`EyeMoisture L/R`, `Cornea`, `Tear`) — the thin tear-film shell over the eyeball. Materials v2 / slice #3.
+
+| Group | Parameter | Type | Default |
+|---|---|---|---|
+| Base | `BaseColor` | Vector3 | (1, 1, 1) |
+| Specular | `Specular` | Scalar | 0.5 |
+| Specular | `Roughness` | Scalar | 0.0 |
+| Refraction | `RefractionIOR` | Scalar | 1.33 |
+| Opacity | `Opacity` | Scalar | 1.0 |
+
+**Source channels** (fed **raw** by `GetEyeMoistureMapping()`; pure parametric — no textures):
+`diffuse`→`BaseColor`, `Glossy Reflectivity`→`Specular`, `Glossy Roughness`→`Roughness`,
+`Refraction Index`→`RefractionIOR`, `Cutout Opacity`→`Opacity`.
+
+**Wiring notes:**
+- **Selected by surface group, not shader.** The builder routes `EyeMoisture`/`Cornea`/`Tear`
+  surfaces here regardless of their DAZ shader (they are `uber_iray`), reading channels from
+  `material_library` via the scene-material's bare `#fragment` — see `Docs/DecisionLog.md`
+  "Slice #3 heads-up". The eyeball proper (`Eye L/R`) stays on `M_DazPBRSkin`.
+- **`Opacity` is the DAZ `Cutout Opacity` passthrough — NOT literal UE opacity.** At DAZ's value
+  `1.0` the shell must still read as a near-transparent wet film, not an opaque grey layer: Iray
+  gets its see-through wetness from thin-walled glossy + refraction, which cheap UE translucency
+  cannot replicate. Drive UE **Opacity** from a low **Fresnel-weighted base** — almost transparent
+  face-on (the PBRSkin eyeball reads through it), rising toward the grazing rim — and **multiply**
+  the `Opacity` param into that base, so a character that dials Cutout < 1 fades the whole shell.
+  A master-side constant sets the face-on transparency floor (the tuning knob — same "raw in / tune
+  in master" pattern as PBRSkin decision B1; the importer never sees it).
+- **Wet glint = low `Roughness` + `Specular`.** Feed `Roughness` straight (DAZ `Glossy Roughness`
+  is `0` = mirror-smooth); clamp to ~`0.02–0.05` in the master to avoid specular aliasing on the
+  small shell.
+- **`RefractionIOR`** drives the translucency **Refraction (IOR)** input; DAZ feeds `1.5`, physical
+  tear-film is ~`1.33`. Keep refraction subtle — it is the wetness cue, not a glass lens.
+- **`BaseColor`** barely contributes through a near-transparent shell; mapped for faithfulness (DAZ
+  feeds a light grey) but must not visibly tint the eyeball.
+- **Runtime cost:** translucent + forward-shaded, justified by the eyes' tiny screen footprint
+  (~1% on close-ups, far less normally) — the accepted slice #3 trade-off (`Docs/Roadmap.md`).
 
 ---
 
