@@ -403,7 +403,9 @@ UTexture2D* FDsonTextureImporter::ImportOrFind(const FString& ImageUrl, bool bSR
 UTexture2D* FDsonTextureImporter::CompositeImageLayers(
     const TArray<FString>& LayerPaths,
     const FString& ImageId,
-    bool bSRGB)
+    bool bSRGB,
+    int32 CanvasW,
+    int32 CanvasH)
 {
     // Cache by image id + sRGB so Eye Left and Eye Right sharing the same image composite once.
     const FString CacheKey = FString::Printf(
@@ -458,57 +460,42 @@ UTexture2D* FDsonTextureImporter::CompositeImageLayers(
         Layers.Add(MoveTemp(Decoded));
     }
 
-    // Output size = bottom layer (layer 0). Warn if any overlay differs (nearest-neighbour resamples it).
-    const int32 OutW = Layers[0].Width;
-    const int32 OutH = Layers[0].Height;
-    for (int32 k = 1; k < Layers.Num(); ++k)
+    // Canvas size: use parser-supplied map_size if valid; else max across decoded layers.
+    if (CanvasW <= 0 || CanvasH <= 0)
     {
-        if (Layers[k].Width != OutW || Layers[k].Height != OutH)
+        CanvasW = 0;
+        CanvasH = 0;
+        for (const FDecodedImage& L : Layers)
         {
-            UE_LOG(LogDsonImporter, Warning,
-                TEXT("DsonTextureImporter: CompositeImageLayers: layer %d size %dx%d differs from "
-                     "base %dx%d for image '%s'; resampling nearest-neighbour to base size"),
-                k, Layers[k].Width, Layers[k].Height, OutW, OutH, *ImageId);
+            CanvasW = FMath::Max(CanvasW, L.Width);
+            CanvasH = FMath::Max(CanvasH, L.Height);
         }
     }
 
-    // Start with bottom layer pixels; source-over each subsequent layer on top.
-    TArray<FColor> OutPixels = Layers[0].Pixels;
-    for (int32 k = 1; k < Layers.Num(); ++k)
+    // Allocate transparent canvas; composite each layer 1:1, top-left anchored, no resampling.
+    TArray<FColor> OutPixels;
+    OutPixels.SetNumZeroed(CanvasW * CanvasH);
+    for (const FDecodedImage& Layer : Layers)
     {
-        const FDecodedImage& Top = Layers[k];
-        for (int32 y = 0; y < OutH; ++y)
+        const int32 CopyW = FMath::Min(Layer.Width, CanvasW);
+        const int32 CopyH = FMath::Min(Layer.Height, CanvasH);
+        for (int32 y = 0; y < CopyH; ++y)
         {
-            for (int32 x = 0; x < OutW; ++x)
+            for (int32 x = 0; x < CopyW; ++x)
             {
-                // Nearest-neighbour sample from Top onto output coordinate (identity when same size).
-                const int32 SrcX = (OutW > 1)
-                    ? FMath::Clamp(
-                        FMath::RoundToInt(
-                            static_cast<float>(x) * static_cast<float>(Top.Width  - 1)
-                                                   / static_cast<float>(OutW - 1)),
-                        0, Top.Width - 1)
-                    : 0;
-                const int32 SrcY = (OutH > 1)
-                    ? FMath::Clamp(
-                        FMath::RoundToInt(
-                            static_cast<float>(y) * static_cast<float>(Top.Height - 1)
-                                                   / static_cast<float>(OutH - 1)),
-                        0, Top.Height - 1)
-                    : 0;
-
-                const FColor& Src = Top.Pixels[SrcY * Top.Width + SrcX];
-                FColor& Dst = OutPixels[y * OutW + x];
-
-                // source-over in sRGB (DAZ composites in image space): out = lerp(dst, src, src.a)
+                const FColor& Src = Layer.Pixels[y * Layer.Width + x];
+                FColor& Dst = OutPixels[y * CanvasW + x];
+                // source-over in sRGB (DAZ composites in image space): out = lerp(dst, src.rgb, src.a)
                 const float A = static_cast<float>(Src.A) / 255.0f;
                 Dst.R = static_cast<uint8>(FMath::Clamp(FMath::RoundToInt(Dst.R * (1.0f - A) + Src.R * A), 0, 255));
                 Dst.G = static_cast<uint8>(FMath::Clamp(FMath::RoundToInt(Dst.G * (1.0f - A) + Src.G * A), 0, 255));
                 Dst.B = static_cast<uint8>(FMath::Clamp(FMath::RoundToInt(Dst.B * (1.0f - A) + Src.B * A), 0, 255));
-                Dst.A = 255;
             }
         }
     }
+    // Force alpha = 255 (opaque albedo) for all canvas pixels
+    for (FColor& Pixel : OutPixels)
+        Pixel.A = 255;
 
     // Asset path: /Game/DazImports/Textures/Composites/T_<sanitized ImageId>
     const FString SanitizedId = ObjectTools::SanitizeObjectName(ImageId);
@@ -541,7 +528,7 @@ UTexture2D* FDsonTextureImporter::CompositeImageLayers(
 
     // OutPixels is an array of FColor (R,G,B,A named fields); on Win64/LE FColor memory layout is BGRA,
     // which is what TSF_BGRA8 expects — same convention as the bump-bake path above.
-    Texture->Source.Init(OutW, OutH, /*NumSlices=*/1, /*NumMips=*/1,
+    Texture->Source.Init(CanvasW, CanvasH, /*NumSlices=*/1, /*NumMips=*/1,
         TSF_BGRA8, reinterpret_cast<const uint8*>(OutPixels.GetData()));
     Texture->CompressionSettings = TC_Default;
     Texture->SRGB = bSRGB;

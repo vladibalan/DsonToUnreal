@@ -198,7 +198,9 @@ typedef void* DsonDocumentHandle;
     X(0, const char*, GetImageId,               DsonDocument_GetImageId,               (DsonDocumentHandle, int)) \
     X(0, int,         GetImageLayerCount,       DsonDocument_GetImageLayerCount,       (DsonDocumentHandle, int)) \
     X(0, const char*, GetImageLayerTexturePath, DsonDocument_GetImageLayerTexturePath, (DsonDocumentHandle, int, int)) \
-    X(0, const char*, GetImageLayerLabel,       DsonDocument_GetImageLayerLabel,       (DsonDocumentHandle, int, int))
+    X(0, const char*, GetImageLayerLabel,       DsonDocument_GetImageLayerLabel,       (DsonDocumentHandle, int, int)) \
+    X(0, int,         GetImageMapWidth,         DsonDocument_GetImageMapWidth,         (DsonDocumentHandle, int)) \
+    X(0, int,         GetImageMapHeight,        DsonDocument_GetImageMapHeight,        (DsonDocumentHandle, int))
 
 struct FDsonParserAPI
 {

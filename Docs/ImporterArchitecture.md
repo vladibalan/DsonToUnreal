@@ -126,6 +126,7 @@ The plugin is an Unreal Editor module:
   path, and label; the importer uses them only for standalone non-base layer
   texture import.
 - Optional PostLoadAddon accessors (`GetScenePostLoadAddon{Count,Slot,AssetName,AssetFile,MatPreset}`) expose G9 companion-figure declarations from scene.extra; used by `DsonValidator.*` companion discovery.
+- Optional image map-size accessors (`GetImageMapWidth`, `GetImageMapHeight`) expose `image_library` entry canvas dimensions (`map_size`); used by `DsonMaterialBuilder.*` to pass the correct canvas size to the LIE composite.
 
 `DsonParserAbiCheck.cpp`
 

@@ -27,13 +27,16 @@ public:
     // Alpha-composites a LIE layer stack (from image_library) into a single UTexture2D.
     // LayerPaths are the DSON URLs for each textured layer, layer 0 = bottom.
     // N==0 -> null+warn. N==1 -> ImportOrFind on the single path (no pixel work).
-    // N>=2 -> decode, source-over composite (sRGB space), save under
-    //   /Game/DazImports/Textures/Composites/T_<sanitized ImageId>.
+    // N>=2 -> decode each layer at native size; source-over onto a transparent canvas
+    //   (CanvasW x CanvasH if both > 0, else max across layers), top-left anchored,
+    //   no resampling; save under /Game/DazImports/Textures/Composites/T_<sanitized ImageId>.
     // Cached by ImageId so Eye Left and Eye Right sharing a color entry composite once.
     UTexture2D* CompositeImageLayers(
         const TArray<FString>& LayerPaths,
         const FString& ImageId,
-        bool bSRGB);
+        bool bSRGB,
+        int32 CanvasW = 0,
+        int32 CanvasH = 0);
 
     int32 GetImportedCount()  const { return ImportedCount;  }
     int32 GetCacheHitCount()  const { return CacheHitCount;  }

@@ -847,6 +847,10 @@ static void ApplySceneAnimationOverrides(
                         }
                         else
                         {
+                            const int32 CanvasW = GDsonParser.GetImageMapWidth
+                                ? GDsonParser.GetImageMapWidth(Doc, ImageIndex) : 0;
+                            const int32 CanvasH = GDsonParser.GetImageMapHeight
+                                ? GDsonParser.GetImageMapHeight(Doc, ImageIndex) : 0;
                             const int32 LayerCount = GDsonParser.GetImageLayerCount
                                 ? GDsonParser.GetImageLayerCount(Doc, ImageIndex) : 0;
                             TArray<FString> LayerPaths;
@@ -857,7 +861,7 @@ static void ApplySceneAnimationOverrides(
                                 LayerPaths.Add(S(GDsonParser.GetImageLayerTexturePath
                                     ? GDsonParser.GetImageLayerTexturePath(Doc, ImageIndex, k) : nullptr));
                             }
-                            Tex = TextureImporter.CompositeImageLayers(LayerPaths, ImageId, Binding->bSRGB);
+                            Tex = TextureImporter.CompositeImageLayers(LayerPaths, ImageId, Binding->bSRGB, CanvasW, CanvasH);
                         }
                     }
                     else
