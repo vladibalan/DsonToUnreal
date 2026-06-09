@@ -11,6 +11,22 @@ Entry sigils: `+` added · `~` changed · `-` removed/deprecated · `!` fixed.
 
 Nothing yet — new C-ABI changes land here, then move under a version heading on release.
 
+## 1.3.0 — 2026-06-09 · MINOR (additive)
+
+Per-layer LIE map stack of an `image_library` entry, reachable **by image index**.
+The layers were already parsed onto `Image::layers` but exposed only incidentally —
+copied onto a material channel that inline-references the image. An image referenced
+from elsewhere (e.g. a `scene.animations` `diffuse/image` binding to a base-figure LIE
+such as the Genesis 9 eyes) had its layer stack unreachable; `GetSceneAnimationString`
+returned only the raw `"#fragment"`. These accessors read the same parsed
+`Image::layers` over the `GetImageId` index space, at parity with the per-channel
+`…ChannelLayer*` surface. Path + label + count only — per-layer blend op/transform stay
+unmodeled (the eye case is all blend_source_over with identity transforms). Parser
+unchanged: faithful exposure of already-parsed data, no merge onto `scene.materials` (R6.4).
++ DsonDocument_GetImageLayerCount → textured-layer count of the entry's map stack (1 = plain single texture, N = LIE, 0 = no array-form map / invalid; a color-only no-url base layer is not counted). NB unlike GetSceneMaterialChannelLayerCount, which is 0 for a plain channel.
++ DsonDocument_GetImageLayerTexturePath → layer texture path by (imageIndex, layerIdx); layer 0 = first textured map element ("" = invalid)
++ DsonDocument_GetImageLayerLabel → LIE layer label by (imageIndex, layerIdx) ("" = invalid)
+
 ## 1.2.0 — 2026-06-08 · MINOR (additive)
 
 Faithful exposure of `scene.animations` keyframe channels. DAZ

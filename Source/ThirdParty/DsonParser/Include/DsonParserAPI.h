@@ -10,8 +10,9 @@
 #include "DsonParserVersion.h"
 
 // Public C ABI orientation:
-// v1.2.0 — runtime: DsonParser_GetVersion(); compile-time: DSONPARSER_VERSION_*.
+// v1.3.0 — runtime: DsonParser_GetVersion(); compile-time: DSONPARSER_VERSION_*.
 // Release history: CHANGELOG.md; SemVer/C-ABI policy: docs/versioning.md.
+// What's new in 1.3.0: DsonDocument_GetImageLayer* — image_library per-layer LIE map stack (texture path + label) reachable by image index.
 // What's new in 1.2.0: DsonDocument_GetSceneAnimation* — scene.animations keyframe channels exposed faithfully (per R6.4, never applied onto scene.materials).
 // What's new in 1.1.0: DsonDocument_GetScenePostLoadAddon* — "Character Addon Loader" companion figures (not in scene.nodes).
 //
@@ -184,6 +185,28 @@ DSONPARSER_API int DsonDocument_GetModifierSkinJointCount(DsonDocumentHandle han
 DSONPARSER_API const char* DsonDocument_GetImageId(DsonDocumentHandle handle, int imageIndex);
 DSONPARSER_API int         DsonDocument_GetImageMapWidth(DsonDocumentHandle handle, int imageIndex);
 DSONPARSER_API int         DsonDocument_GetImageMapHeight(DsonDocumentHandle handle, int imageIndex);
+
+// Layered-image (LIE) map stack for an image_library entry, addressable by the
+// same imageIndex as DsonDocument_GetImageId. Parity with the per-channel
+// DsonDocument_GetSceneMaterialChannelLayer* surface, reading the same parsed
+// Image::layers vector — use this when an image is referenced from OUTSIDE an
+// inline material channel (e.g. a scene.animations "#fragment" diffuse/image
+// binding) so the per-channel accessors cannot reach it.
+//   layerIdx 0 is the first map element that carries a texture; higher indexes
+//   are overlays in document order. A color-only LIE base layer (a map element
+//   with no "url") is NOT represented — only textured layers are counted/returned.
+//   So a plain single-texture image (DAZ wraps it in a 1-element map array)
+//   reports count 1, a true LIE reports its textured-layer count, and an image
+//   whose "map" is a bare string/object (non-array) or absent reports 0.
+//   This differs from DsonDocument_GetSceneMaterialChannelLayerCount (0 for a
+//   plain non-LIE channel): the per-image count is the faithful size of the
+//   parsed layer stack (1 for plain, N for LIE).
+// @since 1.3.0
+DSONPARSER_API int         DsonDocument_GetImageLayerCount(DsonDocumentHandle handle, int imageIndex);
+// @since 1.3.0
+DSONPARSER_API const char* DsonDocument_GetImageLayerTexturePath(DsonDocumentHandle handle, int imageIndex, int layerIdx);
+// @since 1.3.0
+DSONPARSER_API const char* DsonDocument_GetImageLayerLabel(DsonDocumentHandle handle, int imageIndex, int layerIdx);
 
 // ---- B. Skeleton / Nodes ----
 DSONPARSER_API const char* DsonDocument_GetNodeParent(DsonDocumentHandle handle, int nodeIndex);
