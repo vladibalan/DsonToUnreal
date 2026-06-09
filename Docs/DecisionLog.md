@@ -15,6 +15,7 @@ Contents (newest decisions appended):
 - Genesis 9 companion figures — packaging decision (separate meshes, leader-pose) + import plan (2026-06-08)
 - Director/Implementer handoff — file-based `.handoff/`, Director-defers, option D doc fold (2026-06-08)
 - Importer scope codified — bring-everything, translate-don't-interpret, consumer-agnostic docs (2026-06-09)
+- G9 untextured eyeball — anim-bound LIE composite, baked at import (2026-06-09)
 
 ## IrayUber bump-map seam — root cause & fix decision (2026-06-06)
 
@@ -581,3 +582,44 @@ are overlapping subsystem→file tables; consolidating them is a structural call
 routing), deferred — now the lone doc-diet item in the Roadmap backlog.
 
 **Status:** ✅ done 2026-06-09. Doc-only Director change → one squashed commit to `main`; push with the user.
+
+## G9 untextured eyeball — anim-bound LIE composite, baked at import (2026-06-09)
+
+**Symptom.** After slice #3 made the eye-moisture shell transparent, the Genesis 9 eyeball
+(`Eye L/R`, PBRSkin, in the Eyes companion) imported flat grey — no iris/sclera.
+
+**Root cause (corrects the earlier Roadmap guess).** It was **not** "the generic eyes MAT
+has no textures / they come from a character override." The textures are in the generic
+`Genesis 9 Eyes MAT.duf` the companion import already loads. `Eye L/R`.`diffuse` in
+`scene.materials` is a bare grey placeholder; the real albedo is bound in `scene.animations`
+key-0 as `…:?diffuse/image = "#Eye Color-3"` — a `#fragment` to an `image_library` entry that
+is a LIE stack (white base + `…Sclera_01.jpg` + `…Iris_01.png`, `blend_source_over`). The
+importer dropped it twice over: `ParseAnimationUrl` rejected any leaf but `value`/`image_file`,
+and animation-bound `image_library` layers were reachable through no parser accessor (the
+per-channel LIE accessors need an inline channel, and the parser never merges animations onto
+`scene.materials`).
+
+**Decision: bake the eye LIE into one albedo `UTexture2D` at import** (user, 2026-06-09).
+Composite the textured layers source-over (layer 0 = bottom) into a single texture, bind to
+the eye diffuse. Criteria match the IrayUber bump decision: (1) runtime perf — one static
+texture, zero per-pixel cost, vs. a runtime multi-sample shader composite; (2) fidelity —
+reproduces what DAZ does at load.
+
+**Scope rule set (reusable principle).** A **fixed-factory** LIE (the base figure's eyes — no
+user-facing layer choice) is in-scope *translation* and may be baked. A **variant** LIE
+(makeup styles, where keeping layers separate preserves an authoring choice — P1/P5) stays
+out-of-scope *source*, imported as standalone layers, never baked. Discriminator: does the LIE
+stack encode a selectable option set, or one fixed appearance?
+
+**Cross-repo + implementation.** Needed an additive parser exposure: DsonParser **1.3.0**
+`GetImageLayer{Count,TexturePath,Label}` over the `GetImageId` index space (per-image
+textured-layer stack; the no-`url` base is not counted, so `Eye Color-3` reports 2). Importer:
+open `ParseAnimationUrl` to the `image` leaf; new `image` branch in `ApplySceneAnimationOverrides`
+resolves the `#fragment` → image index → composites via `FDsonTextureImporter::CompositeImageLayers`
+(reuses the bump→normal bake decode/encode/save path; cached by image id; saves to
+`…/Textures/Composites/T_<id>`).
+
+**Status.** Landed on `main` 2026-06-09 (commit `c636ada`); Director build + diff-review
+verified. **Runtime/visual confirmation pending** — the Implementer feedback did not report the
+Nancy import check, so eye render + the sRGB-vs-linear composite-space choice are confirmed by
+the user's import (as for prior material slices).
