@@ -38,7 +38,7 @@ _Last updated: 2026-06-09._
 | 6 | Materials — per-section MIC wiring, 3 masters, texture import | ✅ Done (v1) |
 | 6.x | UV-set import (seams) | ✅ Done — verified G8.1 + Laura, zero fallbacks |
 | 6.y | Material polish (IrayUber washy fix; multi-UDIM resolved as not-needed) | ✅ Done |
-| 6 v2 | Materials v2 — faithful makeup + LIE import, SSS Profile, eye-moisture | 🔄 In progress — slices #1 ✅ + #2 ✅ done (full acceptance set verified 2026-06-07); slice #3 (eye-moisture) next |
+| 6 v2 | Materials v2 — faithful makeup + LIE import, SSS Profile, eye-moisture | 🔄 In progress — slices #1 ✅ + #2 ✅ done (full acceptance set verified 2026-06-07); **slice #3 (eye-moisture master) not started — no `M_DazEyeMoisture` master or eye routing exists yet** |
 | 7 | Morph targets (`UMorphTarget` per morph) | ✅ Done — delta-bearing morphs, including formula-reachable `?value` leaf files, via MeshDescription morph attributes |
 | 8 | Save to Content Browser (`/Game/DazImports/`) | ✅ Implemented per-phase, working |
 
@@ -108,11 +108,15 @@ this section as it lands. **Current: slice #3 (eye-moisture / cornea).**
    evaluated-node master audit (cost-when-disabled paths removed), and the "profile
    redistributes, doesn't add light" finding →
    [`SubsurfaceProfileV2.md`](SubsurfaceProfileV2.md) §Revision + `DecisionLog.md`.
-3. **Eye-moisture / cornea master** (`M_DazEyeMoisture`) — new translucent
-   master + eye-surface detection + mapping. Translucent shading cost absorbed by
-   the small pixel footprint of eyes (~1% on close-ups, much less normally).
-   G8/G8.1/G3 carry eyes on the body mesh; **G9 fully unblocked** (companion
-   Slice C ✅ 2026-06-08 — `EyeMoisture Left/Right` import from the Eyes MAT preset).
+3. **Eye-moisture / cornea master** (`M_DazEyeMoisture`) — **Not started; the
+   eye-moisture material does not exist yet.** No `M_DazEyeMoisture` master and no
+   eye-surface routing/mapping — eye surfaces currently fall back to `M_DazDefault`.
+   Scope: new translucent master + eye-surface detection + mapping (translucent cost
+   absorbed by eyes' small pixel footprint, ~1% on close-ups). G8/G8.1/G3 carry eyes
+   on the body mesh; **G9 unblocked but unbuilt** — companion Slice C (✅ 2026-06-08)
+   only *routes* `EyeMoisture L/R` to the fallback master; building the master is
+   still slice #3's job. Open gotchas (`#fragment` channel resolution; key-0 matId
+   reconciliation) → `DecisionLog.md` "Slice #3 heads-up".
 
 ### Dropped from v2 — runtime cost > visual-fidelity gain
 
