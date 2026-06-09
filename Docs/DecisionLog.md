@@ -386,8 +386,24 @@ is mapped (`GetPBRSkinMapping`) to the master's **global** `SpecularRoughnessMul
 Roughness = `SpecularRoughness × SpecularRoughnessMap × SpecularRoughnessMult`, so a ~0.025 global
 multiplier collapses roughness toward a mirror. Root question: how the v1 single-lobe approximation
 should treat DAZ's two specular lobes (lobe-1 roughness + lobe-2 relative mult + dual-lobe weight) — a
-fidelity-vs-runtime-cost call (`MaterialMastersV1.md` §M_DazPBRSkin). Not yet scoped; tracked in
-`Roadmap.md` Known issues.
+fidelity-vs-runtime-cost call (`MaterialMastersV1.md` §M_DazPBRSkin).
+
+**Resolved (2026-06-09) — importer-only, dropped both lobe-2 mappings.** The lead above was
+*incomplete*. Tracing the `M_DazPBRSkin` graph (Root.Roughness ← Add_0 ← LinearInterpolate_5) showed the
+master computes Roughness = `(SpecularRoughness × SpecularRoughnessMap) × SpecularRoughnessMult ×
+(1 − 0.3 × DualLobeWeight)` — so a **second** importer mapping, `Dual Lobe Specular Weight` (=1.0) →
+`DualLobeWeight`, was independently crushing roughness ×0.7 (its only effect in the master is that
+roughness lerp; it feeds nothing else). Combined with the `SpecularRoughnessMult` (=0.55) factor, skin
+roughness landed at **0.385×** the DAZ value. Verified across both PBRSkin characters (Nancy + Laura, all
+7 surfaces): `Dual Lobe Specular Enable` is **false** everywhere — and false by the PBRSkin base default
+(Laura's preset omits the channel and it still resolves false), so DAZ uses neither lobe-2 quantity. Fix
+(`GetPBRSkinMapping`): **dropped both mapping rows** + a guard comment, leaving `SpecularRoughnessMult`=1
+and `DualLobeWeight`=0 at their master defaults → Roughness = `SpecularRoughness × spec map` (faithful
+single-lobe). **No master-asset edit** — the master graph correctly implements the single-lobe
+approximation; the bug was purely the importer feeding gated-off inputs. **Option B' parked:** honor
+`Dual Lobe Specular Enable` (feed the two lobe-2 channels only when a character enables the dual lobe),
+revisit if such content appears. Code-complete + clean `Build.bat DsonHostEditor` (0 warnings / 0
+errors); **visual re-import confirmation on Nancy/Laura G9 is the remaining step.**
 
 **Slice #3 heads-up.** EyeMoisture `L/R` import but their channels reference `material_library` via a
 `#fragment` url the parser doesn't resolve → the interim `M_DazIrayUber` MICs are near

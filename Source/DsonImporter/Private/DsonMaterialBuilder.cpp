@@ -133,10 +133,16 @@ static const TMap<FString, FDazParamBinding>& GetPBRSkinMapping()
             { NAME_None,                         FName(TEXT("TranslucencyWeight")),      NAME_None,                           NAME_None,                              false });
         M.Add(TEXT("Specular Lobe 1 Roughness"),
             { NAME_None,                         FName(TEXT("SpecularRoughness")),       FName(TEXT("SpecularRoughnessMap")), FName(TEXT("UseSpecularRoughnessMap")), false });
-        M.Add(TEXT("Specular Lobe 2 Roughness Mult"),
-            { NAME_None,                         FName(TEXT("SpecularRoughnessMult")),   NAME_None,                           NAME_None,                              false });
-        M.Add(TEXT("Dual Lobe Specular Weight"),
-            { NAME_None,                         FName(TEXT("DualLobeWeight")),          FName(TEXT("DualLobeMap")),          FName(TEXT("UseDualLobeMap")),          false });
+        // "Specular Lobe 2 Roughness Mult" and "Dual Lobe Specular Weight" are deliberately
+        // NOT mapped here. Both are DAZ dual-lobe (lobe-2) quantities gated by
+        // "Dual Lobe Specular Enable", which is false by the PBRSkin base default and is
+        // false on every verified surface (Nancy + Laura, all 7 surfaces). The master folds
+        // them into Roughness as: SpecularRoughness × SpecularRoughnessMult ×
+        // (1 − 0.3 × DualLobeWeight). At DAZ lobe-2 defaults (Mult=0.55, Weight=1.0) this
+        // crushes skin roughness to 0.385× the DAZ value (near-mirror). The master defaults
+        // (SpecularRoughnessMult=1, DualLobeWeight=0) are no-ops, so leaving them unbound
+        // is faithful. Honoring the enable gate for dual-lobe-on characters is parked; see
+        // Docs/DecisionLog.md.
         M.Add(TEXT("Detail Normal Map"),
             { NAME_None,                         FName(TEXT("DetailNormalStrength")),    FName(TEXT("DetailNormalMap")),      FName(TEXT("UseDetailNormalMap")),      false });
         M.Add(TEXT("Ambient Occlusion Weight"),
