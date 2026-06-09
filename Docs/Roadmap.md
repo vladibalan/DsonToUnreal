@@ -206,13 +206,6 @@ brow mesh. **Unblocks** slice #3 on G9 (`EyeMoisture Left/Right` live only in th
   see `Docs/Reference.md` → "LIE (layered-image) composition". Every real
   texture still resolves and imports; cosmetic only. Cleanup: have the texture
   importer skip `#`-prefixed refs before resolving.
-- **G9 eyeball (`Eye L/R`) untextured (grey) — FIX LANDED 2026-06-09 (build+review
-  verified; runtime confirmation pending).** Cause was **not** a missing character override
-  (earlier guess): the eye albedo is the generic eyes MAT's own `#Eye Color-3` — an
-  `image_library` LIE composite (sclera+iris) bound via `scene.animations` key-0
-  `diffuse/image`. The importer now resolves that fragment (DsonParser 1.3.0
-  `GetImageLayer*`) and bakes the layers into one eye albedo. Why + the fixed-vs-variant-LIE
-  scope rule → `Docs/DecisionLog.md`.
 
 ## Cleanup backlog
 
@@ -236,5 +229,5 @@ brow mesh. **Unblocks** slice #3 on G9 (`EyeMoisture Left/Right` live only in th
 **Phase 7 v2 — formula evaluation / composed dialed shape** (queued; discovery-only
 portion done — see "Deferred to v2" → [`FormulaMorphsV2.md`](FormulaMorphsV2.md)).
 Phase 6 v2 (Materials v2) closed with slice #3 (eye-moisture) runtime-verified on G9
-Nancy 2026-06-09; the untextured-G9-eyeball follow-up landed 2026-06-09 (build+review
-verified; runtime confirmation pending — see Known latent issues).
+Nancy 2026-06-09; the untextured-G9-eyeball albedo bake (generic-eyes LIE) shipped and is
+**runtime-verified on Nancy 2026-06-09** (commits `c636ada`→`480f234`) — see `Docs/DecisionLog.md`.

@@ -620,10 +620,21 @@ resolves the `#fragment` → image index → composites via `FDsonTextureImporte
 (reuses the bump→normal bake decode/encode/save path; cached by image id; saves to
 `…/Textures/Composites/T_<id>`).
 
-**Status.** Landed on `main` 2026-06-09 (commit `c636ada`); Director build + diff-review
-verified. **Runtime/visual confirmation pending** — the Implementer feedback did not report the
-Nancy import check, so eye render + the sRGB-vs-linear composite-space choice are confirmed by
-the user's import (as for prior material slices).
+**Status.** ✅ Runtime-verified on G9 Nancy 2026-06-09 — iris centered on the sclera, eyeball
+front-mapped, matching DAZ. Shipped across two commits: `c636ada` (the bake) + `480f234` (an
+alignment fix — see Postmortem).
+
+**Postmortem — the alignment bug (`c636ada` → `480f234`).** `c636ada` passed Director build +
+diff-review but was visually wrong: `CompositeImageLayers` **stretched** every LIE layer to the
+bottom layer's size, so the half-height iris (`Iris_01.png` is 4096×2048 vs the 4096² sclera) was
+doubled in height and pushed below the sclera → mapped to the bottom of the eyeball. Review missed
+it by checking the source-over math without checking that the layers are **different sizes**; the
+Implementer reported "smooth" without running the import. Caught only when the user ran it and
+supplied the DAZ ground-truth composite. Fix (`480f234`): composite each layer at **native size,
+top-left anchored, onto the `map_size` canvas** (new `GetImageMapWidth/Height` bindings), no
+resampling. **Lesson:** a LIE composite must place layers on the `map_size` canvas at native scale
+— never stretch-to-fit — and a *visual* fix isn't verified until it's seen at runtime (build+review
+is necessary, not sufficient).
 
 ## Importer discovery boundary — reference-graph-only; authoring presets out of scope (2026-06-09)
 
