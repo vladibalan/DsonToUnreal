@@ -31,6 +31,31 @@ Gotchas:
 - Rider equivalent: the `DsonHostEditor | Win64 | Development` build configuration
   (it calls the same UBT under the hood).
 
+## Sync the vendored parser (read before updating it)
+
+`Tools/Sync-Parser.ps1` pulls the 4-file DsonParser bundle —
+`DsonParserAPI.h`, `DsonParserVersion.h`, `CHANGELOG.md`, `DsonParser.dll` — from a
+local DsonParser repo working tree into `Source/ThirdParty/DsonParser/`. It is a
+one-way pull launched by hand, so the parser stays plugin-agnostic (nothing in the
+parser repo references this plugin).
+
+```
+pwsh -File Tools/Sync-Parser.ps1 -ParserRepo <DsonParser repo root>
+```
+
+- Source path defaults to `$env:DSONPARSER_REPO`; the DLL is taken from
+  `x64\Release` (`-Configuration Debug` to override).
+- **Compat gate:** clean no-op when already current, refuses a downgrade, warns on a
+  MAJOR (breaking-ABI) bump. `-Force` overrides the no-op / downgrade refusal.
+- It prints the new CHANGELOG entries, then `git status` — it **never stages or
+  commits**. Review the drop and commit branch-per-task (push stays with you).
+- New exports still need an `X-macro` row in `DsonParserFunctions.h` (R2) before they
+  bind; `DsonParserAbiCheck.cpp` then validates the binding on the next build.
+- **Close the UE Editor first** — same DLL-lock reason as a build; the script copies
+  the DLL first and aborts before touching headers if it is locked.
+- The import `.lib` is deliberately **not** in the bundle (binding is runtime
+  `GetProcAddress`; see `Source/ThirdParty/DsonParser/DsonParser.Build.cs`).
+
 ## Git workflow (branch-per-task)
 
 Branch/commit/merge mechanics for the **Director**; the git policy and role split

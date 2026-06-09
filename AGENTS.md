@@ -102,6 +102,7 @@ relocate or split instead.
 - Package creation, asset saving, import-folder paths: `Source/DsonImporter/Private/DsonAssetUtils.*`
 - Shared URL/id/UTF-8/coordinate-flip leaf helpers (see `Docs/CodeReviewRules.md` R4): `Source/DsonImporter/Private/DsonImportUtils.h`
 - Third-party parser import library and DLL packaging: `Source/ThirdParty/DsonParser/`
+- Updating the vendored parser bundle (header/version/CHANGELOG/DLL) from a local DsonParser repo: `Tools/Sync-Parser.ps1` (see `Docs/Tooling.md`)
 - Master material parameter contract: `MaterialMastersV1.md`
 - Project status, phase tracking, deferred features, known issues, cleanup backlog: `Docs/Roadmap.md`
 - Why a shipped decision was made; postmortems; slice handoff history: `Docs/DecisionLog.md`
