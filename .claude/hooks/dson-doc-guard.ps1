@@ -53,7 +53,7 @@ if ($event -eq 'PostToolUse') {
     try { $lines = @(Get-Content -LiteralPath $path -ErrorAction Stop).Count } catch { exit 0 }
     if ($lines -le $budget) { exit 0 }
 
-    $msg = "DsonToUnreal doc budget (Docs/CodeReviewRules.md R10): $leaf is now $lines lines, over its soft budget of $budget. This is the re-bloat signal. Relocate cold content rather than letting a hot-path doc grow: dated rationale/postmortems/handoff history -> Docs/DecisionLog.md; durable facts/lessons/gotchas -> Docs/Reference.md; or split the doc. Status docs hold CURRENT state only. (Cold/exempt docs absorb history — see Docs/CodeReviewRules.md R10 for the list.)"
+    $msg = "DsonToUnreal doc budget (Docs/CodeReviewRules.md R10): $leaf is now $lines lines, over its soft budget of $budget. This is the re-bloat signal. Relocate cold content rather than letting a hot-path doc grow: dated rationale/postmortems/handoff history -> Docs/DecisionLog.md; durable facts/lessons/gotchas -> Docs/Reference.md; or split the doc. Status docs hold CURRENT state only. (Cold/exempt docs absorb history - see Docs/CodeReviewRules.md R10 for the list.)"
     Write-Context 'PostToolUse' $msg
     exit 0
 }
