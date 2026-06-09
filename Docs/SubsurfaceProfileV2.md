@@ -226,7 +226,7 @@ land together (the mapping/master contract is breaking — see Code plan #3).
   unrecognized-group warning surfaces any gaps to triage (expect zero warnings on
   the acceptance set; any that appear get sorted into a list).
 - Optional: import the now-unbound translucency/`*_sss` texture **standalone**
-  (like makeup/LIE) so it survives for the Designer — defer unless cheap.
+  (like makeup/LIE) so it survives as faithful standalone source — defer unless cheap.
 
 ## Doc updates when the slice lands — ✅ all applied 2026-06-07 (Director, post-verification)
 

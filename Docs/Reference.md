@@ -143,13 +143,16 @@ operations, not any single file.
   the blend instructions (operation/transparency/color/invert/transforms/active)
   are discarded at parse time.
 
-**The Designer feature.** The "in-editor diffuse composition" bullet in
-`Docs/Roadmap.md` ("Deferred to Designer") *is* the feature that executes this
-recipe — composite the ingredient layers per their blend ops / transparency /
-order into a faithful Diffuse, then bake-out and rebind the MIC. Prerequisite:
-the **parser must first expose the per-layer compositing metadata it currently
-drops** (operation/transparency/color/invert/transforms/active) — an additive
-ABI extension on the Designer's critical path, not the importer's.
+**Composition is out of importer scope.** Executing this recipe — compositing the
+ingredient layers per their blend ops / transparency / order into a faithful Diffuse,
+then baking out and rebinding the MIC — is *interpretation*, not translation, so the
+importer does not do it (`Docs/Principles.md` P1). The importer's obligation is to
+bring the ingredients and the recipe across **faithfully**: today it brings the
+ingredient layers (standalone `UTexture2D`s) but **drops the recipe**, because the
+parser's per-layer model keeps only `url` + `label`. Closing that gap is an additive
+parser exposure of the per-layer compositing metadata
+(operation/transparency/color/invert/transforms/active) — taken when a concrete need
+lands (`Docs/Principles.md` P4), not yet.
 
 **Diagnostic shortcut (the time-saver).** A channel `image` beginning with `#`
 is a LIE recipe id, *never* a file path. The importer gets the **base** from the

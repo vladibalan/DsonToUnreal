@@ -142,7 +142,7 @@ Channels on a scene material that don't appear in the mapping table for its shad
 
 ## Open follow-ups
 
-Material-pipeline follow-ups (planned, dropped on perf grounds, or deferred to
-the Designer plugin) are tracked in [`Docs/Roadmap.md`](Docs/Roadmap.md) §
+Material-pipeline follow-ups (planned, dropped on perf grounds, or out of importer
+scope) are tracked in [`Docs/Roadmap.md`](Docs/Roadmap.md) §
 **Phase 6 v2 — Materials v2** — the single source of truth. This file remains
 the parameter-contract source of record for the master assets themselves.

@@ -14,6 +14,7 @@ Contents (newest decisions appended):
 - Parser version-awareness gate — consume DsonParser versioning; keep the four ABI checks (2026-06-07)
 - Genesis 9 companion figures — packaging decision (separate meshes, leader-pose) + import plan (2026-06-08)
 - Director/Implementer handoff — file-based `.handoff/`, Director-defers, option D doc fold (2026-06-08)
+- Importer scope codified — bring-everything, translate-don't-interpret, consumer-agnostic docs (2026-06-09)
 
 ## IrayUber bump-map seam — root cause & fix decision (2026-06-06)
 
@@ -132,8 +133,8 @@ directly (no raw-URL fallback):
 
 Layers attach only on an identity (id/url) image match, never a shared
 base-path match. Per-layer compositing metadata (operation/opacity/color/
-transforms) stays in the parser model, **deferred to the Designer** — not
-exposed and not this slice.
+transforms) stays in the parser model, **deferred** — out of importer scope (composition is
+interpretation), not exposed and not this slice.
 
 **Verification asset.** HID Nancy 9 (`D:/Daz_content/People/Genesis 9/
 Characters/HID Nancy 9.duf`) carries both PBRSkin `Makeup *` channels
@@ -318,8 +319,8 @@ leader-pose / shared-skeleton plan holds.
 **Assembly — decided 2026-06-08: standalone.** The importer emits each companion as its own
 `USkeletalMesh` sharing the body `USkeleton`; it does **not** wire runtime leader-pose or emit
 an actor/Blueprint. Rationale: the importer is a data pump that stays agnostic — predictable
-asset paths/names, consumers attach + `SetLeaderPoseComponent` themselves (same principle as the
-Designer split). Declined: an assembled actor/BP (most turnkey, but a new importer output type)
+asset paths/names, consumers attach + `SetLeaderPoseComponent` themselves (the same
+translate-don't-interpret principle — `Docs/Principles.md`). Declined: an assembled actor/BP (most turnkey, but a new importer output type)
 and editor-preview-only attachment — both are importer-side coupling beyond data-pump scope.
 
 **Two axes, don't conflate (clarified 2026-06-08).** "Standalone" is the *mesh* axis — separate
@@ -450,6 +451,35 @@ cost vs. coverage:
   list, `*.Build.cs`, public headers, added/removed `.cpp`) or an unconvincing build
   claim. `BUILD_OWNERSHIP` is thus an adaptation slot for this repo, not the guide's
   constant.
+
+## Importer scope codified — bring-everything, translate-don't-interpret, consumer-agnostic (2026-06-09)
+
+**Decision.** Codified the Importer's governing principles in `Docs/Principles.md`
+(P1–P5) and made the Roadmap subordinate to them. Substance: the Importer **brings
+everything it can** from a DAZ source and **interprets nothing** — assets (even unused
+ones) plus authoring metadata that has no UE-asset home, emitted faithfully;
+composition / baking / assembly are interpretation and stay out of scope. Emission is
+mechanical and consumer-agnostic; completeness is bounded by parser exposure, widened
+additively and just-in-time.
+
+**Docs made consumer-agnostic.** The orientation docs no longer name any specific
+downstream consumer: consumer-named rationale was removed from `Roadmap.md`,
+`Reference.md`, this log, `MaterialMastersV1.md`, and `SubsurfaceProfileV2.md`, each
+re-motivated from the intrinsic principles. The cross-repo intent that motivated the
+direction was moved behind a discovery fence (`Docs/_OutOfScope/`, excluded from
+Importer discovery via `AGENTS.md` and self-flagged). Future Importer work is directed
+by the principles, not by a consumer's needs.
+
+**Speculative — further analysis needed.** The mechanisms this implies — the
+authoring-metadata artifact's schema / format, the specific metadata families (LIE
+compositing, per-surface makeup, JCM rigging formulas), the programmatic import
+entry-point signature, and whether the artifact can stay pure data — are **not**
+settled here. They are to be finalized against real DSON assets when each emitting
+feature is implemented; no asset inspection grounded them at codification time.
+
+**Motivation (intrinsic).** A faithful, complete DAZ→UE translation, and a minimal
+per-task context budget (an Importer task must not have to load any consumer's
+concerns). Grounding both in one rule keeps the Importer a thin, mechanical translator.
 
 **Doc architecture — option D (one doc + raised budget), not a split.** The fold
 pushed `Docs/AgentWorkflow.md` from 119 → 222 lines, over its R10 soft budget of

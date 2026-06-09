@@ -1,6 +1,6 @@
 # DsonToUnreal Agent Guide
 
-`DsonToUnreal` imports DAZ Studio DSON/DSF/DUF Genesis assets into Unreal Engine 5.4.4. This plugin is an editor module named `DsonImporter`.
+`DsonToUnreal` imports DAZ Studio DSON/DSF/DUF Genesis assets into Unreal Engine 5.4.4. This plugin is an editor module named `DsonImporter`. Its purpose and scope are governed by [`Docs/Principles.md`](Docs/Principles.md) — the Roadmap is subordinate to it.
 
 ## Operating model (two-agent workflow)
 
@@ -122,7 +122,8 @@ For audits/diagnostics they can be evidence (editor logs, crashes, build output)
 see `Docs/AuditGuide.md` (Evidence Sources) for when and what. Never browse
 `.handoff/` either (Director↔Implementer task/feedback scratch, gitignored): read
 only the one `task-<id>.md` you are explicitly handed — see
-[`Docs/AgentWorkflow.md`](Docs/AgentWorkflow.md).
+[`Docs/AgentWorkflow.md`](Docs/AgentWorkflow.md). Never read `Docs/_OutOfScope/` either
+(out-of-scope intent, agnostic to the Importer — open it only when the user directs you there).
 
 ## Build & tooling
 

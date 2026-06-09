@@ -180,7 +180,8 @@ once (R8 and R9 existed while `Docs/Roadmap.md` grew to 480 lines). Keep them
 economical; this rule binds **both roles**, a Director doing doc-only work
 included.
 - **One tier per doc — put content where it belongs, not where you happen to be.**
-  status → `Docs/Roadmap.md`; dated rationale/postmortems → `Docs/DecisionLog.md`;
+  governing principles → `Docs/Principles.md`; status → `Docs/Roadmap.md`; dated
+  rationale/postmortems → `Docs/DecisionLog.md`;
   durable facts/lessons/gotchas → `Docs/Reference.md`; rules → this file; roles →
   `Docs/AgentWorkflow.md`; code layout → `Docs/ImporterArchitecture.md`; audit
   routing → `Docs/AuditGuide.md`; editor tooling → `Docs/Tooling.md`;
@@ -198,8 +199,8 @@ included.
   which warns on save): `AGENTS.md` ≤ 140, `Roadmap.md` ≤ 260, `AuditGuide.md` ≤
   120, `ImporterArchitecture.md` ≤ 185, `AgentWorkflow.md` ≤ 240,
   `CodeReviewRules.md` ≤ 240, `Tooling.md` ≤ 80. The cold/on-demand docs —
-  `DecisionLog.md`, `Reference.md`, `FormulaMorphsV2.md`, `MaterialMastersV1.md` —
-  are **exempt**; they exist to absorb history/detail off the hot path.
+  `DecisionLog.md`, `Reference.md`, `FormulaMorphsV2.md`, `MaterialMastersV1.md`,
+  `Principles.md` — are **exempt** (history/detail, or a stable charter, off the hot path).
 
 Reviewer action: if a change restates content another doc owns, parks history in a
 status doc, or pushes a hot-path doc past its budget without relocating, flag it

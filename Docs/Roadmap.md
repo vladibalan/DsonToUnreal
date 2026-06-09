@@ -7,6 +7,10 @@ stale between sessions — anything an agent or the maintainer needs to know abo
 *where the project stands* lives here, and is updated **in the same change that
 moves it** (see `Docs/CodeReviewRules.md` R9).
 
+This status is **subordinate to the Importer's governing principles**
+(`Docs/Principles.md`) — when an item here conflicts with a principle, the principle
+wins and the roadmap is what changes.
+
 This file tracks *status* only. Three siblings own the rest, so each reads on its
 own and none drifts into the others:
 - *How the code is organized* → `Docs/ImporterArchitecture.md`.
@@ -76,11 +80,10 @@ two-part filter:
    filter used for the IrayUber bump→normal decision (2026-06-06; full rationale
    in `Docs/DecisionLog.md`). If a DAZ feature requires runtime shader work that
    can't be made free-or-near-free, v1's approximation stands as the runtime answer.
-2. **Content options preserved.** The importer is a data pump — it never
-   bakes away authoring choices. Source assets (`Makeup Base Color`, LIE
-   layers) land as standalone `UTexture2D`s; whether/how they get combined
-   into a runtime Diffuse is an authoring step, deferred to the **Designer**
-   plugin (separate, future — see below).
+2. **Content options preserved.** The importer never bakes away authoring choices
+   (`Docs/Principles.md` P1). Source assets (`Makeup Base Color`, LIE layers) land
+   as standalone `UTexture2D`s; combining them into a runtime Diffuse is
+   interpretation — out of importer scope.
 
 **Acceptance set** (same as v1): G8 Jordina Full Character + G8.1
 Genesis8_1Female base, G9 Laura + Nancy, G3 Victoria 7 HD. For the master
@@ -99,8 +102,8 @@ this section as it lands. **Current: slice #3 (eye-moisture / cornea).**
    each non-base LIE layer as standalone `UTexture2D` assets under
    `/Game/DazImports/Textures/`. **No** `Makeup *` entries added to
    `GetPBRSkinMapping()`, **no** `Makeup *` parameters added to `M_DazPBRSkin` —
-   per-surface makeup values (Enable/Weight/Roughness Mult) stay in the DAZ
-   source for the future Designer plugin to consume directly via the parser.
+   per-surface makeup values (Enable/Weight/Roughness Mult) are not baked into the
+   material; they remain DAZ-source authoring data the importer does not yet surface.
    Folds in the sRGB-cache-conflict fix in `DsonTextureImporter`.
 2. **Subsurface Profile pipeline** — ✅ **Done & verified 2026-06-07** (full
    acceptance set). Both skin masters → Subsurface Profile shading,
@@ -139,31 +142,26 @@ pursued for game runtime. Same framing as the IrayUber bump decision
   If a future asset requires strong flakes, address per-character outside the
   default skin pipeline.
 
-### Deferred to Designer (separate future plugin)
+### Out of importer scope (interpretation / authoring)
 
-The **Designer** plugin (not yet started) will be a separate UE plugin built on
-top of the importer. Planned scope:
+Some DAZ-faithful results require *interpreting* the imported data — composition,
+baking, assembly — which is authoring, not translation, so the importer does not do
+it (`Docs/Principles.md` P1). These land as faithful **source** for a later authoring
+step, never as a finished result:
 
-- In-editor diffuse composition: pick a target surface; mix base Diffuse with
-  the imported `Makeup Base Color`, LIE layers, and any user-provided
-  textures; per-source blend mode / opacity / weight; live preview.
-- Bake-out: produce a new `UTexture2D` and rebind the MIC's `DiffuseMap` to
-  it. Original imported assets stay untouched so variants remain possible.
+- **Diffuse composition / bake-out.** The imported `Makeup Base Color` and LIE layers
+  are standalone `UTexture2D`s; compositing them into a runtime Diffuse and rebinding
+  the MIC is an authoring step. Originals stay untouched (P5) so variants stay possible.
+- **Per-surface makeup values** (Enable/Weight/Roughness Mult) — DAZ-source authoring
+  data, surfaced faithfully rather than interpreted.
 
-The Importer stays agnostic to the Designer: imported assets land with
-predictable paths and naming so the Designer (and any third tool) discovers
-them by convention — no importer-side hooks, no Designer-specific sidecars.
-The Designer re-uses the parser directly for per-surface metadata (Makeup
-weights, etc.) rather than receiving Importer-emitted data. Rationale: keep
-each plugin LLM-agent-friendly (smaller contexts per agent task).
-
-The **LIE (layered-image) composition recipe** the Designer must execute — the
-ordered layer stack with per-layer blend ops, the worked Nancy-9 example, what
-the importer does with it today, and the `#fragment` diagnostic shortcut — lives
-in `Docs/Reference.md` → "LIE (layered-image) composition" (read it before
-chasing any `#fragment` reference). Its stated prerequisite: the parser must
-first expose the per-layer compositing metadata it currently drops — an additive
-ABI extension on the Designer's critical path, not the importer's.
+The **LIE (layered-image) composition recipe** — the ordered layer stack with
+per-layer blend ops, the worked Nancy-9 example, what the importer does with it today,
+and the `#fragment` diagnostic — lives in `Docs/Reference.md` → "LIE (layered-image)
+composition" (read it before chasing any `#fragment` reference). Bringing the recipe
+across faithfully is blocked on an additive parser exposure of the per-layer
+compositing metadata the parser currently drops — taken when a concrete need lands
+(`Docs/Principles.md` P4), not yet.
 
 ### Parked — revisit if content needs it
 
@@ -232,6 +230,12 @@ brow mesh. **Unblocks** slice #3 on G9 (`EyeMoisture Left/Right` live only in th
   file's comments or log messages still claim "Genesis 3 → default" / "G3
   fallback", remove or correct them. Search `Source/DsonImporter/` for
   `Genesis 3` / `G3` references.
+- **Doc-diet / tiering pass (Director — separate session).** The doc tier has grown
+  enough that ordinary tasks load near the context ceiling. Dedicated pass to bring the
+  docs back within `CodeReviewRules.md` R10 (one tier per doc, point don't duplicate,
+  no hot-path doc over its soft line budget): identify overweight docs, relocate or
+  split heavy sections into the tier that owns them, prune duplication, trim hot-path
+  docs toward pointers. Scope and execute in a standalone Director session.
 
 ## Next up
 
