@@ -222,7 +222,7 @@ static void DumpOneFile(const FString& FilePath, const FDsonImportSettings& Sett
                     TEXT("    [import] %s -> %s (sRGB=%d) %s"),
                     *Channel.ImageUrl,
                     Tex ? *Tex->GetPathName() : TEXT("<failed>"),
-                    (int32)bSRGB,
+                    static_cast<int32>(bSRGB),
                     Tex ? TEXT("OK") : TEXT("FAIL"));
             }
         }
