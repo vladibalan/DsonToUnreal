@@ -18,7 +18,11 @@ UE-native data out, with no authoring decisions baked in.
 
 - **Bring all discoverable assets**, including ones a given scene does not use.
   Importing "all" is the same uniform discovery loop as importing "some"; completeness
-  is the default, not an opt-in.
+  is the default, not an opt-in. "Discoverable" is bounded by the imported asset's
+  **reference graph** — its dependencies, companions, and transitively-referenced files —
+  **not** the wider content library: alternate authoring presets a user applies separately
+  (eye-color, lip, and makeup option presets, and the LIE textures they carry) are out of
+  scope; selecting and applying them is the authoring layer's job.
 - **Don't bake authoring choices.** Where DAZ offers content options (overlay layers,
   per-surface authoring values), the source lands faithfully; combining, composing, or
   baking them is *interpretation*, and interpretation is **out of scope** — it belongs

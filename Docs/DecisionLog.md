@@ -16,6 +16,7 @@ Contents (newest decisions appended):
 - Director/Implementer handoff — file-based `.handoff/`, Director-defers, option D doc fold (2026-06-08)
 - Importer scope codified — bring-everything, translate-don't-interpret, consumer-agnostic docs (2026-06-09)
 - G9 untextured eyeball — anim-bound LIE composite, baked at import (2026-06-09)
+- Importer discovery boundary — reference-graph-only; authoring presets out of scope (2026-06-09)
 
 ## IrayUber bump-map seam — root cause & fix decision (2026-06-06)
 
@@ -623,3 +624,31 @@ resolves the `#fragment` → image index → composites via `FDsonTextureImporte
 verified. **Runtime/visual confirmation pending** — the Implementer feedback did not report the
 Nancy import check, so eye render + the sRGB-vs-linear composite-space choice are confirmed by
 the user's import (as for prior material slices).
+
+## Importer discovery boundary — reference-graph-only; authoring presets out of scope (2026-06-09)
+
+**Decision (user).** The Importer brings only what the imported asset **references** (its own
+reference graph — dependencies, companions, transitively-reached files); it does **not** scan
+the content library for sibling authoring presets a user would apply separately. Selecting and
+applying those is the authoring layer's job (DsonArtisan), not the Importer's. Codified into
+`Principles.md` P1 ("discoverable" = the reference graph, not the library).
+
+**Why this needed saying.** P1's "bring all discoverable assets / completeness is the default"
+reads, taken alone, as license to haul in every sibling preset. It reconciles only once
+"discoverable" is pinned to the imported asset's graph — otherwise the boundary is ambiguous,
+which is what left the question below open.
+
+**Worked example — Genesis 9 / Nancy eyes (option C).** `HID Nancy 9.duf` contains **no**
+eye-color material at all — only eye bones, a focal-point control, and the generic-eyes
+PostLoadAddon. So a faithful import yields the **generic** G9 iris, and that is correct, not a
+gap. Nancy's authored eye colors live in 10 separate `HID Nancy Eyes 0X *.duf` presets
+(`.../Materials/2 Eyes/`) — `preset_hierarchical_material`s targeting the same Eye/EyeMoisture
+surfaces, each a single pre-baked albedo (`g09_Nancy_eyes_base_07.jpg`, not a LIE). They are
+**not** referenced by `HID Nancy 9.duf`; in DAZ the user applies one by hand after load — so
+matching her eyes is an authoring step, out of Importer scope. **Eyes stay generic by design.**
+
+**Same boundary, accepted & deferred.** The LIE *makeup* textures aren't imported either, for
+the same reason — they live in unreferenced option presets (`0 Face Options` / `1 LIE Options` /
+`3 Lips`), not in the character file. The user flagged the broader "load separate authoring
+assets" need as **explicitly out of scope for now** (a future authoring-plugin concern), not a
+TODO. Not a bug — the documented boundary.
