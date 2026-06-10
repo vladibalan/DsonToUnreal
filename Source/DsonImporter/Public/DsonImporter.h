@@ -28,6 +28,4 @@ public:
 
 private:
     void RegisterMenus();
-
-    void* DsonParserHandle = nullptr;
 };

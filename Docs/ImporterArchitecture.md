@@ -23,7 +23,7 @@ The plugin is an Unreal Editor module:
 
 ## Runtime Flow
 
-1. `FDsonImporterModule::StartupModule` loads `DsonParser.dll`, resolves parser exports into `GDsonParser`, and registers the File menu entry.
+1. `FDsonImporterModule::StartupModule` calls `EnsureDsonParserLoaded` (idempotent; also triggered at the `ImportDazAsset` entry point so a second module image hosted via `AdditionalPluginDirectories` binds its own `GDsonParser`), which loads `DsonParser.dll`, resolves parser exports into `GDsonParser`, then registers the File menu entry.
 2. The menu entry opens `SDsonImportWindow`.
 3. `SDsonImportWindow` detects DAZ content roots, lets the user choose a `.duf` or `.dsf`, and calls `FDsonValidator`.
 4. `FDsonValidator` parses basic metadata and resolves figure/material/geometry dependencies.
@@ -44,8 +44,7 @@ shares the path→settings assembly (`FDsonValidator::ToImportSettings`) with th
 `DsonImporter.cpp`
 
 - Owns module startup/shutdown.
-- Loads the third-party parser DLL.
-- Populates `GDsonParser`.
+- Loads `DsonParser.dll` and populates `GDsonParser` via `EnsureDsonParserLoaded` (idempotent; also triggered at `ImportDazAsset` for multi-image hosting via `AdditionalPluginDirectories`).
 - Verifies the loaded DLL's reported version against the built-against header (`DsonParser_GetVersion` vs `DSONPARSER_VERSION_*`); refuses to register on a MAJOR mismatch.
 - Adds the File menu entry that launches the import dialog.
 - Exposes the public programmatic entry point `ImportDazAsset` (`FDsonImportRequest` → `FDsonImportReport`): detects roots, validates, gates on resolved dependencies, runs `FDsonImportPipeline::Run`, maps the result to the public report. Headless counterpart to the Slate window; both share `FDsonValidator::ToImportSettings`.

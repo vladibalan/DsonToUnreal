@@ -187,7 +187,7 @@ brow mesh. **Unblocks** slice #3 on G9 (`EyeMoisture Left/Right` live only in th
 
 ## Programmatic import entry point — ✅ Done
 
-`FDsonImporterModule::ImportDazAsset(FDsonImportRequest)` → `FDsonImportReport`; public types in `Public/DsonImportRequest.h`. Funnels through `FDsonImportPipeline::Run`; path→settings shared via `FDsonValidator::ToImportSettings` (R4/DRY). Rationale → `Docs/DecisionLog.md`.
+`FDsonImporterModule::ImportDazAsset(FDsonImportRequest)` → `FDsonImportReport`; public types in `Public/DsonImportRequest.h`. Funnels through `FDsonImportPipeline::Run`; path→settings shared via `FDsonValidator::ToImportSettings` (R4/DRY). Rationale → `Docs/DecisionLog.md`. Multi-instance hardened: parser binding is idempotent at the entry point (`EnsureDsonParserLoaded`), so a second module image hosted via `AdditionalPluginDirectories` binds its own `GDsonParser` on the first call.
 
 ## Out of importer scope — composed dialed shape (interpretation, P1)
 

@@ -35,6 +35,126 @@ FDsonParserAPI GDsonParser;
 
 namespace
 {
+    void* GDsonParserDllHandle = nullptr;
+
+    // Idempotent: no-op if already bound in this image; returns false on load/ABI failure.
+    bool EnsureDsonParserLoaded()
+    {
+        if (GDsonParser.IsValid())
+            return true;
+
+        const FString PluginBaseDir = IPluginManager::Get()
+            .FindPlugin("DsonToUnreal")->GetBaseDir();
+
+        const FString DllDir = FPaths::Combine(
+            PluginBaseDir,
+            TEXT("Source/ThirdParty/DsonParser/Libs/Win64"));
+
+        const FString DllPath = FPaths::Combine(DllDir, TEXT("DsonParser.dll"));
+
+        if (!FPaths::FileExists(DllPath))
+        {
+            UE_LOG(LogDsonImporter, Error,
+                TEXT("DsonParser.dll not found at: %s"), *DllPath);
+            return false;
+        }
+
+        GDsonParserDllHandle = FPlatformProcess::GetDllHandle(*DllPath);
+
+        if (GDsonParserDllHandle == nullptr)
+        {
+            UE_LOG(LogDsonImporter, Error,
+                TEXT("Failed to load DsonParser.dll from: %s"), *DllPath);
+            return false;
+        }
+
+        UE_LOG(LogDsonImporter, Log,
+            TEXT("DsonParser.dll loaded successfully from: %s"), *DllPath);
+
+        // Bind every export from the single DSON_PARSER_API_LIST source of truth. Required
+        // exports (1) log as Error; optional ones (0) log as Warning. To add/change an export,
+        // edit the list in DsonParserFunctions.h - nothing here changes.
+#define DSON_PARSER_BIND(Required, Ret, Member, ExportName, Params) \
+        GDsonParser.Member = (decltype(GDsonParser.Member)) \
+            FPlatformProcess::GetDllExport(GDsonParserDllHandle, TEXT(#ExportName)); \
+        if (!GDsonParser.Member) \
+        { \
+            if constexpr ((Required) != 0) \
+            { \
+                UE_LOG(LogDsonImporter, Error, \
+                    TEXT("DsonParser: missing export: " #ExportName)); \
+            } \
+            else \
+            { \
+                UE_LOG(LogDsonImporter, Warning, \
+                    TEXT("DsonParser: missing export: " #ExportName)); \
+            } \
+        }
+
+        DSON_PARSER_API_LIST(DSON_PARSER_BIND)
+
+#undef DSON_PARSER_BIND
+
+        if (!GDsonParser.IsValid())
+        {
+            UE_LOG(LogDsonImporter, Error,
+                TEXT("DsonParser: required exports missing - plugin will not function"));
+            return false;
+        }
+
+        // Reconcile the loaded DLL against the parser header this plugin was built
+        // against. SemVer with C-ABI semantics (ThirdParty/DsonParser/Include/
+        // CHANGELOG.md): a differing MAJOR can mean a broken ABI, so refuse to
+        // register; a matching MAJOR is binary-compatible (warn only). Runtime
+        // complement to DsonParserAbiCheck.cpp, which only proves header<->binding
+        // agreement and cannot see the actual DLL.
+        if (GDsonParser.GetVersion != nullptr)
+        {
+            const FString RuntimeVersion = DsonImportUtils::FromUtf8(GDsonParser.GetVersion());
+            const FString BuiltAgainstVersion = TEXT(DSONPARSER_VERSION_STRING);
+            const int32 RuntimeMajor = FCString::Atoi(*RuntimeVersion); // leading int; 0 if unparseable
+
+            UE_LOG(LogDsonImporter, Log,
+                TEXT("DsonParser DLL version: %s (plugin built against %s)"),
+                *RuntimeVersion, *BuiltAgainstVersion);
+
+            if (RuntimeMajor <= 0) // parser MAJOR is always >= 1 once versioned
+            {
+                UE_LOG(LogDsonImporter, Warning,
+                    TEXT("DsonParser version string '%s' unparseable; cannot verify ABI MAJOR. Proceeding."),
+                    *RuntimeVersion);
+            }
+            else if (RuntimeMajor != DSONPARSER_VERSION_MAJOR)
+            {
+                UE_LOG(LogDsonImporter, Error,
+                    TEXT("DsonParser ABI MAJOR mismatch: DLL reports %s, plugin built against %s. ")
+                    TEXT("The C ABI may be incompatible; not registering the importer."),
+                    *RuntimeVersion, *BuiltAgainstVersion);
+                GDsonParser = FDsonParserAPI{};
+                FPlatformProcess::FreeDllHandle(GDsonParserDllHandle);
+                GDsonParserDllHandle = nullptr;
+                return false;
+            }
+            else if (RuntimeVersion != BuiltAgainstVersion)
+            {
+                UE_LOG(LogDsonImporter, Warning,
+                    TEXT("DsonParser version skew (compatible MAJOR %d): DLL %s vs built-against %s."),
+                    DSONPARSER_VERSION_MAJOR, *RuntimeVersion, *BuiltAgainstVersion);
+            }
+        }
+        else
+        {
+            UE_LOG(LogDsonImporter, Warning,
+                TEXT("DsonParser.dll predates versioning (no DsonParser_GetVersion export); ")
+                TEXT("cannot verify ABI compatibility. Proceeding."));
+        }
+
+        UE_LOG(LogDsonImporter, Log,
+            TEXT("DsonParser: all exports loaded successfully"));
+
+        return true;
+    }
+
     void OpenDsonImportWindow()
     {
         TSharedRef<SWindow> ImportWindow = SNew(SWindow)
@@ -61,111 +181,8 @@ namespace
 
 void FDsonImporterModule::StartupModule()
 {
-    const FString PluginBaseDir = IPluginManager::Get()
-        .FindPlugin("DsonToUnreal")->GetBaseDir();
-
-    const FString DllDir = FPaths::Combine(
-        PluginBaseDir,
-        TEXT("Source/ThirdParty/DsonParser/Libs/Win64"));
-
-    const FString DllPath = FPaths::Combine(DllDir, TEXT("DsonParser.dll"));
-
-    if (!FPaths::FileExists(DllPath))
-    {
-        UE_LOG(LogDsonImporter, Error,
-            TEXT("DsonParser.dll not found at: %s"), *DllPath);
+    if (!EnsureDsonParserLoaded())
         return;
-    }
-
-    DsonParserHandle = FPlatformProcess::GetDllHandle(*DllPath);
-
-    if (DsonParserHandle == nullptr)
-    {
-        UE_LOG(LogDsonImporter, Error,
-            TEXT("Failed to load DsonParser.dll from: %s"), *DllPath);
-        return;
-    }
-
-    UE_LOG(LogDsonImporter, Log,
-        TEXT("DsonParser.dll loaded successfully from: %s"), *DllPath);
-
-    // Bind every export from the single DSON_PARSER_API_LIST source of truth. Required
-    // exports (1) log as Error; optional ones (0) log as Warning. To add/change an export,
-    // edit the list in DsonParserFunctions.h - nothing here changes.
-#define DSON_PARSER_BIND(Required, Ret, Member, ExportName, Params) \
-    GDsonParser.Member = (decltype(GDsonParser.Member)) \
-        FPlatformProcess::GetDllExport(DsonParserHandle, TEXT(#ExportName)); \
-    if (!GDsonParser.Member) \
-    { \
-        if constexpr ((Required) != 0) \
-        { \
-            UE_LOG(LogDsonImporter, Error, \
-                TEXT("DsonParser: missing export: " #ExportName)); \
-        } \
-        else \
-        { \
-            UE_LOG(LogDsonImporter, Warning, \
-                TEXT("DsonParser: missing export: " #ExportName)); \
-        } \
-    }
-
-    DSON_PARSER_API_LIST(DSON_PARSER_BIND)
-
-#undef DSON_PARSER_BIND
-
-    if (!GDsonParser.IsValid())
-    {
-        UE_LOG(LogDsonImporter, Error,
-            TEXT("DsonParser: required exports missing - plugin will not function"));
-        return;
-    }
-
-    // Reconcile the loaded DLL against the parser header this plugin was built
-    // against. SemVer with C-ABI semantics (ThirdParty/DsonParser/Include/
-    // CHANGELOG.md): a differing MAJOR can mean a broken ABI, so refuse to
-    // register; a matching MAJOR is binary-compatible (warn only). Runtime
-    // complement to DsonParserAbiCheck.cpp, which only proves header<->binding
-    // agreement and cannot see the actual DLL.
-    if (GDsonParser.GetVersion != nullptr)
-    {
-        const FString RuntimeVersion = DsonImportUtils::FromUtf8(GDsonParser.GetVersion());
-        const FString BuiltAgainstVersion = TEXT(DSONPARSER_VERSION_STRING);
-        const int32 RuntimeMajor = FCString::Atoi(*RuntimeVersion); // leading int; 0 if unparseable
-
-        UE_LOG(LogDsonImporter, Log,
-            TEXT("DsonParser DLL version: %s (plugin built against %s)"),
-            *RuntimeVersion, *BuiltAgainstVersion);
-
-        if (RuntimeMajor <= 0) // parser MAJOR is always >= 1 once versioned
-        {
-            UE_LOG(LogDsonImporter, Warning,
-                TEXT("DsonParser version string '%s' unparseable; cannot verify ABI MAJOR. Proceeding."),
-                *RuntimeVersion);
-        }
-        else if (RuntimeMajor != DSONPARSER_VERSION_MAJOR)
-        {
-            UE_LOG(LogDsonImporter, Error,
-                TEXT("DsonParser ABI MAJOR mismatch: DLL reports %s, plugin built against %s. ")
-                TEXT("The C ABI may be incompatible; not registering the importer."),
-                *RuntimeVersion, *BuiltAgainstVersion);
-            return; // skips the success log + RegisterStartupCallback below
-        }
-        else if (RuntimeVersion != BuiltAgainstVersion)
-        {
-            UE_LOG(LogDsonImporter, Warning,
-                TEXT("DsonParser version skew (compatible MAJOR %d): DLL %s vs built-against %s."),
-                DSONPARSER_VERSION_MAJOR, *RuntimeVersion, *BuiltAgainstVersion);
-        }
-    }
-    else
-    {
-        UE_LOG(LogDsonImporter, Warning,
-            TEXT("DsonParser.dll predates versioning (no DsonParser_GetVersion export); ")
-            TEXT("cannot verify ABI compatibility. Proceeding."));
-    }
-
-    UE_LOG(LogDsonImporter, Log,
-        TEXT("DsonParser: all exports loaded successfully"));
 
     UToolMenus::RegisterStartupCallback(
         FSimpleMulticastDelegate::FDelegate::CreateRaw(
@@ -180,10 +197,10 @@ void FDsonImporterModule::ShutdownModule()
         ToolMenus->RemoveSection("MainFrame.MainMenu.File", "DsonImporter");
     }
 
-    if (DsonParserHandle != nullptr)
+    if (GDsonParserDllHandle != nullptr)
     {
-        FPlatformProcess::FreeDllHandle(DsonParserHandle);
-        DsonParserHandle = nullptr;
+        FPlatformProcess::FreeDllHandle(GDsonParserDllHandle);
+        GDsonParserDllHandle = nullptr;
     }
 
     GDsonParser = FDsonParserAPI{};
@@ -214,6 +231,14 @@ void FDsonImporterModule::RegisterMenus()
 FDsonImportReport FDsonImporterModule::ImportDazAsset(const FDsonImportRequest& Request)
 {
     FDsonImportReport Report;
+
+    if (!EnsureDsonParserLoaded())
+    {
+        Report.Status = EDsonImportStatus::ValidationFailed;
+        Report.DiagnosticSummary = TEXT("DsonParser library unavailable or ABI-incompatible");
+        UE_LOG(LogDsonImporter, Error, TEXT("ImportDazAsset: %s"), *Report.DiagnosticSummary);
+        return Report;
+    }
 
     FString Path = FPaths::ConvertRelativePathToFull(Request.SourceAssetPath);
     FPaths::NormalizeFilename(Path);
