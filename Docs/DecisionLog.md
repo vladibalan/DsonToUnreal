@@ -943,7 +943,7 @@ derived from a path's leaf segment, a folder-shape change can silently corrupt i
 flat-path helper was not just tidiness — leaving it invited a future caller to
 reintroduce the collision.
 
-## Consumer versioning contract — lean SemVer for DsonArtisan; baseline 1.0.0 (2026-06-10)
+## Consumer versioning contract — lean SemVer for the downstream consumer; baseline 1.0.0 (2026-06-10)
 
 **Request.** The downstream **DsonArtisan** Director (the consumer verified in the
 output-path decision above) asked for a low-noise way to learn when DsonToUnreal's

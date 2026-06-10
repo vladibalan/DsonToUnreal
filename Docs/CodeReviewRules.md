@@ -217,7 +217,7 @@ portability, the global file absolute. A drifted mirror is stale-orientation-cla
 drift (R8).
 
 ### R12 — Version the consumer surface; announce the change with it
-A co-built downstream plugin (DsonArtisan) consumes this one. Its **consumer surface**
+A co-built downstream plugin consumes this one. Its **consumer surface**
 is (1) the public programmatic API — `Source/DsonImporter/Public/DsonImporter.h`
 (`FDsonImporterModule::IsAvailable`/`Get`/`ImportDazAsset`) and the request/report/status
 types in `DsonImportRequest.h` — and (2) the documented *shape* of emitted output a

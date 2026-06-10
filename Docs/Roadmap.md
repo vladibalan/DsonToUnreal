@@ -215,7 +215,7 @@ meshes, `_Skeleton`, `Materials/` (MICs + `SSP_`), `Textures/Composites/`.
 Shared source textures: `/Game/DazImports/Library/Textures/<mirrored DAZ path>/`.
 Roots centralized in `FDsonAssetUtils::CharacterRoot`/`SharedTexturesRoot` (R4).
 **Output-path breaking change (R7)** — re-import existing characters after upgrade;
-check path-reconstructing consumers (e.g. DsonArtisan); rationale → `DecisionLog.md`.
+check path-reconstructing consumers; rationale → `DecisionLog.md`.
 
 ## Known latent issues (not blocking)
 

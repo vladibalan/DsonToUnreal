@@ -1,7 +1,7 @@
 # DsonToUnreal — Versioning & Change Announcement
 
 How DsonToUnreal tells a downstream consumer *what it is* and *what changed*. The
-consumer is a **co-built UE plugin** (DsonArtisan) that has this repo's source on
+consumer is a **co-built UE plugin** that has this repo's source on
 disk — so unlike DsonParser (whose consumer is binary-blind), one lightweight carrier
 set is enough. Governed by [`Principles.md`](Principles.md); the per-change gate is
 [`CodeReviewRules.md`](CodeReviewRules.md) R12.
@@ -106,8 +106,8 @@ template to copy.
 
 ## How a consumer takes up a change
 
-1. **Pin** — record the `VersionName` / git tag validated against (DsonArtisan keeps
-   "validated against DsonToUnreal vX.Y.Z" in its `Docs/Reference.md`).
+1. **Pin** — record the `VersionName` / git tag validated against (the consumer records
+   "validated against DsonToUnreal vX.Y.Z" on its side, e.g. in its own reference doc).
 2. **What changed** — read this repo's `CHANGELOG.md` (one targeted read).
 3. **Re-wire** — each entry names the API or emitted-output change to adopt; a MAJOR
    entry is the signal to branch/adapt before uptaking.
