@@ -38,7 +38,7 @@ _Last updated: 2026-06-09._
 | 6 | Materials — per-section MIC wiring, 3 masters, texture import | ✅ Done (v1) |
 | 6.x | UV-set import (seams) | ✅ Done — verified G8.1 + Laura, zero fallbacks |
 | 6.y | Material polish (IrayUber washy fix; multi-UDIM resolved as not-needed) | ✅ Done |
-| 6 v2 | Materials v2 — faithful makeup + LIE import, SSS Profile, eye-moisture | ✅ Done — slices #1 + #2 (2026-06-07) + #3 eye-moisture (runtime-verified G9 Nancy 2026-06-09) |
+| 6 v2 | Materials v2 — faithful makeup + LIE import, SSS Profile, eye-moisture | ✅ Done — slices #1 + #2 (2026-06-07) + #3 eye-moisture (G9 Nancy 2026-06-09); ⚠️ open defect: cornea refraction lenses the iris — see Known latent issues |
 | 7 | Morph targets (`UMorphTarget` per morph) | ✅ Done — delta-bearing morphs, including formula-reachable `?value` leaf files, via MeshDescription morph attributes |
 | 8 | Save to Content Browser (`/Game/DazImports/`) | ✅ Implemented per-phase, working |
 
@@ -87,7 +87,7 @@ parameter-contract format, `MaterialMastersV1.md` remains the source of record;
 its "Open follow-ups" subset is now superseded by the slice list below.
 
 Slices are sized to ship independently and are taken in order; each one updates
-this section as it lands. **All three slices shipped — #3 (eye-moisture) runtime-verified on G9 Nancy 2026-06-09.**
+this section as it lands. **All three slices shipped — #3 (eye-moisture) mechanism runtime-verified on G9 Nancy 2026-06-09; ⚠️ one open visual defect (cornea refraction lenses the iris) — see Known latent issues.**
 
 ### Planned slices
 
@@ -108,8 +108,9 @@ this section as it lands. **All three slices shipped — #3 (eye-moisture) runti
    evaluated-node master audit (cost-when-disabled paths removed), and the "profile
    redistributes, doesn't add light" finding →
    [`SubsurfaceProfileV2.md`](SubsurfaceProfileV2.md) §Revision + `DecisionLog.md`.
-3. **Eye-moisture / cornea master** (`M_DazEyeMoisture`) — ✅ **Done; runtime-verified
-   on G9 Nancy 2026-06-09.** `EyeMoisture L/R` / `Cornea` / `Tear` route to a translucent
+3. **Eye-moisture / cornea master** (`M_DazEyeMoisture`) — ✅ **Mechanism done & runtime-verified
+   on G9 Nancy 2026-06-09; ⚠️ one open visual defect — cornea refraction lenses (shrinks) the iris;
+   see Known latent issues + `DecisionLog.md` "eye-moisture cornea lensing".** `EyeMoisture L/R` / `Cornea` / `Tear` route to a translucent
    `M_DazEyeMoisture` (Surface ForwardShading; Fresnel-weighted opacity). Importer:
    `EDsonSurfaceClass::EyeMoisture` + `GetEyeMoistureSurfaceGroups()` (single source,
    removed from NonSkin); `GetEyeMoistureMapping()`
@@ -204,6 +205,12 @@ brow mesh. **Unblocks** slice #3 on G9 (`EyeMoisture Left/Right` live only in th
 
 ## Known latent issues (not blocking)
 
+- **G9 eye-moisture cornea lenses the iris — fix in progress (Option B).** The translucent
+  `M_DazEyeMoisture` shell's refraction **minifies (shrinks) the iris** on G9 (Nancy) —
+  pronounced, not the intended subtle wetness (import succeeds; look only). Diagnosed
+  (Refraction = Index Of Refraction, MIC IOR 1.38) and decided 2026-06-09: disconnect the
+  master Refraction pin + drop the `RefractionIOR` importer mapping; pending integration +
+  runtime re-verify. → `DecisionLog.md` "eye-moisture cornea lensing".
 - `SavePackage` return value not checked (hardening).
 - `IsValid()` does not include the UV function pointers — consistent with the
   permissive-parser convention (they are optional exports).

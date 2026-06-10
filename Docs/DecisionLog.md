@@ -718,3 +718,44 @@ Director's build (no build claim existed to trust); the user applied the brace f
 completed the orientation-doc updates during integration. **Lesson:** `UE_LOG` expands to a braced
 block, so it cannot be the brace-less body of an `if`/`else` — and an Implementer "smooth" without an
 actual build is not trustworthy (the standing reason the Director re-runs the build).
+
+## G9 eye-moisture cornea lensing — refraction shell minifies the iris (diagnosed + fix decided 2026-06-09)
+
+**Symptom.** On Genesis 9 (Nancy), the translucent cornea / eye-moisture shell (`M_DazEyeMoisture`)
+visibly **minifies — shrinks — the iris** behind it: pronounced ("appears very little"), not the subtle
+wetness the master intends (`MaterialMastersV1.md` — "not a glass lens").
+
+**How it was lost.** Slice #3 and the eyeball-bake session (see "G9 untextured eyeball") verified only the
+eyeball **albedo** — the iris/sclera LIE bake and its placement ("iris centered on the sclera"). The
+refraction-shell lensing was never recorded, so the Roadmap's two slice-#3 "✅ runtime-verified" claims
+inherited a **texture-only** verification. Surfaced and recovered in a 2026-06-09 Director session.
+
+**Confirmed (from the `M_DazEyeMoisture` node dump, 2026-06-09).** Refraction **Method = Index Of
+Refraction** (the root pin is literally `Refraction (Index Of Refraction)`), driven by a scalar parameter
+**`RefractionIOR`** (master default 1.33; Nancy's MIC reads **1.38** — the importer feeds DAZ channel
+`Refraction Index` straight in). That IOR pin is the lensing source; the rest of the shell — `Specular`,
+near-zero `Roughness`, and a **Fresnel→×Opacity** chain (grazing-angle wetness) — is legitimate and stays.
+In IOR mode, **IOR = 1.0 → zero offset → no lensing**, so the artifact is fixable from the MIC alone; the
+master edit below is chosen for a stronger reason than necessity (see Decision).
+
+**Decision — Option B (user, 2026-06-09): disconnect refraction at the master + drop the importer mapping.**
+- **Master** (user hand-edit): disconnect the `Refraction (Index Of Refraction)` input in `M_DazEyeMoisture`
+  and delete the now-orphan `RefractionIOR` scalar node.
+- **Importer** (Implementer): remove the `Refraction Index` → `RefractionIOR` entry from
+  `GetEyeMoistureMapping()` (`DsonMaterialBuilder.cpp:185-186`; `RefractionIOR` has no other source ref).
+
+**Why B over A** (A = importer pins `RefractionIOR` = 1.0): both kill the lensing and are fidelity-identical
+(DAZ asset untouched, P1/P5). B wins on the **governing runtime-perf filter** — A only zeroes the *offset*
+but leaves a refractive-translucent material UE still compiles the refraction path for; B sheds that pass at
+the source. B is also **footgun-free**: A leaves a live `RefractionIOR` knob every MIC must override forever,
+which silently re-lenses if dialed or missed. "Loses dial-able refraction" is the only cost, and it is weak —
+reconnecting the pin is one master edit away, and UE refraction is the wrong representation here. Same
+master-edits-allowed call: the non-master fix did not serve the governing principles equally, so the master
+edit is warranted (framed as the IrayUber bump→normal / dual-lobe decisions).
+
+**Status.** Decided 2026-06-09. Importer half handed to the Implementer
+(`task-20260610-013921-eye-moisture-refraction`); master edit by the user. **Pending:** integration + a
+runtime re-verify on Nancy, then the Director reconciles `MaterialMastersV1.md` (drop `RefractionIOR` from
+the M_DazEyeMoisture contract) and flips the `Roadmap.md` status. **Lesson (reinforces the eyeball-bake
+postmortem):** verifying an *adjacent* fix (the albedo bake) is not verifying the slice's own surface (the
+refraction) — a visual slice isn't done until its look is checked at runtime.
