@@ -193,6 +193,10 @@ included.
   `Docs/DecisionLog.md` and its durable facts to `Docs/Reference.md`; do not let
   `Docs/Roadmap.md` accumulate history — the precise failure that caused the
   480-line bloat.
+- **Name no specific downstream consumer in forward-looking docs** (preserves P3):
+  they refer to a generic *downstream consumer*. A downstream Director's request may
+  name its own plugin, but the resolution landing here says "a consumer requested...";
+  only `Docs/DecisionLog.md` (dated history) may name *which* consumer, when relevant.
 - **Prefer a table or a pointer over repeated prose blocks.**
 - **Soft line budgets for hot-path docs** — crossing a ceiling is a signal to
   relocate or split, not to keep growing (mirrored in the `dson-doc-guard` hook,
@@ -253,7 +257,8 @@ Full scheme, baseline, and what is deliberately not ported from DsonParser →
 - [ ] R9: `Docs/Roadmap.md` updated for any phase/feature/bug/deferral/cleanup
       status change this diff makes.
 - [ ] R10: doc content sits in the tier that owns it; nothing another doc owns is
-      restated; no hot-path doc pushed past its soft line budget without relocating.
+      restated; no hot-path doc pushed past its soft line budget without relocating;
+      forward-looking docs name no specific downstream consumer.
 - [ ] R11: in-repo `.claude/settings.json` mirrors the active global
       `~/.claude/settings.json` (content-equivalent; only hook paths differ).
 - [ ] R12: consumer-surface change (public API or emitted-output shape) bumps
