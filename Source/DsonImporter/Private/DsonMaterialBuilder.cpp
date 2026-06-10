@@ -1068,7 +1068,8 @@ void FDsonMaterialBuilder::ImportStandaloneChannelTextures(
 
 USubsurfaceProfile* FDsonMaterialBuilder::BuildSubsurfaceProfileForDocument(
     uint64_t DsonHandle,
-    const FString& OutputFolder)
+    const FString& OutputFolder,
+    const FString& OwnerName)
 {
     CachedSubsurfaceProfile.Reset();
 
@@ -1112,8 +1113,7 @@ USubsurfaceProfile* FDsonMaterialBuilder::BuildSubsurfaceProfileForDocument(
             TEXT("DsonMaterialBuilder: no skin tint color found for subsurface profile; using UE skin defaults"));
     }
 
-    const FString BaseName = ObjectTools::SanitizeObjectName(FPaths::GetCleanFilename(OutputFolder));
-    const FString AssetName = TEXT("SSP_") + BaseName;
+    const FString AssetName = TEXT("SSP_") + OwnerName;
     const FString PackagePath = OutputFolder / AssetName;
 
     UPackage* Package = FDsonAssetUtils::CreateLoadedPackage(PackagePath, TEXT("DsonMaterialBuilder"));
@@ -1310,6 +1310,7 @@ UMaterialInstanceConstant* FDsonMaterialBuilder::BuildSceneMaterial(
 void FDsonMaterialBuilder::BuildAllSceneMaterials(
     const FString& DufPath,
     const FString& OutputFolder,
+    const FString& SspOwnerName,
     TMap<FString, UMaterialInstanceConstant*>& OutByGroup,
     FString& OutUvSetUrl)
 {
@@ -1324,7 +1325,7 @@ void FDsonMaterialBuilder::BuildAllSceneMaterials(
         ? GDsonParser.GetSceneMaterialCount(H) : 0;
 
     WarnedUnknownSubsurfaceGroups.Reset();
-    BuildSubsurfaceProfileForDocument(H, OutputFolder);
+    BuildSubsurfaceProfileForDocument(H, OutputFolder, SspOwnerName);
 
     for (int32 i = 0; i < SceneMatCount; ++i)
     {

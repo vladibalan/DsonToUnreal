@@ -11,18 +11,21 @@
 #include "Materials/Material.h"
 #include "Materials/MaterialInstanceConstant.h"
 #include "Misc/Paths.h"
-#include "ObjectTools.h"
 
 static const TCHAR* kDefaultFallbackMaterialObjectPath =
     TEXT("/DsonToUnreal/Materials/M_DazDefault.M_DazDefault");
 static const TCHAR* kDefaultFallbackMaterialPackagePath =
     TEXT("/DsonToUnreal/Materials/M_DazDefault");
 
-static FString MakeMaterialOutputFolder(const FString& DsonFilePath)
+static FString MakeBodyMaterialFolder(const FString& CharacterName)
 {
-    return FDsonAssetUtils::MakeImportSubfolderPath(
-        TEXT("Materials"),
-        ObjectTools::SanitizeObjectName(FPaths::GetBaseFilename(DsonFilePath)));
+    return FDsonAssetUtils::CharacterRoot(CharacterName) / TEXT("Materials");
+}
+
+static FString MakeCompanionMaterialFolder(
+    const FString& CharacterName, const FString& CompanionAssetName)
+{
+    return FDsonAssetUtils::CharacterRoot(CharacterName) / TEXT("Materials") / CompanionAssetName;
 }
 
 static FString ResolveUvSetDsfPath(const FString& UvSetUrl, const TArray<FString>& ContentRoots)
@@ -92,14 +95,14 @@ FDsonImportResult FDsonImportPipeline::Run(
     FDsonImportResult Result;
     Result.Settings = Settings;
 
-    FDsonTextureImporter Importer(ContentRoots);
+    FDsonTextureImporter Importer(ContentRoots, Settings.CharacterName);
     FDsonMaterialBuilder Builder(ContentRoots, Importer);
-    const FString MaterialOutputFolder = MakeMaterialOutputFolder(Settings.DsonFilePath);
+    const FString MaterialOutputFolder = MakeBodyMaterialFolder(Settings.CharacterName);
 
     TMap<FString, UMaterialInstanceConstant*> MaterialsByGroup;
     FString UvSetUrl;
     Builder.BuildAllSceneMaterials(Settings.DsonFilePath, MaterialOutputFolder,
-        MaterialsByGroup, UvSetUrl);
+        Settings.CharacterName, MaterialsByGroup, UvSetUrl);
 
     const FString UvSetAbsPath = ResolveUvSetDsfPath(UvSetUrl, ContentRoots);
 
@@ -137,9 +140,13 @@ FDsonImportResult FDsonImportPipeline::Run(
             FString CompanionUvSetUrl;
             if (!Companion.MatPresetPath.IsEmpty())
             {
-                const FString CompanionMatFolder = MakeMaterialOutputFolder(Companion.MatPresetPath);
+                const FString CompanionMatFolder =
+                    MakeCompanionMaterialFolder(Settings.CharacterName, Companion.AssetName);
+                const FString SspOwnerName =
+                    Settings.CharacterName + TEXT("_") + Companion.AssetName;
                 Builder.BuildAllSceneMaterials(
-                    Companion.MatPresetPath, CompanionMatFolder, CompanionMICs, CompanionUvSetUrl);
+                    Companion.MatPresetPath, CompanionMatFolder, SspOwnerName,
+                    CompanionMICs, CompanionUvSetUrl);
                 UE_LOG(LogDsonImporter, Log,
                     TEXT("[companion-mat] %s: %d MIC(s) from '%s'"),
                     *Companion.AssetName, CompanionMICs.Num(),
@@ -154,8 +161,8 @@ FDsonImportResult FDsonImportPipeline::Run(
 
             const FString CompanionUvSetAbsPath = ResolveUvSetDsfPath(CompanionUvSetUrl, ContentRoots);
             USkeletalMesh* CompanionMesh = FDsonMeshBuilder::BuildCompanion(
-                Companion.AssetName, Companion.GeometryDsfUrl, Result.Skeleton,
-                CompanionMICs, DefaultMaterial, CompanionUvSetAbsPath);
+                Settings.CharacterName, Companion.AssetName, Companion.GeometryDsfUrl,
+                Result.Skeleton, CompanionMICs, DefaultMaterial, CompanionUvSetAbsPath);
             if (CompanionMesh)
                 Result.CompanionMeshes.Add(CompanionMesh);
             else

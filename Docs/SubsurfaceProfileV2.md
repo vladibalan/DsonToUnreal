@@ -190,7 +190,7 @@ land together (the mapping/master contract is breaking — see Code plan #3).
    `BuildAllSceneMaterials` run: pick the representative skin surface, read its
    tint color, fill `FSubsurfaceProfileStruct` per the mapping, `NewObject` +
    save via `FDsonAssetUtils::CreateLoadedPackage`/`SaveAssetPackage` (same
-   pattern as MIC/texture). Path `/Game/DazImports/Materials/<basename>/SSP_<basename>`.
+   pattern as MIC/texture). Path `…/Characters/<char>/Materials/SSP_<CharacterName>` (body) or `…/Materials/<CompanionName>/SSP_<char>_<CompanionName>` (companion).
    Cache the pointer on the builder (like `FDsonTextureImporter` caches).
 2. **In `BuildSceneMaterial`,** for the two skin shader kinds: classify the
    surface against the two group sets (skin / known-ignored / unrecognized→warn,

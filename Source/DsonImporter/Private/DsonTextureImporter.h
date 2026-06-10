@@ -6,11 +6,12 @@ class UTexture2D;
 class FDsonTextureImporter
 {
 public:
-    // Stores content roots used for resolving DAZ image URLs; no registry probing happens here.
-    explicit FDsonTextureImporter(const TArray<FString>& InContentRoots);
+    // Stores content roots and character name used for resolving DAZ image URLs and
+    // routing per-character LIE composites. No registry probing happens here.
+    explicit FDsonTextureImporter(const TArray<FString>& InContentRoots, const FString& InCharacterName);
 
     // Returns existing UTexture2D if already imported (cache hit or asset already
-    // exists on disk at the derived /Game/DazImports/Textures/... path). Otherwise
+    // exists on disk at the derived /Game/DazImports/Library/Textures/... path). Otherwise
     // resolves the URL, imports via UTextureFactory, saves the package, and returns
     // the new texture. Returns nullptr on any failure; logs a warning with details.
     UTexture2D* ImportOrFind(const FString& ImageUrl, bool bSRGB, const FString& AssetNameSuffix = FString());
@@ -29,7 +30,7 @@ public:
     // N==0 -> null+warn. N==1 -> ImportOrFind on the single path (no pixel work).
     // N>=2 -> decode each layer at native size; source-over onto a transparent canvas
     //   (CanvasW x CanvasH if both > 0, else max across layers), top-left anchored,
-    //   no resampling; save under /Game/DazImports/Textures/Composites/T_<sanitized ImageId>.
+    //   no resampling; save under {CharRoot}/Textures/Composites/T_<sanitized ImageId>.
     // Cached by ImageId so Eye Left and Eye Right sharing a color entry composite once.
     UTexture2D* CompositeImageLayers(
         const TArray<FString>& LayerPaths,
@@ -53,6 +54,7 @@ private:
     void RecordFailure(const FString& ImageUrl);
 
     TArray<FString>                     ContentRoots;
+    FString                             CharacterName;
     TMap<FString, TObjectPtr<UTexture2D>> Cache;          // key: resolved absolute path + sRGB + optional asset suffix
     TMap<FString, TObjectPtr<UTexture2D>> BakedNormalCache; // key: resolved paths + strengths
     TMap<FString, TObjectPtr<UTexture2D>> CompositeCache;   // key: image id + sRGB

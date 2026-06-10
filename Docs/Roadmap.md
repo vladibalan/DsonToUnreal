@@ -51,8 +51,8 @@ URL fragment → `shader_type`; channel→parameter mapping in `DsonMaterialBuil
 (`GetIrayUberMapping()`/`GetPBRSkinMapping()`); textures via `DsonTextureImporter`
 (per-channel sRGB). IrayUber washy-skin fix: `TranslucencyWeight` (0.1) gates the
 translucency tint + SSS map into Subsurface Color. Outputs — MICs
-`/Game/DazImports/Materials/<basename>/MI_<sceneMatId>`, textures
-`…/Textures/<mirrored DAZ path>/T_<filename>`. "v1" = acceptable on tested figures;
+`…/Characters/<char>/Materials/MI_<sceneMatId>`, textures
+`…/Library/Textures/<mirrored DAZ path>/T_<filename>`. "v1" = acceptable on tested figures;
 **Deferred to v2** items are knowingly out of scope.
 
 ## Figure / generation support
@@ -96,7 +96,7 @@ this section as it lands. **All three slices shipped — #3 (eye-moisture) mecha
    (implementation detail, parser-ABI accessors, and session log →
    `Docs/DecisionLog.md`). The importer imports `Makeup Base Color` textures and
    each non-base LIE layer as standalone `UTexture2D` assets under
-   `/Game/DazImports/Textures/`. **No** `Makeup *` entries added to
+   `/Game/DazImports/Library/Textures/`. **No** `Makeup *` entries added to
    `GetPBRSkinMapping()`, **no** `Makeup *` parameters added to `M_DazPBRSkin` —
    per-surface makeup values (Enable/Weight/Roughness Mult) are not baked into the
    material; they remain DAZ-source authoring data the importer does not yet surface.
@@ -208,22 +208,14 @@ separate P2/P4 matter, not the baking ruled out here. Notes from when this was s
 in-plugin work are retained as downstream reference:
 **[`Docs/FormulaMorphsV2.md`](FormulaMorphsV2.md)**.
 
-## Asset import folder structure — planned
+## Asset import folder structure — ✅ Done (2026-06-10)
 
-Trigger: bulk multi-DUF import. Today every DUF dumps flat into `/Game/DazImports/`,
-and the body mesh, skeleton, and companions are named from the shared figure **DSF**
-(`DsonMeshBuilder.cpp`, `DsonSkeletonBuilder.cpp`) — so a second same-generation
-character (G9 Nancy after Laura) overwrites the first's mesh and orphans its MICs.
-Target layout (split per P5/P1 — shared immutable originals vs. character-scoped):
-- `…/Characters/<DUF>/` — per-character: body + companion meshes, `…_Skeleton`,
-  `Materials/` (MICs + `SSP_`), per-character `Textures/Composites/`.
-- `…/Library/Textures/<mirrored DAZ path>/` — shared, deduped source textures.
-
-Decided: re-import overwrites in place; composites per-character; textures under
-`Library/`. Implement by centralizing both roots in `FDsonAssetUtils` and renaming
-mesh/skeleton/companions off the DSF onto the DUF. **Output-path change (R7)** —
-re-import after; check path-reconstructing consumers (e.g. DsonArtisan); rationale
-→ `DecisionLog.md` on ship.
+Per-character assets: `/Game/DazImports/Characters/<CharacterName>/` — body + companion
+meshes, `_Skeleton`, `Materials/` (MICs + `SSP_`), `Textures/Composites/`.
+Shared source textures: `/Game/DazImports/Library/Textures/<mirrored DAZ path>/`.
+Roots centralized in `FDsonAssetUtils::CharacterRoot`/`SharedTexturesRoot` (R4).
+**Output-path breaking change (R7)** — re-import existing characters after upgrade;
+check path-reconstructing consumers (e.g. DsonArtisan); rationale → `DecisionLog.md`.
 
 ## Known latent issues (not blocking)
 
@@ -251,9 +243,7 @@ re-import after; check path-reconstructing consumers (e.g. DsonArtisan); rationa
 
 ## Next up
 
-With Phase 6 v2 (Materials v2) closed and composed dialed-shape baking ruled out of
-scope, the importer covers its mandate for the supported figures. **Queued:** the
-**Asset import folder structure** restructure above (unblocks bulk multi-DUF import).
-Otherwise remaining work is reactive — the **Cleanup backlog**, new figures/shaders
-as content needs them (shader-gated), and just-in-time additive parser exposures
-(`Docs/Principles.md` P4).
+With Phase 6 v2, asset folder structure, and composed dialed-shape baking all closed,
+the importer covers its mandate for the supported figures. Remaining work is reactive —
+the **Cleanup backlog**, new figures/shaders as content needs them (shader-gated), and
+just-in-time additive parser exposures (`Docs/Principles.md` P4).

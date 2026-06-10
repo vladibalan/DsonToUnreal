@@ -17,7 +17,10 @@
 /*
  * Intent:
  * - Resolve DAZ image URLs and import/reuse matching UTexture2D assets.
- * - Preserve DAZ relative folder structure under /Game/DazImports/Textures.
+ * - Source textures: preserve DAZ relative folder structure under
+ *   /Game/DazImports/Library/Textures (shared, deduped across all characters).
+ * - LIE composites: save per-character under
+ *   /Game/DazImports/Characters/<CharacterName>/Textures/Composites.
  * - Cache successful imports by absolute source path, sRGB mode, and optional asset suffix.
  *
  * Read this file for texture path resolution, package naming, sRGB flags, and image import failures.
@@ -93,7 +96,7 @@ static FTextureAssetPath BuildTextureAssetPath(const FString& RelSubpath, const 
 
     AssetPath.AssetName = TEXT("T_") + ObjectTools::SanitizeObjectName(BaseFilename) + SanitizedSuffix;
     AssetPath.Extension = FPaths::GetExtension(RelSubpath);
-    AssetPath.PackagePath = FDsonAssetUtils::ImportRootPath() / FString(TEXT("Textures"));
+    AssetPath.PackagePath = FDsonAssetUtils::SharedTexturesRoot();
     if (!SanitizedDir.IsEmpty())
         AssetPath.PackagePath = AssetPath.PackagePath / SanitizedDir;
     AssetPath.PackagePath = AssetPath.PackagePath / AssetPath.AssetName;
@@ -216,8 +219,11 @@ static FString BuildTextureCacheKey(const FString& ResolvedPath, bool bSRGB, con
 // Construction
 // ---------------------------------------------------------------------------
 
-FDsonTextureImporter::FDsonTextureImporter(const TArray<FString>& InContentRoots)
+FDsonTextureImporter::FDsonTextureImporter(
+    const TArray<FString>& InContentRoots,
+    const FString& InCharacterName)
     : ContentRoots(InContentRoots)
+    , CharacterName(InCharacterName)
 {
 }
 
@@ -290,7 +296,7 @@ UTexture2D* FDsonTextureImporter::ImportOrFind(const FString& ImageUrl, bool bSR
     // 3. Derive the UE asset path
     //    Source:  D:/Daz_content/Runtime/Textures/Genesis8/Female/G8FBase.jpg
     //    Subpath: Runtime/Textures/Genesis8/Female/G8FBase.jpg
-    //    Result:  /Game/DazImports/Textures/Runtime/Textures/Genesis8/Female/T_G8FBase
+    //    Result:  /Game/DazImports/Library/Textures/Runtime/Textures/Genesis8/Female/T_G8FBase
     const FString RelSubpath = DeriveRelativeSubpath(ImageUrl, ResolvedPath);
     FTextureAssetPath AssetPath = BuildTextureAssetPath(RelSubpath, AssetNameSuffix);
 
@@ -497,10 +503,11 @@ UTexture2D* FDsonTextureImporter::CompositeImageLayers(
     for (FColor& Pixel : OutPixels)
         Pixel.A = 255;
 
-    // Asset path: /Game/DazImports/Textures/Composites/T_<sanitized ImageId>
+    // Asset path: {CharRoot}/Textures/Composites/T_<sanitized ImageId>
     const FString SanitizedId = ObjectTools::SanitizeObjectName(ImageId);
     const FString AssetName   = TEXT("T_") + SanitizedId;
-    const FString PackagePath = FDsonAssetUtils::ImportRootPath() / TEXT("Textures") / TEXT("Composites") / AssetName;
+    const FString PackagePath =
+        FDsonAssetUtils::CharacterRoot(CharacterName) / TEXT("Textures") / TEXT("Composites") / AssetName;
 
     // Check for an existing asset at this path (re-import may recreate without build).
     if (FPackageName::DoesPackageExist(PackagePath))

@@ -164,8 +164,7 @@ USkeleton* FDsonSkeletonBuilder::Build(const FDsonImportSettings& Settings)
         return nullptr;
     }
 
-    const FString AssetName = FPaths::GetBaseFilename(Settings.ResolvedFigureDsfPath);
-    return CreateSkeletonAsset(RefSkeleton, AssetName);
+    return CreateSkeletonAsset(RefSkeleton, Settings.CharacterName);
 }
 
 // ---------------------------------------------------------------------------
@@ -414,31 +413,28 @@ int32 FDsonSkeletonBuilder::MergeCompanionBonesIntoSkeleton(
 // ---------------------------------------------------------------------------
 
 USkeleton* FDsonSkeletonBuilder::CreateSkeletonAsset(
-    const FReferenceSkeleton& RefSkeleton, const FString& AssetName)
+    const FReferenceSkeleton& RefSkeleton, const FString& CharacterName)
 {
-    // Saves the reference skeleton as /Game/DazImports/<AssetName>_Skeleton.
+    // Saves the reference skeleton as {CharRoot}/<CharacterName>_Skeleton.
     // UE 5.4 requires the transient mesh merge path to populate USkeleton bones.
-    const FDsonAssetPath AssetPath = FDsonAssetUtils::MakeImportAssetPath(AssetName, TEXT("_Skeleton"));
+    const FString FullAssetName = CharacterName + TEXT("_Skeleton");
+    const FString PackagePath = FDsonAssetUtils::CharacterRoot(CharacterName) / FullAssetName;
 
-    UPackage* Package = FDsonAssetUtils::CreateLoadedPackage(
-        AssetPath.PackagePath, TEXT("DsonSkeletonBuilder"));
+    UPackage* Package = FDsonAssetUtils::CreateLoadedPackage(PackagePath, TEXT("DsonSkeletonBuilder"));
     if (!Package)
         return nullptr;
 
-    USkeleton* Skeleton = NewObject<USkeleton>(
-        Package, *AssetPath.AssetName, RF_Public | RF_Standalone);
+    USkeleton* Skeleton = NewObject<USkeleton>(Package, *FullAssetName, RF_Public | RF_Standalone);
     if (!Skeleton)
     {
         UE_LOG(LogDsonImporter, Error,
             TEXT("DsonSkeletonBuilder: failed to create USkeleton object in '%s'"),
-            *AssetPath.PackagePath);
+            *PackagePath);
         return nullptr;
     }
 
     MergeReferenceSkeletonIntoSkeleton(Skeleton, RefSkeleton);
 
-    return FDsonAssetUtils::SaveAssetPackage(
-            Package, Skeleton, AssetPath.PackagePath, TEXT("DsonSkeletonBuilder"))
-        ? Skeleton
-        : nullptr;
+    return FDsonAssetUtils::SaveAssetPackage(Package, Skeleton, PackagePath, TEXT("DsonSkeletonBuilder"))
+        ? Skeleton : nullptr;
 }

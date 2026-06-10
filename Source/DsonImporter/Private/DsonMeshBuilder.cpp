@@ -228,8 +228,9 @@ namespace
     static FDsonMeshAssetContext CreateSkeletalMeshAsset(const FDsonImportSettings& Settings)
     {
         FDsonMeshAssetContext AssetContext;
-        AssetContext.AssetPath = FDsonAssetUtils::MakeImportAssetPath(
-            FPaths::GetBaseFilename(Settings.ResolvedFigureDsfPath), TEXT("_SkeletalMesh"));
+        AssetContext.AssetPath.AssetName = Settings.CharacterName + TEXT("_SkeletalMesh");
+        AssetContext.AssetPath.PackagePath =
+            FDsonAssetUtils::CharacterRoot(Settings.CharacterName) / AssetContext.AssetPath.AssetName;
 
         AssetContext.Package = FDsonAssetUtils::CreateLoadedPackage(
             AssetContext.AssetPath.PackagePath, TEXT("DsonMeshBuilder"));
@@ -248,10 +249,16 @@ namespace
         return AssetContext;
     }
 
-    static FDsonMeshAssetContext CreateNamedMeshAsset(const FString& AssetName)
+    static FDsonMeshAssetContext CreateNamedMeshAsset(
+        const FString& CharacterName, const FString& CompanionAssetName)
     {
         FDsonMeshAssetContext AssetContext;
-        AssetContext.AssetPath = FDsonAssetUtils::MakeImportAssetPath(AssetName, TEXT("_SkeletalMesh"));
+        AssetContext.AssetPath.AssetName =
+            CharacterName + TEXT("_") + CompanionAssetName + TEXT("_SkeletalMesh");
+        AssetContext.AssetPath.PackagePath =
+            FDsonAssetUtils::CharacterRoot(CharacterName) / TEXT("Companions") /
+            AssetContext.AssetPath.AssetName;
+
         AssetContext.Package = FDsonAssetUtils::CreateLoadedPackage(
             AssetContext.AssetPath.PackagePath, TEXT("DsonMeshBuilder[companion]"));
         if (!AssetContext.Package)
@@ -759,7 +766,8 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
 // ---------------------------------------------------------------------------
 
 USkeletalMesh* FDsonMeshBuilder::BuildCompanion(
-    const FString& AssetName,
+    const FString& CharacterName,
+    const FString& CompanionAssetName,
     const FString& GeometryDsfPath,
     USkeleton* Skeleton,
     const TMap<FString, UMaterialInstanceConstant*>& MaterialsByGroup,
@@ -801,7 +809,7 @@ USkeletalMesh* FDsonMeshBuilder::BuildCompanion(
     const TArray<FDsonTriangle> Triangles = ReadTriangles(
         DsfHandle, FaceCount, UvData.UVPolyVertIndices);
 
-    const FDsonMeshAssetContext AssetContext = CreateNamedMeshAsset(AssetName);
+    const FDsonMeshAssetContext AssetContext = CreateNamedMeshAsset(CharacterName, CompanionAssetName);
     if (!AssetContext.IsValid())
         return nullptr;
     USkeletalMesh* Mesh = AssetContext.Mesh;
@@ -826,7 +834,7 @@ USkeletalMesh* FDsonMeshBuilder::BuildCompanion(
     {
         UE_LOG(LogDsonImporter, Warning,
             TEXT("DsonMeshBuilder[companion]: skin weights failed for '%s', using root-bone fallback"),
-            *AssetName);
+            *CompanionAssetName);
         // Non-fatal per R7: mesh continues with placeholder weights.
     }
 
@@ -835,7 +843,7 @@ USkeletalMesh* FDsonMeshBuilder::BuildCompanion(
     if (!Mesh->CommitMeshDescription(0))
     {
         UE_LOG(LogDsonImporter, Error,
-            TEXT("DsonMeshBuilder[companion]: CommitMeshDescription failed for '%s'"), *AssetName);
+            TEXT("DsonMeshBuilder[companion]: CommitMeshDescription failed for '%s'"), *CompanionAssetName);
         return nullptr;
     }
 

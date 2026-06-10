@@ -24,9 +24,11 @@ public:
     // Builds one companion geometry DSF as its own USkeletalMesh bound to the body
     // USkeleton by bone name. Sections are wired to MaterialsByGroup by group name;
     // unmatched sections fall back to DefaultMaterial (R7 — permissive).
+    // CharacterName drives the output path; CompanionAssetName is the companion slot name.
     // UvSetDsfPath is the absolute path to the UV set DSF; empty = fallback to zero UVs.
     static USkeletalMesh* BuildCompanion(
-        const FString& AssetName,
+        const FString& CharacterName,
+        const FString& CompanionAssetName,
         const FString& GeometryDsfPath,
         USkeleton* Skeleton,
         const TMap<FString, UMaterialInstanceConstant*>& MaterialsByGroup,

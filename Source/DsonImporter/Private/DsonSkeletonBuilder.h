@@ -28,5 +28,5 @@ private:
     static FTransform MakeBoneTransform(uint64_t DsfHandle, int32 NodeIndex, double UnitScale);
 
     // Creates or replaces the skeleton package asset after the reference skeleton is built.
-    static USkeleton* CreateSkeletonAsset(const FReferenceSkeleton& RefSkeleton, const FString& AssetName);
+    static USkeleton* CreateSkeletonAsset(const FReferenceSkeleton& RefSkeleton, const FString& CharacterName);
 };

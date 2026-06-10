@@ -32,7 +32,8 @@ struct FDsonCompanionSource
 struct FDsonImportSettings
 {
     FString DsonFilePath;
-    FString ResolvedFigureDsfPath;  // absolute path to base figure DSF
+    FString CharacterName;            // sanitized imported-DUF basename; per-character identity
+    FString ResolvedFigureDsfPath;    // absolute path to base figure DSF
     EGenesisGeneration Generation = EGenesisGeneration::Unknown;
     bool bDumpMaterialDiagnostics = false;
     TArray<FDsonCompanionSource> CompanionFigures;  // G9 companion figures (Slice A+)

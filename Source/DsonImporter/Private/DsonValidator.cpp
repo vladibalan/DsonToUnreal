@@ -4,6 +4,7 @@
 #include "DsonParserFunctions.h"
 #include "DsonLoadedDocument.h"
 #include "Misc/Paths.h"
+#include "ObjectTools.h"
 #include "DsonImporter.h"
 
 /*
@@ -153,6 +154,7 @@ FDsonImportSettings FDsonValidator::ToImportSettings(
 {
     FDsonImportSettings Settings;
     Settings.DsonFilePath = SourceAssetPath;
+    Settings.CharacterName = ObjectTools::SanitizeObjectName(FPaths::GetBaseFilename(SourceAssetPath));
     Settings.Generation = Validation.Generation;
     Settings.bDumpMaterialDiagnostics = bDumpMaterialDiagnostics;
     Settings.CompanionFigures = Validation.CompanionFigures;

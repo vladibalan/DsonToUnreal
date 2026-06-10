@@ -11,17 +11,14 @@ const FString& FDsonAssetUtils::ImportRootPath()
     return RootPath;
 }
 
-FDsonAssetPath FDsonAssetUtils::MakeImportAssetPath(const FString& BaseName, const TCHAR* Suffix)
+FString FDsonAssetUtils::CharacterRoot(const FString& CharacterName)
 {
-    FDsonAssetPath AssetPath;
-    AssetPath.AssetName = BaseName + FString(Suffix);
-    AssetPath.PackagePath = ImportRootPath() / AssetPath.AssetName;
-    return AssetPath;
+    return ImportRootPath() / TEXT("Characters") / CharacterName;
 }
 
-FString FDsonAssetUtils::MakeImportSubfolderPath(const TCHAR* SubfolderName, const FString& BaseName)
+FString FDsonAssetUtils::SharedTexturesRoot()
 {
-    return ImportRootPath() / FString(SubfolderName) / BaseName;
+    return ImportRootPath() / TEXT("Library") / TEXT("Textures");
 }
 
 UPackage* FDsonAssetUtils::CreateLoadedPackage(const FString& PackagePath, const TCHAR* LogPrefix)

@@ -119,7 +119,10 @@ shares the path→settings assembly (`FDsonValidator::ToImportSettings`) with th
 - Bakes IrayUber bump height maps into tangent-space normal textures and combines
   them with the surface normal map when present.
 - Composites a fixed-factory LIE layer stack into one baked `UTexture2D`
-  (`CompositeImageLayers`) at native size on the `map_size` canvas; cached by image id.
+  (`CompositeImageLayers`) at native size on the `map_size` canvas; saved
+  per-character under `CharacterRoot/Textures/Composites`; cached by image id.
+- Source textures saved under `SharedTexturesRoot` (`…/Library/Textures/…`),
+  deduped across characters; LIE composites are per-character.
 - Sets sRGB according to material channel needs.
 - Caches ordinary imports by resolved absolute path, sRGB mode, and optional
   asset-name suffix so color and linear variants can coexist.
@@ -168,8 +171,8 @@ shares the path→settings assembly (`FDsonValidator::ToImportSettings`) with th
 
 `DsonAssetUtils.*`
 
-- `FDsonAssetUtils`: package creation, asset saving, and import-folder/subfolder path
-  construction under the `/Game/DazImports` root.
+- `FDsonAssetUtils`: package creation, asset saving, and import-path construction.
+  `ImportRootPath()` → `/Game/DazImports`; `CharacterRoot(name)` → `…/Characters/<name>` (per-character assets); `SharedTexturesRoot()` → `…/Library/Textures` (shared, deduped source textures).
 
 `DsonImportUtils.h`
 
