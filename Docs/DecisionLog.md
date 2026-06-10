@@ -26,6 +26,7 @@ Contents (newest decisions appended):
 - ImportDazAsset multi-instance bind — public entry idempotently binds GDsonParser when the plugin is hosted via AdditionalPluginDirectories (2026-06-10)
 - Asset import folder structure — per-character `Characters/<char>/` + shared deduped `Library/Textures/`; fixes same-generation multi-DUF collision (2026-06-10)
 - Consumer versioning contract — lean SemVer (`.uplugin` VersionName + git tag + `CHANGELOG.md`), baseline 1.0.0, no runtime accessor; R12 gate (2026-06-10)
+- Authoring-metadata recipe emission (UDsonAssetRecipe) — intake, per-item parser-reachability triage, one parser FR (per-layer LIE compositing metadata) (2026-06-10)
 
 ## IrayUber bump-map seam — root cause & fix decision (2026-06-06)
 
@@ -981,3 +982,70 @@ actual one, not the request's summary.
 this log are left as historical record). R12 took `CodeReviewRules.md` past its 240
 ceiling, so the R10 budget was raised to 265 and mirrored in the `dson-doc-guard`
 hook. Committed straight to `main` (doc-only convention); the user pushes.
+
+## Authoring-metadata recipe emission (UDsonAssetRecipe) — intake & parser FR (2026-06-10)
+
+**Request (from the DsonArtisan consumer, relayed through the user — the sanctioned
+cross-repo channel).** Emit a persisted `UDsonAssetRecipe` asset beside each imported
+character, carrying the DAZ authoring metadata the importer already parses but currently
+discards, so a downstream authoring step can realize the character faithfully from the
+already-imported UE assets. It is a **new** persisted asset, **not** a change to the live
+`FDsonImportReport` (kept the thin, stable handle set). Raw and uncomposed only — never
+interpret, compose, bake, or realize (that is the consumer's job). Grounded on G9 HID Nancy 9
+(PBRSkin); the consumer's field-level contract is `DsonArtisan/Docs/RecipeContract.md`.
+
+**Why it's intrinsically in scope (not a consumer-specific feature).** This is exactly the
+**P2** artifact (`Principles.md`: "authoring metadata with no UE-asset home … emitted as a
+faithful, self-describing data artifact alongside the imported assets"), whose schema P2 left
+"to be finalized … when the emitting feature is implemented." The concrete need P4 waits for has
+now landed. Emission stays mechanical and consumer-agnostic (P3); imported originals stay
+immutable (P5). So the Roadmap/forward-docs frame it as "a downstream consumer requested…" and
+only this dated entry names DsonArtisan (R10).
+
+**Per-item triage — against the published parser surface (`DsonParserAPI.h` v1.3.0), NOT the
+importer's current X-macro binding list.** The distinction is the whole story: the importer
+binds only a subset of what the parser already publishes, so most of the "EMIT" set is reachable
+today by *binding more exports* (R2 rows) and projecting them — not by a parser change.
+
+| Recipe datum | Reachability | Basis (published accessor / mechanism) |
+| --- | --- | --- |
+| Companion slot tag (eyes/lashes/tear/mouth) | importer now | `GetScenePostLoadAddonSlot` already read at import; dropped when companions flatten into the untagged `CompanionMeshes` array — carry it through to the recipe |
+| Evaluated dial weight + bound UE morph-target | importer now | morphs already import as `UMorphTarget`; dial value via `GetSceneModifierChannelValue` / `GetModifierChannelValue` (published, **unbound**) + correlate modifier↔morph by id/url. Per-leaf "expands to" weights are formula expansion = the consumer's to evaluate (out of importer scope, P1 — "composed dialed shape") |
+| ERC rigging-follow deltas (bone `center_point`/`end_point`) | importer now | `GetNodeEndPointX/Y/Z` (published, **unbound**) + the RPN formula API `GetModifierFormulaOutput` / `…FormulaOperation{Count,Op,Val,Url}` whose output targets a bone `center_point`/`end_point` channel. Carried raw; "at full weight" is the consumer's evaluation |
+| JCM identity + driving joint | importer now | JCM morphs enumerable (`GetMorphId/Name/Label`); driving joint = the formula operation **input url** (`…FormulaOperationUrl`, published, **unbound**) |
+| Per-surface LIE recipe — raw layers (texture + label) | importer now | `Get(SceneMaterialChannel\|Image)Layer{Count,TexturePath,Label}` (published) |
+| Per-surface LIE recipe — **blend mode / opacity / transform (mask)** | **parser FR** | unmodeled in the parser — CHANGELOG 1.3.0: "per-layer blend op/transform stay unmodeled." The only datum in the opened file exposed nowhere → the single warranted parser ask |
+| Pre-baked iris/sclera marker | importer now | the importer already bakes these (see "G9 untextured eyeball"); flag them so the consumer does not re-composite |
+| Recipe schema + emitter version | importer now | from `.uplugin` VersionName / a macro; backs the consumer's SemVer pin — versioning gate R12 |
+| HD flag + SubD level | **deferred** | forward-only, no consumer yet (P4); whether SubD level needs a parser exposure is unverified — revisit when UE-native subdivision lands |
+| Preset/variant option sets (eye-color/makeup/lip) | **deferred** | the consumer's Preset-resolver stage (P4); applied authoring presets are out of the importer's discovery scope (P1) |
+
+**Correction logged (no silent fails).** A first pass mis-scoped the ERC-follow and JCM-driving
+data as parser gaps by reading the importer's binding list (`DsonParserFunctions.h`) instead of
+the published header. The RPN formula API and `…NodeEndPoint*` already ship — so those are
+importer binding+projection work, not a parser ask. This is exactly the trap the AgentWorkflow
+"Requesting parser features" gate warns about ("grep the published accessors first; a 'how'
+risks re-specifying an accessor that already ships").
+
+**Outcome.** Intake recorded; the feature is **~mostly importer-side**: bind the already-
+published exports the importer doesn't yet wire (formula ops, node end_point, modifier channel
+value), project them, and emit a new `UDsonAssetRecipe` from the pipeline — to be sliced as
+Implementer task-files, schema first (a reachable-now slice can proceed independent of the FR).
+One additive parser exposure is the sole cross-repo dependency. **Implementation note:** the
+accessors *exist*; that they are *populated* for Nancy's specific ERC/JCM/dial assets — which
+span several loaded documents (figure DSF + morph DSFs) — is to be confirmed in the implementing
+slice against the actual asset, not assumed here.
+
+**Parser feature request (what, not how — for relay to the DsonParser Director).**
+> **DSON data needed:** per-layer LIE (layered-image) compositing metadata. For each layer of a
+> layered `map` stack, in addition to the texture path + label already exposed, the layer's
+> **blend mode**, **opacity**, and **transform/offset (mask)** — the layering instructions DAZ
+> stores per element of the `map` array, which the parser currently drops (CHANGELOG 1.3.0 notes
+> them unmodeled). **Surfaces concerned:** both the per-image (`image_library` LIE entries) and
+> per-channel (scene-material channel) layer stacks already exposed for path+label. **Importer
+> behaviour it unblocks:** carry each per-surface LIE composite as raw, ordered layers into the
+> emitted recipe so a downstream step can re-composite faithfully — the importer composites
+> nothing. Subject to the parser's own faithful-passthrough rule (raw values, no evaluation,
+> no merge across sections). **Concrete target:** G9 HID Nancy head `diffuse` + `SSS Color`
+> (4-layer stacks). This promotes the already-pending exposure noted in `Roadmap.md` ("Out of
+> importer scope" → LIE composition recipe) from deferred to a live request.

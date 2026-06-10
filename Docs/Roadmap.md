@@ -241,9 +241,20 @@ check path-reconstructing consumers; rationale → `DecisionLog.md`.
   fallback", remove or correct them. Search `Source/DsonImporter/` for
   `Genesis 3` / `G3` references.
 
+## Authoring-metadata recipe emission (P2) — planned (intake 2026-06-10)
+
+A downstream consumer requested a persisted recipe asset emitting the DAZ authoring metadata
+the importer parses but discards — the **P2** artifact, raw and uncomposed (P1/P3), a new asset.
+**Mostly importer-side** via already-published parser accessors the importer does not yet bind;
+the **sole cross-repo blocker** is one additive
+parser exposure — per-layer LIE blend/opacity/transform (pending under "Out of importer scope"
+above), FR raised 2026-06-10. HD realization and preset/variant sets stay deferred (P4). Per-item
+triage, evidence, and the parser FR → `DecisionLog.md`.
+
 ## Next up
 
-With Phase 6 v2, asset folder structure, and composed dialed-shape baking all closed,
-the importer covers its mandate for the supported figures. Remaining work is reactive —
-the **Cleanup backlog**, new figures/shaders as content needs them (shader-gated), and
-just-in-time additive parser exposures (`Docs/Principles.md` P4).
+With Phase 6 v2, asset folder structure, and composed dialed-shape baking all closed, the
+importer covers its mandate for the supported figures. Beyond the planned recipe-emission
+workstream above, remaining work is reactive — the **Cleanup backlog**, new figures/shaders as
+content needs them (shader-gated), and just-in-time additive parser exposures
+(`Docs/Principles.md` P4).
