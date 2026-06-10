@@ -929,8 +929,11 @@ builds clean (`DsonHostEditor`: restructure 17 actions, cleanup 9 actions, 0 war
 removed two R5 dead items before merge — the now-zero-caller `MakeImportAssetPath` /
 `MakeImportSubfolderPath` (also the flat-`{Root}/{name}` footgun that had caused the
 collision) and a stale `ObjectTools` include — via follow-up task
-`20260610-061409-import-folder-cleanup`. **Runtime two-character no-collision + dedup
-check is the maintainer's in-editor step**, not yet run.
+`20260610-061409-import-folder-cleanup`. **Runtime-confirmed 2026-06-10:** three figures
+imported in-editor — G9 Laura and G9 Nancy (the previously collision-prone same-generation
+pair) plus G8 Jordina — each landed in its own `Characters/<name>/` tree with one shared
+`Library/Textures/` and 0 import failures (log-verified); maintainer confirmed visually,
+then removed the test imports.
 
 **Lessons.** (1) Name per-character assets off the **imported preset** identity, never
 the shared geometry DSF — the shared-DSF name was the whole bug. (2) When a name is
