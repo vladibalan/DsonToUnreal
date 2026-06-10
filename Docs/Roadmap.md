@@ -208,6 +208,23 @@ separate P2/P4 matter, not the baking ruled out here. Notes from when this was s
 in-plugin work are retained as downstream reference:
 **[`Docs/FormulaMorphsV2.md`](FormulaMorphsV2.md)**.
 
+## Asset import folder structure — planned
+
+Trigger: bulk multi-DUF import. Today every DUF dumps flat into `/Game/DazImports/`,
+and the body mesh, skeleton, and companions are named from the shared figure **DSF**
+(`DsonMeshBuilder.cpp`, `DsonSkeletonBuilder.cpp`) — so a second same-generation
+character (G9 Nancy after Laura) overwrites the first's mesh and orphans its MICs.
+Target layout (split per P5/P1 — shared immutable originals vs. character-scoped):
+- `…/Characters/<DUF>/` — per-character: body + companion meshes, `…_Skeleton`,
+  `Materials/` (MICs + `SSP_`), per-character `Textures/Composites/`.
+- `…/Library/Textures/<mirrored DAZ path>/` — shared, deduped source textures.
+
+Decided: re-import overwrites in place; composites per-character; textures under
+`Library/`. Implement by centralizing both roots in `FDsonAssetUtils` and renaming
+mesh/skeleton/companions off the DSF onto the DUF. **Output-path change (R7)** —
+re-import after; check path-reconstructing consumers (e.g. DsonArtisan); rationale
+→ `DecisionLog.md` on ship.
+
 ## Known latent issues (not blocking)
 
 - `SavePackage` return value not checked (hardening).
@@ -235,9 +252,8 @@ in-plugin work are retained as downstream reference:
 ## Next up
 
 With Phase 6 v2 (Materials v2) closed and composed dialed-shape baking ruled out of
-scope (see "Out of importer scope — composed dialed shape"), the importer covers its
-mandate — faithful raw-DAZ→Unreal conversion — for the supported figures. No feature
-phase is queued; remaining in-scope work is reactive: the **Cleanup backlog** items
-above, new figures/shaders as content needs them (support is shader-gated), and
-additive parser exposures taken just-in-time (`Docs/Principles.md` P4) — e.g. LIE
-per-layer compositing or P2 dial/formula metadata.
+scope, the importer covers its mandate for the supported figures. **Queued:** the
+**Asset import folder structure** restructure above (unblocks bulk multi-DUF import).
+Otherwise remaining work is reactive — the **Cleanup backlog**, new figures/shaders
+as content needs them (shader-gated), and just-in-time additive parser exposures
+(`Docs/Principles.md` P4).
