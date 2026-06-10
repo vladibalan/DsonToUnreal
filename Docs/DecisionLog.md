@@ -23,6 +23,7 @@ Contents (newest decisions appended):
 - Programmatic import entry point — public `ImportDazAsset`; report decoupled from the private pipeline result (2026-06-09)
 - G9 eye-moisture cornea lensing — refraction shell minified the iris; fixed via Refraction Method = None (2026-06-10)
 - Composed dialed shape out of importer scope — formula evaluator dropped, kept as downstream reference (2026-06-10)
+- ImportDazAsset multi-instance bind — public entry idempotently binds GDsonParser when the plugin is hosted via AdditionalPluginDirectories (2026-06-10)
 
 ## IrayUber bump-map seam — root cause & fix decision (2026-06-06)
 
@@ -816,3 +817,65 @@ discovery record + reference for the downstream authoring layer, **not** an impo
 its closing "when implemented, update Roadmap" line now reads as a scope-reversal gate.
 `Docs/Reference.md`: the "control vs. complete dialed character" fact is unchanged (still accurate).
 No source or build impact (doc-only).
+
+## ImportDazAsset multi-instance bind — public entry binds GDsonParser idempotently (2026-06-10)
+
+**Symptom.** A downstream consumer mounting this plugin into a *second* UE host via
+`AdditionalPluginDirectories`, with a dependent editor module that does
+`PrivateDependencyModuleNames += "DsonImporter"` and calls
+`FDsonImporterModule::Get().ImportDazAsset(Request)`, hit validation failure
+`"DsonParser library is not loaded"` on that call — even though startup logged the DLL
+`loaded successfully` / `all exports loaded successfully` / version match. In the *same*
+editor session the plugin's own import window imported the same `.duf` fine.
+
+**Root cause — two `DsonImporter` images, two `GDsonParser`.** `GDsonParser` is a
+per-DLL-image file-global whose only write site is `StartupModule`'s bind loop. Mounting the
+plugin into a second host yields two `UnrealEditor-DsonImporter.dll` images (the plugin's own
+`…/DsonToUnreal/Binaries/Win64` plus one in the consuming host's `Binaries`). UE runs
+`StartupModule` on one image — it binds *that* image's `GDsonParser`, and the window (opened
+from that image's menu) runs there → works. But `ImportDazAsset` is `DSONIMPORTER_API`
+(imported), and the dependent module resolves it to the *other* image, whose `StartupModule`
+never ran → its `GDsonParser` is default-constructed → `FDsonValidator::Validate`'s
+`IsValid()` gate rejects the call. The inline `Get()` can hand back image A's module object
+while the executing `ImportDazAsset` body is image B's — so the bug is per-image and the DLL
+handle cannot live on the module object. `ImportDazAsset` had **no in-tree caller** (the
+window calls `FDsonImportPipeline::Run` directly), so this public entry was never
+runtime-exercised until the first external call surfaced it. Reporter ruled out DLL
+path/staging (binds at startup), editor staleness (clean rebuilds), and a stale plugin
+binary; the discriminator is one session where the window imports while the external
+`ImportDazAsset` fails — same symbol, opposite validity.
+
+**Decision: bind at the public entry point (idempotent), not a build/packaging fix.** Two
+directions were on the table. (A) *Avoid the duplicate binary* — have the consuming host
+mount the plugin without rebuilding it — lives in the **consumer's** project, can't be
+enforced from plugin code, and any consumer rebuild reintroduces it. (B) *Guarantee
+`GDsonParser` is bound in whatever image services the call.* B is self-contained, durable,
+and consumer-agnostic (**P3** — the importer makes no assumptions about how it is hosted), so
+B was taken; A stands as an optional complementary measure noted to the consumer.
+
+**Change (`b13a2b9`).** Extracted the load + export-bind + version-reconcile out of
+`StartupModule` into an idempotent file-scope `EnsureDsonParserLoaded()` (early-out on
+`GDsonParser.IsValid()`) over `GDsonParser` + a new file-global `GDsonParserDllHandle`; called
+from `StartupModule` (single-host behavior unchanged) and at the top of `ImportDazAsset`
+(refuse with `EDsonImportStatus::ValidationFailed` if it cannot bind). On a MAJOR-version
+mismatch the helper resets `GDsonParser` and frees the handle before returning false, so the
+`IsValid()` early-out invariant holds and an ABI-incompatible parser never reaches `Validate`
+— a small, safer change from the old startup path, which left the parser bound-but-
+unregistered. The public `ImportDazAsset` / `FDsonImportReport` / `Get()` contract and
+`DSON_PARSER_API_LIST` are unchanged; the only header edit removes the now-dead private
+`DsonParserHandle` member (layout-internal — `FModuleManager` allocates the module object
+inside this DLL, so no consumer ABI break).
+
+**Status.** Integrated 2026-06-10 as `b13a2b9` (squash-merged to `main`): Implementer build
+clean (`DsonHostEditor`, 17 actions, 0 errors, 0 warnings), Director re-build up-to-date,
+review clean (R1–R11). The **two-host runtime repro** (external host + dependent module) is
+the consumer's to run; the fix is correct by construction (idempotent; a no-op in the normal
+single-host case). Durable gotcha → `Docs/Reference.md` "per-DLL-image module globals".
+
+**Lessons.** (1) A public API with **no in-tree caller** is unverified until something calls
+it — exercise programmatic entry points; "Done" in the Roadmap is not "runtime-proven". (2) A
+non-exported UE module global is **per-DLL-image**; a plugin mounted into a second host via
+`AdditionalPluginDirectories` can have two images, so state bound only in `StartupModule`
+isn't there for the image that services an imported call — bind idempotently at the entry and
+keep the resource handle in the same image as the code (not on the module object, which the
+inline `Get()` may resolve to a different image).

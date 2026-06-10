@@ -73,6 +73,16 @@ Contents:
   is the refraction signature — toggle the Method, not the opacity, to test. This cost a full loop on the G9
   eye-moisture lensing (the cornea shell's IOR refraction minified the eyeball; the pin-disconnect did
   nothing). Full story → `Docs/DecisionLog.md` "eye-moisture cornea lensing".
+- **A non-exported UE module global is per-DLL-image; a plugin mounted into a second host via
+  `AdditionalPluginDirectories` can have two `UnrealEditor-<Module>.dll` images.** Each image has its own
+  copy of a file-global (e.g. `GDsonParser`), and an imported (`MODULE_API`) entry point can execute in an
+  image whose `StartupModule` never ran — so state bound only at startup is missing there. Symptom: a public
+  call (`ImportDazAsset`) fails the `GDsonParser.IsValid()` gate with "DsonParser library is not loaded" while
+  the in-process import **window** works in the *same* session (it runs in the bound, menu-registering image).
+  Fix: bind **idempotently at the public entry point**, not only in `StartupModule`, and keep the resource
+  handle in the **same image as the code** (a file-global), never on the module object — the inline
+  `FDsonImporterModule::Get()` may hand back a different image's object. Full story → `Docs/DecisionLog.md`
+  "ImportDazAsset multi-instance bind".
 
 ## Verified data facts (sanity checks for future work)
 
