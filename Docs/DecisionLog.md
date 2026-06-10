@@ -756,7 +756,15 @@ edit is warranted (framed as the IrayUber bump→normal / dual-lobe decisions).
 **Status.** Integrated 2026-06-10 as `cb96b13` (squash-merged to `main`): importer one-entry deletion in
 `GetEyeMoistureMapping()` + master Refraction-pin disconnect / `RefractionIOR`-node delete (verified from
 the copied-node dump); Implementer build clean, Director review clean (recompile deferred — non-build-risky).
-`MaterialMastersV1.md` reconciled (RefractionIOR dropped from the contract). **Pending only:** the user's
-runtime re-verify on Nancy, which closes the Roadmap Known-issue. **Lesson (reinforces the eyeball-bake
-postmortem):** verifying an *adjacent* fix (the albedo bake) is not verifying the slice's own surface (the
-refraction) — a visual slice isn't done until its look is checked at runtime.
+`MaterialMastersV1.md` reconciled (RefractionIOR dropped from the contract). **⚠️ Verify FAILED 2026-06-10 — refraction was NOT the cause; the original diagnosis was wrong.** The
+master pin is confirmed disconnected and live in-editor (Refraction = 1.0, asset saved, matches git), yet the
+eye looks identical to before; an isolation test (eye-moisture shell Opacity→0) leaves the eyeball **small
+and not round** — so the cornea shell is not responsible. Real cause **re-opened, under investigation**: the
+eye-companion **geometry / baked eyeball albedo** (the screenshot also shows an oversized translucent shell
+and scattered, undersized eye parts). `cb96b13` stands as a defensible cleanup (it removed a crude UE
+IOR-refraction approximation) but is **not** the fix — keep/revert pending the user's call.
+
+**Lessons.** (1, reinforces the eyeball-bake postmortem) verifying an *adjacent* fix is not verifying the
+slice's own surface — a visual slice isn't done until its look is checked at runtime. (2) A plausible material
+theory (IOR shell → iris minified) was asserted with too much confidence and was wrong; the **isolation test**
+(hide the suspect layer) is the cheap decisive disambiguator and belongs *before* a fix, not after.
