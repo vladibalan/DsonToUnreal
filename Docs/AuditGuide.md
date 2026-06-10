@@ -13,7 +13,7 @@ Use this document for audit, review, debugging, and diagnostic requests. The goa
 For code-review style audits, lead with findings. Do not summarize first. Use
 `Docs/CodeReviewRules.md` as the checklist — it owns this repo's DRY, UE 5.4.4
 compatibility, parser-ABI, RAII, compactness, orientation-doc-sync, and
-roadmap-upkeep rules (R1–R11).
+roadmap-upkeep rules (R1–R12).
 
 ## Evidence Sources
 

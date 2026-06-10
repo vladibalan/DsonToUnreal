@@ -187,7 +187,7 @@ included.
   routing → `Docs/AuditGuide.md`; editor tooling → `Docs/Tooling.md`;
   entry/routing → `AGENTS.md`; master-parameter contract → `MaterialMastersV1.md`.
 - **Point, don't duplicate.** If another doc owns a fact, link it by name. The
-  R1–R11 list and the Director/Implementer role model each have exactly one home;
+  R1–R12 list and the Director/Implementer role model each have exactly one home;
   never re-list them elsewhere.
 - **Status holds *current* state only.** When work ships, move its rationale to
   `Docs/DecisionLog.md` and its durable facts to `Docs/Reference.md`; do not let
@@ -198,9 +198,9 @@ included.
   relocate or split, not to keep growing (mirrored in the `dson-doc-guard` hook,
   which warns on save): `AGENTS.md` ≤ 135, `Roadmap.md` ≤ 260, `AuditGuide.md` ≤
   120, `ImporterArchitecture.md` ≤ 195, `AgentWorkflow.md` ≤ 245,
-  `CodeReviewRules.md` ≤ 240, `Tooling.md` ≤ 80. The cold/on-demand docs —
+  `CodeReviewRules.md` ≤ 265, `Tooling.md` ≤ 80. The cold/on-demand docs —
   `DecisionLog.md`, `Reference.md`, `FormulaMorphsV2.md`, `SubsurfaceProfileV2.md`,
-  `MaterialMastersV1.md`, `Principles.md` — are **exempt** (off the hot path).
+  `MaterialMastersV1.md`, `Principles.md`, `Versioning.md` — are **exempt** (off the hot path).
 
 Reviewer action: if a change restates content another doc owns, parks history in a
 status doc, or pushes a hot-path doc past its budget without relocating, flag it
@@ -215,6 +215,24 @@ make the same change to the other in the same edit. The only allowed divergence 
 hook paths: the mirror uses repo-relative paths (`.claude/hooks/...`) for
 portability, the global file absolute. A drifted mirror is stale-orientation-class
 drift (R8).
+
+### R12 — Version the consumer surface; announce the change with it
+A co-built downstream plugin (DsonArtisan) consumes this one. Its **consumer surface**
+is (1) the public programmatic API — `Source/DsonImporter/Public/DsonImporter.h`
+(`FDsonImporterModule::IsAvailable`/`Get`/`ImportDazAsset`) and the request/report/status
+types in `DsonImportRequest.h` — and (2) the documented *shape* of emitted output a
+consumer binds to (the `/Game/DazImports/…` layout owned by `FDsonAssetUtils`). Version
+the **surface**, not any one consumer's needs (P3). Any change that touches it must, in
+the same change:
+- **Classify** it MAJOR / MINOR / PATCH per [`Versioning.md`](Versioning.md) — MAJOR also
+  covers a breaking change to emitted-output shape; a no-effect doc/whitespace edit is no bump.
+- **Bump** `VersionName` in `DsonToUnreal.uplugin` (the SemVer source of truth; also
+  increment the integer `Version`).
+- **Add a `CHANGELOG.md` entry** (root, newest first) under a heading leading with the new
+  `VersionName` (`X.Y.Z — date · CLASS`), one sigil-prefixed line per change (`+` `~` `-` `!`).
+Full scheme, baseline, and what is deliberately not ported from DsonParser →
+[`Versioning.md`](Versioning.md). Reviewer action: a consumer-surface change with no
+`VersionName` bump + `CHANGELOG.md` entry is stale-orientation-class drift (R8).
 
 ## Quick checklist (state results after each change)
 
@@ -238,3 +256,5 @@ drift (R8).
       restated; no hot-path doc pushed past its soft line budget without relocating.
 - [ ] R11: in-repo `.claude/settings.json` mirrors the active global
       `~/.claude/settings.json` (content-equivalent; only hook paths differ).
+- [ ] R12: consumer-surface change (public API or emitted-output shape) bumps
+      `VersionName` + integer `Version` and adds a `CHANGELOG.md` entry.

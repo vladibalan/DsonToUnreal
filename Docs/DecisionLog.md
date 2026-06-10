@@ -25,6 +25,7 @@ Contents (newest decisions appended):
 - Composed dialed shape out of importer scope — formula evaluator dropped, kept as downstream reference (2026-06-10)
 - ImportDazAsset multi-instance bind — public entry idempotently binds GDsonParser when the plugin is hosted via AdditionalPluginDirectories (2026-06-10)
 - Asset import folder structure — per-character `Characters/<char>/` + shared deduped `Library/Textures/`; fixes same-generation multi-DUF collision (2026-06-10)
+- Consumer versioning contract — lean SemVer (`.uplugin` VersionName + git tag + `CHANGELOG.md`), baseline 1.0.0, no runtime accessor; R12 gate (2026-06-10)
 
 ## IrayUber bump-map seam — root cause & fix decision (2026-06-06)
 
@@ -941,3 +942,42 @@ derived from a path's leaf segment, a folder-shape change can silently corrupt i
 `SSP_Materials` trap); pass the identity explicitly. (3) Removing the superseded
 flat-path helper was not just tidiness — leaving it invited a future caller to
 reintroduce the collision.
+
+## Consumer versioning contract — lean SemVer for DsonArtisan; baseline 1.0.0 (2026-06-10)
+
+**Request.** The downstream **DsonArtisan** Director (the consumer verified in the
+output-path decision above) asked for a low-noise way to learn when DsonToUnreal's
+consumer-facing surface changes and whether a change is breaking — a version handle
+plus a one-read change channel.
+
+**Decision — lean, one carrier.** Version the **published surface** (P3), not a
+consumer's needs. Carriers: `VersionName` in `DsonToUnreal.uplugin` (single source of
+truth), a per-release git tag `vX.Y.Z`, and a root `CHANGELOG.md`. The surface = the
+public `DsonImporter` module API (`Public/DsonImporter.h` + `DsonImportRequest.h`,
+incl. struct fields / `EDsonImportStatus`) **and** the emitted-output shape
+(`/Game/DazImports/...`, owned by `FDsonAssetUtils`). Scheme, baseline, and the
+"what we don't port" rationale live in `Docs/Versioning.md`; the per-change gate is
+`CodeReviewRules.md` R12.
+
+**Baseline 1.0.0.** Labels the current tree (the `.uplugin` already carried 1.0.0);
+tagged `v1.0.0`. Pre-versioning history is not retro-numbered — including the same-day
+asset-folder change (breaking, but verified harmless for DsonArtisan above).
+
+**Declined — a runtime version accessor (request item c).** Consumer-serving runtime
+code cuts against P3 (mechanical, consumer-agnostic emission) and P4 (additive,
+just-in-time); and UE already exposes `VersionName` at runtime via `IPluginManager`,
+so a bespoke export would duplicate engine data. Revisit only if a concrete
+runtime-gate need lands. Also not ported from DsonParser (whose consumer is
+binary-blind): the `*Version.h` macro header, the `GetVersion()` export, `@since`/banner.
+
+**Surface delta flagged back.** The request under-described the report:
+`FDsonImportReport` also carries `Status`, `Skeleton`, `Mesh`, and `CompanionMeshes`,
+and `FDsonImportRequest` has `bDumpMaterialDiagnostics`. The versioned surface is the
+actual one, not the request's summary.
+
+**Mechanics.** Doc/config-only (no `Source/` change, no build): new `CHANGELOG.md` +
+`Docs/Versioning.md`; R12 + a Quick-Checklist line in `CodeReviewRules.md`; `R1–R11`→
+`R1–R12` across AGENTS/AuditGuide/AgentWorkflow (the two dated `R1–R11` mentions in
+this log are left as historical record). R12 took `CodeReviewRules.md` past its 240
+ceiling, so the R10 budget was raised to 265 and mirrored in the `dson-doc-guard`
+hook. Committed straight to `main` (doc-only convention); the user pushes.

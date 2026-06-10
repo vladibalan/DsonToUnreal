@@ -58,7 +58,7 @@ feedback-file* — so it holds for any agent:
   auto-load them — reads [`../AGENTS.md`](../AGENTS.md) and
   [`CodeReviewRules.md`](CodeReviewRules.md) as the task-file instructs.
 - Performs the code change, and **self-audits each edit** against
-  `CodeReviewRules.md` (R1–R11) per [`../AGENTS.md`](../AGENTS.md) "Before editing
+  `CodeReviewRules.md` (R1–R12) per [`../AGENTS.md`](../AGENTS.md) "Before editing
   source".
 - **Builds and verifies** its own change and reports the real result; it **never runs
   git** — it edits the checked-out branch and leaves the tree dirty for the Director.
@@ -213,7 +213,7 @@ Context: <relevant files + the specific facts the Implementer needs; point to
 
 Task: <concrete, ordered steps or the precise change required>
 
-Constraints: follow Docs/CodeReviewRules.md (R1-R11) and self-audit against its
+Constraints: follow Docs/CodeReviewRules.md (R1-R12) and self-audit against its
              Quick checklist after each edit. No silent fails — surface any
              blocker, gap, uncertainty, assumption, or step left undone.
 
