@@ -24,6 +24,7 @@ Contents (newest decisions appended):
 - G9 eye-moisture cornea lensing — refraction shell minified the iris; fixed via Refraction Method = None (2026-06-10)
 - Composed dialed shape out of importer scope — formula evaluator dropped, kept as downstream reference (2026-06-10)
 - ImportDazAsset multi-instance bind — public entry idempotently binds GDsonParser when the plugin is hosted via AdditionalPluginDirectories (2026-06-10)
+- Asset import folder structure — per-character `Characters/<char>/` + shared deduped `Library/Textures/`; fixes same-generation multi-DUF collision (2026-06-10)
 
 ## IrayUber bump-map seam — root cause & fix decision (2026-06-06)
 
@@ -879,3 +880,61 @@ non-exported UE module global is **per-DLL-image**; a plugin mounted into a seco
 isn't there for the image that services an imported call — bind idempotently at the entry and
 keep the resource handle in the same image as the code (not on the module object, which the
 inline `Get()` may resolve to a different image).
+
+## Asset import folder structure — per-character folders + shared texture library (2026-06-10)
+
+**Problem.** Every imported DUF dumped flat into `/Game/DazImports/`, and the body
+mesh, skeleton, and companion meshes were named from the shared **figure DSF**
+(`Settings.ResolvedFigureDsfPath`). For Genesis 9 that DSF is the same base geometry
+across all G9 characters, so importing a second same-generation character (Nancy after
+Laura) silently **overwrote** the first's mesh/skeleton and orphaned its per-character
+MICs. Bulk multi-DUF import was the trigger.
+
+**Decision.** Two asset classes with opposite grouping needs, split per **P5/P1**
+(immutable shared originals vs. character-scoped derivations):
+- **Per-character assets** — body + companion meshes, skeleton, MICs, subsurface
+  profile, baked LIE composites — grouped under
+  `/Game/DazImports/Characters/<CharacterName>/`, named off the **imported DUF**
+  identity (not the shared geometry DSF). Fixes the collision and gives the structure.
+- **Shared source textures** — kept deduped under `/Game/DazImports/Library/Textures/`
+  (DAZ-path-mirrored). A 4K skin texture shared by N characters imports **once**;
+  per-character copies would waste disk/VRAM and defeat the resolve cache.
+
+Three forks, decided with the maintainer:
+- **Re-import overwrites/refreshes** the character folder in place (matches the usual
+  re-import-it workflow; distinct characters sharing a DUF basename are rare).
+- **LIE composites are per-character** (`Characters/<char>/Textures/Composites/`) —
+  character-specific derivations keyed by image id; two characters with an id like
+  `Eye Color` but different recipes would otherwise collide in a shared zone.
+- **Shared textures live under `Library/`** so the shared-vs-per-character split is
+  self-documenting in the Content Browser.
+
+**Implementation.** `CharacterName` (sanitized imported-DUF basename) is derived once
+in `FDsonValidator::ToImportSettings` and carried on `FDsonImportSettings`; the texture
+importer takes it by ctor, for composite paths only. Roots are centralized in
+`FDsonAssetUtils::CharacterRoot`/`SharedTexturesRoot` (R4) — no path literals scattered
+across builders. The subsurface-profile asset name now comes from an explicit
+`OwnerName` argument rather than the material folder's leaf segment, which the
+restructure would otherwise have turned into `SSP_Materials`.
+
+**R7 (output-path contract).** Breaking: existing imports must be re-imported; no
+migration shim (decided). The lone external consumer, **DsonArtisan**, was verified
+unaffected — it consumes imports through `FDsonImporterModule::ImportDazAsset` /
+`FDsonImportReport` (asset pointers, path-agnostic) and hardcodes no
+`/Game/DazImports/...` path in source, config, or `.uasset`.
+
+**Status.** Integrated 2026-06-10 as `1e4ad64` (fast-forwarded to `main`). Implementer
+builds clean (`DsonHostEditor`: restructure 17 actions, cleanup 9 actions, 0 warnings /
+0 errors); Director re-build up-to-date; review clean (R1–R11). A review-gate fix loop
+removed two R5 dead items before merge — the now-zero-caller `MakeImportAssetPath` /
+`MakeImportSubfolderPath` (also the flat-`{Root}/{name}` footgun that had caused the
+collision) and a stale `ObjectTools` include — via follow-up task
+`20260610-061409-import-folder-cleanup`. **Runtime two-character no-collision + dedup
+check is the maintainer's in-editor step**, not yet run.
+
+**Lessons.** (1) Name per-character assets off the **imported preset** identity, never
+the shared geometry DSF — the shared-DSF name was the whole bug. (2) When a name is
+derived from a path's leaf segment, a folder-shape change can silently corrupt it (the
+`SSP_Materials` trap); pass the identity explicitly. (3) Removing the superseded
+flat-path helper was not just tidiness — leaving it invited a future caller to
+reintroduce the collision.
