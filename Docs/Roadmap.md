@@ -205,12 +205,11 @@ brow mesh. **Unblocks** slice #3 on G9 (`EyeMoisture Left/Right` live only in th
 
 ## Known latent issues (not blocking)
 
-- **G9 eye-moisture cornea lenses the iris — fix in progress (Option B).** The translucent
-  `M_DazEyeMoisture` shell's refraction **minifies (shrinks) the iris** on G9 (Nancy) —
-  pronounced, not the intended subtle wetness (import succeeds; look only). Diagnosed
-  (Refraction = Index Of Refraction, MIC IOR 1.38) and decided 2026-06-09: disconnect the
-  master Refraction pin + drop the `RefractionIOR` importer mapping; pending integration +
-  runtime re-verify. → `DecisionLog.md` "eye-moisture cornea lensing".
+- **G9 eye-moisture cornea lensing — fix integrated (Option B), pending runtime verify.** The
+  translucent `M_DazEyeMoisture` shell's refraction **minified (shrank) the iris** on G9 (Nancy).
+  Fixed 2026-06-10 (`cb96b13`): master Refraction pin disconnected + `RefractionIOR` importer
+  mapping dropped; `MaterialMastersV1.md` reconciled. Awaiting the runtime eye check on Nancy to
+  close. → `DecisionLog.md` "eye-moisture cornea lensing".
 - `SavePackage` return value not checked (hardening).
 - `IsValid()` does not include the UV function pointers — consistent with the
   permissive-parser convention (they are optional exports).

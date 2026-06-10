@@ -753,9 +753,10 @@ reconnecting the pin is one master edit away, and UE refraction is the wrong rep
 master-edits-allowed call: the non-master fix did not serve the governing principles equally, so the master
 edit is warranted (framed as the IrayUber bump→normal / dual-lobe decisions).
 
-**Status.** Decided 2026-06-09. Importer half handed to the Implementer
-(`task-20260610-013921-eye-moisture-refraction`); master edit by the user. **Pending:** integration + a
-runtime re-verify on Nancy, then the Director reconciles `MaterialMastersV1.md` (drop `RefractionIOR` from
-the M_DazEyeMoisture contract) and flips the `Roadmap.md` status. **Lesson (reinforces the eyeball-bake
+**Status.** Integrated 2026-06-10 as `cb96b13` (squash-merged to `main`): importer one-entry deletion in
+`GetEyeMoistureMapping()` + master Refraction-pin disconnect / `RefractionIOR`-node delete (verified from
+the copied-node dump); Implementer build clean, Director review clean (recompile deferred — non-build-risky).
+`MaterialMastersV1.md` reconciled (RefractionIOR dropped from the contract). **Pending only:** the user's
+runtime re-verify on Nancy, which closes the Roadmap Known-issue. **Lesson (reinforces the eyeball-bake
 postmortem):** verifying an *adjacent* fix (the albedo bake) is not verifying the slice's own surface (the
 refraction) — a visual slice isn't done until its look is checked at runtime.

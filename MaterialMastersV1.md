@@ -119,12 +119,11 @@ Reference spec for the four `UMaterial` master assets that back the DsonToUnreal
 | Base | `BaseColor` | Vector3 | (1, 1, 1) |
 | Specular | `Specular` | Scalar | 0.5 |
 | Specular | `Roughness` | Scalar | 0.0 |
-| Refraction | `RefractionIOR` | Scalar | 1.33 |
 | Opacity | `Opacity` | Scalar | 1.0 |
 
 **Source channels** (fed **raw** by `GetEyeMoistureMapping()`; pure parametric — no textures):
 `diffuse`→`BaseColor`, `Glossy Reflectivity`→`Specular`, `Glossy Roughness`→`Roughness`,
-`Refraction Index`→`RefractionIOR`, `Cutout Opacity`→`Opacity`.
+`Cutout Opacity`→`Opacity`.
 
 **Wiring notes:**
 - **Selected by surface group, not shader.** The builder routes `EyeMoisture`/`Cornea`/`Tear`
@@ -142,8 +141,10 @@ Reference spec for the four `UMaterial` master assets that back the DsonToUnreal
 - **Wet glint = low `Roughness` + `Specular`.** Feed `Roughness` straight (DAZ `Glossy Roughness`
   is `0` = mirror-smooth); clamp to ~`0.02–0.05` in the master to avoid specular aliasing on the
   small shell.
-- **`RefractionIOR`** drives the translucency **Refraction (IOR)** input; DAZ feeds `1.5`, physical
-  tear-film is ~`1.33`. Keep refraction subtle — it is the wetness cue, not a glass lens.
+- **No refraction (removed 2026-06-10, Option B).** The shell deliberately does **not** drive UE's
+  Refraction input — IOR refraction on the curved cornea minified the iris on G9 (lensing). The
+  master's Refraction pin is disconnected and the importer drops the `Refraction Index` channel;
+  wetness is the Fresnel opacity + specular. Don't re-add — `Docs/DecisionLog.md` "eye-moisture cornea lensing".
 - **`BaseColor`** barely contributes through a near-transparent shell; mapped for faithfulness (DAZ
   feeds a light grey) but must not visibly tint the eyeball.
 - **Runtime cost:** translucent + forward-shaded, justified by the eyes' tiny screen footprint
