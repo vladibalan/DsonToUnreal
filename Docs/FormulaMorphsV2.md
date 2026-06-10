@@ -1,16 +1,24 @@
-# Formula-Driven Character Morphs — Future Evaluation Handoff
+# Formula-Driven Character Morphs — Discovery Record + Out-of-Scope Evaluator Reference
+
+> **Scope (2026-06-10):** the formula **evaluator / composer** described below is
+> **out of importer scope.** Evaluating formulas and baking the composed dialed shape
+> is interpretation, which belongs to the downstream authoring layer, not this importer
+> (`Docs/Principles.md` P1; `Docs/Roadmap.md` → "Out of importer scope — composed dialed
+> shape"; why → `Docs/DecisionLog.md` 2026-06-10). This is **not** an importer feature
+> plan — it is kept as the record of the in-scope discovery import that shipped, plus
+> reference for whoever builds that evaluator downstream.
 
 **Status:** parser formula-output API **delivered** for discovery. The importer
 now follows scene and external modifier formula outputs whose query property is
 exactly `?value`, resolves those referenced files transitively, and imports every
 delta-bearing morph in each reached file as its own ordinary morph target at
 weight 0. It does **not** evaluate formulas, seed dial values, or compose a net
-character shape. This doc now records the future evaluator/compose feature, not
-the current discovery-only implementation.
+character shape — and, per the scope banner above, will not; that is the authoring
+layer's job.
 
 See also: the parser side (`E:/Work/Code/DsonTest2/DsonParser_Roadmap.md`, v2
 "Formula use cases") owns the authoritative DSON formula structure and the parser
-API plan. This doc is the **importer** consumer plan.
+API plan. This doc is the downstream **evaluator reference**, not an importer plan.
 
 ## The remaining problem (what discovery-only import can't do)
 
@@ -165,5 +173,6 @@ and the v1 MeshDescription pipeline), with (A) as an optional toggle later.
   evaluator; implement them or fail that edge permissively (skip + warn, R7).
 - Keep it permissive: a missing/odd formula skips that branch, never aborts import.
 
-When the future evaluator/composer is implemented, update `Docs/Roadmap.md` and
-`Docs/ImporterArchitecture.md` again per R8/R9.
+This evaluator is out of importer scope (see the scope banner above). Picking it up
+would be a scope **reversal** — a Roadmap/Principles decision recorded in
+`Docs/DecisionLog.md` first (R9), not a quiet pickup of this plan.

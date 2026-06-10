@@ -15,9 +15,14 @@ Contents (newest decisions appended):
 - Genesis 9 companion figures — packaging decision (separate meshes, leader-pose) + import plan (2026-06-08)
 - Director/Implementer handoff — file-based `.handoff/`, Director-defers, option D doc fold (2026-06-08)
 - Importer scope codified — bring-everything, translate-don't-interpret, consumer-agnostic docs (2026-06-09)
+- Director commits — branch-per-task, squash-merge, gate-at-merge (2026-06-08)
+- Doc-diet / tiering pass — budgets retuned; scope-broadening went to exempt docs (2026-06-09)
 - G9 untextured eyeball — anim-bound LIE composite, baked at import (2026-06-09)
 - Importer discovery boundary — reference-graph-only; authoring presets out of scope (2026-06-09)
+- Routing consolidated to a single owner — `AGENTS.md` Task Routing (2026-06-09)
 - Programmatic import entry point — public `ImportDazAsset`; report decoupled from the private pipeline result (2026-06-09)
+- G9 eye-moisture cornea lensing — refraction shell minified the iris; fixed via Refraction Method = None (2026-06-10)
+- Composed dialed shape out of importer scope — formula evaluator dropped, kept as downstream reference (2026-06-10)
 
 ## IrayUber bump-map seam — root cause & fix decision (2026-06-06)
 
@@ -782,3 +787,32 @@ gotcha in `Reference.md`. (3) An opacity-*independent* minification through a tr
 **refraction signature** — toggle the Method, not the opacity, to test it. (4) Validate the symptom in a
 **representative view**: these are leader-posed companions, and the alarming look was partly an isolation-view
 artifact — chasing it (and the first refraction misfix) on the un-posed view cost a full loop.
+
+## Composed dialed shape out of importer scope — formula evaluator dropped, kept as downstream reference (2026-06-10)
+
+**Decision (user).** Evaluating DAZ formulas and baking the composed *dialed character shape*
+(`Σ(leaf_deltas × evaluated_value)`) is **out of importer scope.** The "Phase 7 v2 — formula
+evaluation / composed dialed shape" item the Roadmap had queued as the active front is removed —
+it is not a planned importer phase. The importer's scope is converting raw DAZ assets to
+Unreal-native assets, faithfully; nothing more.
+
+**Why.** P1 — the importer translates, it does not interpret: *"combining, composing, or baking …
+is interpretation, and interpretation is out of scope — it belongs to whatever authoring step later
+consumes the import."* Composing a dialed shape is exactly that. The prior Roadmap framing
+("Deferred to v2"; "Next up: Phase 7 v2 … the active front") implied the importer would eventually
+do it, which **conflicts** with P1; `Docs/Principles.md` resolves such a conflict in the principle's
+favor (*"the principle wins and the roadmap is what changes"*). So the roadmap changed.
+
+**Still in scope (unchanged, shipped).** Faithful discovery import of delta-bearing morphs: the
+importer follows `?value` formula outputs, resolves those files transitively, and imports each leaf
+morph as a rest-state target at weight 0 (Phase 7). That is translation. Carrying the dial/formula
+*metadata* itself across faithfully (vs. evaluating it) is a separate P2/P4 question, taken
+just-in-time — not ruled out here.
+
+**Doc changes.** `Docs/Roadmap.md`: section "Deferred to v2 (morph follow-ups)" → "Out of importer
+scope — composed dialed shape (interpretation, P1)"; "Next up" rewritten (no feature phase queued;
+remaining work reactive). `Docs/FormulaMorphsV2.md`: re-scoped with a banner — retained as the
+discovery record + reference for the downstream authoring layer, **not** an importer feature plan;
+its closing "when implemented, update Roadmap" line now reads as a scope-reversal gate.
+`Docs/Reference.md`: the "control vs. complete dialed character" fact is unchanged (still accurate).
+No source or build impact (doc-only).

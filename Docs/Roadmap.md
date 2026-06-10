@@ -25,7 +25,7 @@ Load-bearing invariants (coordinate flip, winding, scale) are owned by
 `CodeReviewRules.md` R4 / the `DazPointToUe` helper (and restated in
 `Docs/Reference.md`) — referenced here, never restated, so they cannot drift.
 
-_Last updated: 2026-06-09._
+_Last updated: 2026-06-10._
 
 ## Phase status
 
@@ -189,20 +189,24 @@ brow mesh. **Unblocks** slice #3 on G9 (`EyeMoisture Left/Right` live only in th
 
 `FDsonImporterModule::ImportDazAsset(FDsonImportRequest)` → `FDsonImportReport`; public types in `Public/DsonImportRequest.h`. Funnels through `FDsonImportPipeline::Run`; path→settings shared via `FDsonValidator::ToImportSettings` (R4/DRY). Rationale → `Docs/DecisionLog.md`.
 
-## Deferred to v2 (morph follow-ups)
+## Out of importer scope — composed dialed shape (interpretation, P1)
 
-- **Scene dial current values are not baked into the imported character shape.**
-  Phase 7 creates rest-state morph targets; applying a DUF's dialed character
-  expression/body shape remains a later animation/control-rig or bake step.
-- **Formula evaluation/composition is not implemented.** The importer now follows
-  scene and external modifier formula outputs whose query property is exactly
-  `?value`, resolves those referenced files transitively, and imports every
-  delta-bearing morph in each reached file as its own rest-state morph target
-  (weight 0). It deliberately does **not** evaluate formulas, seed dial values,
-  or compose/bake `Σ(leaf_deltas × evaluated_value)` into the dialed character
-  shape. That future evaluator still needs channel values/clamps and a fragment
-  to leaf-morph identity bridge. Full analysis:
-  **[`Docs/FormulaMorphsV2.md`](FormulaMorphsV2.md)**.
+The importer converts raw DAZ assets to Unreal-native assets, faithfully
+(`Docs/Principles.md` P1). Evaluating formulas and **baking a DUF's dialed character
+shape** is composition/interpretation — **out of scope**; it belongs to the authoring
+step that later consumes the import, not here.
+
+- **In scope (✅ done):** the importer follows scene / external-modifier formula outputs
+  whose query property is exactly `?value`, resolves those files transitively, and
+  imports every delta-bearing morph in each as its own rest-state morph target (weight 0).
+- **Out of scope (P1):** evaluating formulas, seeding dial values, baking
+  `Σ(leaf_deltas × evaluated_value)`, or applying a DUF's dialed expression/body shape.
+  The rest-state morphs land as faithful **source** for that later step.
+
+Carrying the dial/formula *metadata* itself across faithfully (vs. evaluating it) is a
+separate P2/P4 matter, not the baking ruled out here. Notes from when this was scoped as
+in-plugin work are retained as downstream reference:
+**[`Docs/FormulaMorphsV2.md`](FormulaMorphsV2.md)**.
 
 ## Known latent issues (not blocking)
 
@@ -230,6 +234,10 @@ brow mesh. **Unblocks** slice #3 on G9 (`EyeMoisture Left/Right` live only in th
 
 ## Next up
 
-**Phase 7 v2 — formula evaluation / composed dialed shape** (queued; discovery-only
-portion done — see "Deferred to v2" → [`FormulaMorphsV2.md`](FormulaMorphsV2.md)). This is
-the active front now that Phase 6 v2 (Materials v2) has closed (see Phase status).
+With Phase 6 v2 (Materials v2) closed and composed dialed-shape baking ruled out of
+scope (see "Out of importer scope — composed dialed shape"), the importer covers its
+mandate — faithful raw-DAZ→Unreal conversion — for the supported figures. No feature
+phase is queued; remaining in-scope work is reactive: the **Cleanup backlog** items
+above, new figures/shaders as content needs them (support is shader-gated), and
+additive parser exposures taken just-in-time (`Docs/Principles.md` P4) — e.g. LIE
+per-layer compositing or P2 dial/formula metadata.
