@@ -141,10 +141,13 @@ Reference spec for the four `UMaterial` master assets that back the DsonToUnreal
 - **Wet glint = low `Roughness` + `Specular`.** Feed `Roughness` straight (DAZ `Glossy Roughness`
   is `0` = mirror-smooth); clamp to ~`0.02–0.05` in the master to avoid specular aliasing on the
   small shell.
-- **No refraction (removed 2026-06-10, Option B).** The shell deliberately does **not** drive UE's
-  Refraction input — IOR refraction on the curved cornea minified the iris on G9 (lensing). The
-  master's Refraction pin is disconnected and the importer drops the `Refraction Index` channel;
-  wetness is the Fresnel opacity + specular. Don't re-add — `Docs/DecisionLog.md` "eye-moisture cornea lensing".
+- **Refraction OFF — `Refraction Method = None` (2026-06-10).** UE screen-space IOR refraction on this
+  cornea sphere minified the iris behind it (lensing). The original author enabled it for an *"alive eyes"*
+  look, but UE can't reproduce DAZ's ray-traced cornea refraction cheaply — here it's a **defect, not
+  fidelity**. **The switch is the Refraction *Method* (material Details), NOT the input pin** — disconnecting
+  the pin did nothing; `Method = None` is what disables it (root pin then reads `Refraction (Disabled)`).
+  The `RefractionIOR` param + `Refraction Index` importer mapping were also dropped (now unused). Don't
+  re-enable. Wetness is the Fresnel opacity + specular. Full story → `Docs/DecisionLog.md` "eye-moisture cornea lensing".
 - **`BaseColor`** barely contributes through a near-transparent shell; mapped for faithfulness (DAZ
   feeds a light grey) but must not visibly tint the eyeball.
 - **Runtime cost:** translucent + forward-shaded, justified by the eyes' tiny screen footprint

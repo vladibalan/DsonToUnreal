@@ -38,7 +38,7 @@ _Last updated: 2026-06-09._
 | 6 | Materials — per-section MIC wiring, 3 masters, texture import | ✅ Done (v1) |
 | 6.x | UV-set import (seams) | ✅ Done — verified G8.1 + Laura, zero fallbacks |
 | 6.y | Material polish (IrayUber washy fix; multi-UDIM resolved as not-needed) | ✅ Done |
-| 6 v2 | Materials v2 — faithful makeup + LIE import, SSS Profile, eye-moisture | ✅ Done — slices #1 + #2 (2026-06-07) + #3 eye-moisture (G9 Nancy 2026-06-09); ⚠️ eye iris small/misshapen — a separate companion-geometry issue (refraction ruled out), see Known latent issues |
+| 6 v2 | Materials v2 — faithful makeup + LIE import, SSS Profile, eye-moisture | ✅ Done — slices #1 + #2 (2026-06-07) + #3 eye-moisture (G9 Nancy 2026-06-09; cornea-refraction iris-lensing found post-ship, fixed 2026-06-10) |
 | 7 | Morph targets (`UMorphTarget` per morph) | ✅ Done — delta-bearing morphs, including formula-reachable `?value` leaf files, via MeshDescription morph attributes |
 | 8 | Save to Content Browser (`/Game/DazImports/`) | ✅ Implemented per-phase, working |
 
@@ -87,7 +87,7 @@ parameter-contract format, `MaterialMastersV1.md` remains the source of record;
 its "Open follow-ups" subset is now superseded by the slice list below.
 
 Slices are sized to ship independently and are taken in order; each one updates
-this section as it lands. **All three slices shipped — #3 (eye-moisture) mechanism runtime-verified on G9 Nancy 2026-06-09. ⚠️ A separate open defect (eye iris small/misshapen; refraction ruled out) is an eye-companion geometry issue, not this material slice — see Known latent issues.**
+this section as it lands. **All three slices shipped — #3 (eye-moisture) mechanism runtime-verified on G9 Nancy 2026-06-09; a post-ship cornea-refraction iris-lensing defect was found and fixed 2026-06-10 (Refraction Method = None).**
 
 ### Planned slices
 
@@ -109,9 +109,9 @@ this section as it lands. **All three slices shipped — #3 (eye-moisture) mecha
    redistributes, doesn't add light" finding →
    [`SubsurfaceProfileV2.md`](SubsurfaceProfileV2.md) §Revision + `DecisionLog.md`.
 3. **Eye-moisture / cornea master** (`M_DazEyeMoisture`) — ✅ **Mechanism done & runtime-verified
-   on G9 Nancy 2026-06-09. ⚠️ NB: the eye iris reads small/misshapen, but that is an eye-companion
-   geometry/albedo issue, NOT this material slice (refraction was ruled out 2026-06-10); see Known
-   latent issues + `DecisionLog.md` "eye-moisture cornea lensing".** `EyeMoisture L/R` / `Cornea` / `Tear` route to a translucent
+   on G9 Nancy 2026-06-09. A post-ship **cornea-refraction iris-lensing** defect (the shell's UE IOR
+   refraction minified the eyeball) was found and fixed 2026-06-10 via **Refraction Method = None**
+   (eyeball/geometry were always fine); see `DecisionLog.md` "eye-moisture cornea lensing".** `EyeMoisture L/R` / `Cornea` / `Tear` route to a translucent
    `M_DazEyeMoisture` (Surface ForwardShading; Fresnel-weighted opacity). Importer:
    `EDsonSurfaceClass::EyeMoisture` + `GetEyeMoistureSurfaceGroups()` (single source,
    removed from NonSkin); `GetEyeMoistureMapping()`
@@ -206,12 +206,6 @@ brow mesh. **Unblocks** slice #3 on G9 (`EyeMoisture Left/Right` live only in th
 
 ## Known latent issues (not blocking)
 
-- **G9 eye iris small/misshapen — refraction MISDIAGNOSED, re-opened.** Removing the cornea IOR
-  refraction (`cb96b13`, master pin confirmed off & live) had **no visual effect**, and an isolation
-  test leaves the eyeball **small and not round** — refraction was not the cause. Real defect under
-  investigation: eye-companion **geometry / baked eyeball albedo** (oversized translucent shell +
-  undersized eye parts). `cb96b13` kept as a cleanup; keep/revert TBD. → `DecisionLog.md`
-  "eye-moisture cornea lensing".
 - `SavePackage` return value not checked (hardening).
 - `IsValid()` does not include the UV function pointers — consistent with the
   permissive-parser convention (they are optional exports).

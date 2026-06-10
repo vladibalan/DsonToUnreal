@@ -719,7 +719,7 @@ completed the orientation-doc updates during integration. **Lesson:** `UE_LOG` e
 block, so it cannot be the brace-less body of an `if`/`else` — and an Implementer "smooth" without an
 actual build is not trustworthy (the standing reason the Director re-runs the build).
 
-## G9 eye-moisture cornea lensing — refraction shell minifies the iris (diagnosed + fix decided 2026-06-09)
+## G9 eye-moisture cornea lensing — refraction shell minifies the iris (RESOLVED via Refraction Method = None, 2026-06-10)
 
 **Symptom.** On Genesis 9 (Nancy), the translucent cornea / eye-moisture shell (`M_DazEyeMoisture`)
 visibly **minifies — shrinks — the iris** behind it: pronounced ("appears very little"), not the subtle
@@ -756,15 +756,29 @@ edit is warranted (framed as the IrayUber bump→normal / dual-lobe decisions).
 **Status.** Integrated 2026-06-10 as `cb96b13` (squash-merged to `main`): importer one-entry deletion in
 `GetEyeMoistureMapping()` + master Refraction-pin disconnect / `RefractionIOR`-node delete (verified from
 the copied-node dump); Implementer build clean, Director review clean (recompile deferred — non-build-risky).
-`MaterialMastersV1.md` reconciled (RefractionIOR dropped from the contract). **⚠️ Verify FAILED 2026-06-10 — refraction was NOT the cause; the original diagnosis was wrong.** The
-master pin is confirmed disconnected and live in-editor (Refraction = 1.0, asset saved, matches git), yet the
-eye looks identical to before; an isolation test (eye-moisture shell Opacity→0) leaves the eyeball **small
-and not round** — so the cornea shell is not responsible. Real cause **re-opened, under investigation**: the
-eye-companion **geometry / baked eyeball albedo** (the screenshot also shows an oversized translucent shell
-and scattered, undersized eye parts). `cb96b13` stands as a defensible cleanup (it removed a crude UE
-IOR-refraction approximation) but is **not** the fix — keep/revert pending the user's call.
+`MaterialMastersV1.md` reconciled (RefractionIOR dropped from the contract). **Resolution 2026-06-10 — it WAS refraction; the input pin was the wrong lever.** The first attempt only
+*disconnected the Refraction input pin* (`cb96b13`) and changed nothing visible — because **UE gates refraction
+by the Refraction *Method* (material Details), not the pin**, and the Method was still `Index Of Refraction`.
+That sent a mid-investigation detour wrongly suspecting geometry — but soloing the sections proved the
+**eyeball mesh and baked albedo were always fine** (round, correct iris, matches the DAZ render), and the
+`EyeMoisture` shell is a sphere coincident with the eyeball (faithful, not oversized). The shrink was the
+shell's UE screen-space refraction minifying the eyeball behind it — *opacity-independent*, the refraction
+signature (it persisted at Opacity 0, which I first misread as "not the shell"). **Real fix (user): set
+`M_DazEyeMoisture` Refraction Method = None** — root pin now reads `Refraction (Disabled)`, verified from the
+dump; the eyeball renders full-size. Master-only, propagates to existing imports (no re-import). `cb96b13`
+(pin / `RefractionIOR` node / importer-mapping removal) stays as harmless cleanup.
 
-**Lessons.** (1, reinforces the eyeball-bake postmortem) verifying an *adjacent* fix is not verifying the
-slice's own surface — a visual slice isn't done until its look is checked at runtime. (2) A plausible material
-theory (IOR shell → iris minified) was asserted with too much confidence and was wrong; the **isolation test**
-(hide the suspect layer) is the cheap decisive disambiguator and belongs *before* a fix, not after.
+**Original intent.** The master author enabled the refraction deliberately — *"it makes the eyes look alive"* —
+a fidelity call. But UE's *screen-space* approximation can't reproduce DAZ/Iray's *ray-traced* cornea
+refraction; it minifies the iris instead. So this is **defect-vs-correct, not fidelity-vs-perf**: Method=None is
+both cheaper and correct (same framing as IrayUber bump→normal / dual-lobe). A correct *alive-eyes* pass (real
+refraction or a faked iris parallax) is a **deferred enhancement**, not a regression.
+
+**Lessons.** (1) Verify a *visual* fix at runtime before trusting it; an adjacent fix isn't the slice's own
+surface (reinforces the eyeball-bake postmortem). (2) In UE, **refraction is gated by the Refraction Method
+(Details), not the input pin** — disconnecting the pin does **not** disable it; the copied-node dump shows the
+Method only in the root pin's label (`Refraction (Index Of Refraction)` vs `Refraction (Disabled)`) → durable
+gotcha in `Reference.md`. (3) An opacity-*independent* minification through a translucent shell is the
+**refraction signature** — toggle the Method, not the opacity, to test it. (4) Validate the symptom in a
+**representative view**: these are leader-posed companions, and the alarming look was partly an isolation-view
+artifact — chasing it (and the first refraction misfix) on the un-posed view cost a full loop.

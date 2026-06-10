@@ -66,6 +66,13 @@ Contents:
   ignores its texture, check the use-flag before suspecting the sampler.
 - PBRSkin Base Color is **not** diffuse-sampler-direct — it is
   `Multiply(lerp(DiffuseColor, Diffuse, UseDiffuseMap), AO-branch)`.
+- **UE refraction is gated by the Refraction *Method* (material Details), not the input pin.**
+  Disconnecting the Refraction pin does **not** disable refraction — set **Method = None**. A copied-node
+  dump shows the Method only in the root pin's *label* (`Refraction (Index Of Refraction)` = on;
+  `Refraction (Disabled)` = off). A translucent shell that minifies the background **independent of opacity**
+  is the refraction signature — toggle the Method, not the opacity, to test. This cost a full loop on the G9
+  eye-moisture lensing (the cornea shell's IOR refraction minified the eyeball; the pin-disconnect did
+  nothing). Full story → `Docs/DecisionLog.md` "eye-moisture cornea lensing".
 
 ## Verified data facts (sanity checks for future work)
 
