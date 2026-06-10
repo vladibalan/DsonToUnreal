@@ -182,8 +182,6 @@ static const TMap<FString, FDazParamBinding>& GetEyeMoistureMapping()
             { NAME_None,  FName(TEXT("Specular")),      NAME_None, NAME_None, false });
         M.Add(TEXT("Glossy Roughness"),
             { NAME_None,  FName(TEXT("Roughness")),     NAME_None, NAME_None, false });
-        M.Add(TEXT("Refraction Index"),
-            { NAME_None,  FName(TEXT("RefractionIOR")), NAME_None, NAME_None, false });
         M.Add(TEXT("Cutout Opacity"),
             { NAME_None,  FName(TEXT("Opacity")),       NAME_None, NAME_None, false });
         return M;
