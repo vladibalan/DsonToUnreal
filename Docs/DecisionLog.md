@@ -1049,3 +1049,14 @@ slice against the actual asset, not assumed here.
 > no merge across sections). **Concrete target:** G9 HID Nancy head `diffuse` + `SSS Color`
 > (4-layer stacks). This promotes the already-pending exposure noted in `Roadmap.md` ("Out of
 > importer scope" → LIE composition recipe) from deferred to a live request.
+
+**Update (2026-06-10) — delivered & adopted (Slice 0).** The FR landed in **DsonParser 1.4.0**
+(28 new accessors = a 14-suffix per-layer LIE compositing model — blend/opacity/active/invert/
+color/rotation/scale/offset/mirror — over both the per-image and per-channel layer surfaces;
+Nancy-verified). It over-delivered the 3-item ask, faithfully (raw values, no compositing). Adopted
+into the plugin via `Tools/Sync-Parser.ps1` (1.3.0→1.4.0 MINOR; 4-file bundle) and build-verified
+(DsonHostEditor clean, `DsonParserAbiCheck.cpp` green) — **Slice 0** of the agreed
+adoption→schema+first→populate plan. Consumption (bind the new accessors + emit `UDsonAssetRecipe`)
+follows in the next slices; the new exports still need R2 X-macro rows before they bind. Consumer
+gotchas to carry into the binding: `Opacity` sentinel 0.0 collides with a true-transparent layer
+(bound-check Count first); `ScaleX/Y` use 1.0 as the invalid sentinel.

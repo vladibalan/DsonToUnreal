@@ -241,15 +241,15 @@ check path-reconstructing consumers; rationale → `DecisionLog.md`.
   fallback", remove or correct them. Search `Source/DsonImporter/` for
   `Genesis 3` / `G3` references.
 
-## Authoring-metadata recipe emission (P2) — planned (intake 2026-06-10)
+## Authoring-metadata recipe emission (P2) — in progress (parser 1.4.0 adopted 2026-06-10)
 
 A downstream consumer requested a persisted recipe asset emitting the DAZ authoring metadata
 the importer parses but discards — the **P2** artifact, raw and uncomposed (P1/P3), a new asset.
 **Mostly importer-side** via already-published parser accessors the importer does not yet bind;
-the **sole cross-repo blocker** is one additive
-parser exposure — per-layer LIE blend/opacity/transform (pending under "Out of importer scope"
-above), FR raised 2026-06-10. HD realization and preset/variant sets stay deferred (P4). Per-item
-triage, evidence, and the parser FR → `DecisionLog.md`.
+the one cross-repo dependency — per-layer LIE blend/opacity/transform — was **delivered in parser
+1.4.0** and vendored 2026-06-10 (Slice 0, build-verified), so emission is unblocked. HD realization
+and preset/variant sets stay deferred (P4). Per-item triage, evidence, and the slicing →
+`DecisionLog.md`.
 
 ## Next up
 

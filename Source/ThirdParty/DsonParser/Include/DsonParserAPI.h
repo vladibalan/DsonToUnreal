@@ -10,8 +10,9 @@
 #include "DsonParserVersion.h"
 
 // Public C ABI orientation:
-// v1.3.0 — runtime: DsonParser_GetVersion(); compile-time: DSONPARSER_VERSION_*.
+// v1.4.0 — runtime: DsonParser_GetVersion(); compile-time: DSONPARSER_VERSION_*.
 // Release history: CHANGELOG.md; SemVer/C-ABI policy: docs/versioning.md.
+// What's new in 1.4.0: DsonDocument_GetImageLayer*/...SceneMaterialChannelLayer* per-layer LIE compositing (blend op, opacity, active, invert, color, transform).
 // What's new in 1.3.0: DsonDocument_GetImageLayer* — image_library per-layer LIE map stack (texture path + label) reachable by image index.
 // What's new in 1.2.0: DsonDocument_GetSceneAnimation* — scene.animations keyframe channels exposed faithfully (per R6.4, never applied onto scene.materials).
 // What's new in 1.1.0: DsonDocument_GetScenePostLoadAddon* — "Character Addon Loader" companion figures (not in scene.nodes).
@@ -207,6 +208,40 @@ DSONPARSER_API int         DsonDocument_GetImageLayerCount(DsonDocumentHandle ha
 DSONPARSER_API const char* DsonDocument_GetImageLayerTexturePath(DsonDocumentHandle handle, int imageIndex, int layerIdx);
 // @since 1.3.0
 DSONPARSER_API const char* DsonDocument_GetImageLayerLabel(DsonDocumentHandle handle, int imageIndex, int layerIdx);
+// Per-layer LIE compositing metadata — raw DAZ map-element values, verbatim; no compositing performed.
+// Layer 0 is the base; higher indexes are overlays in document order.
+// Use GetImageLayerCount to bounds-check before calling (out-of-range returns sentinel per family).
+// @since 1.4.0
+DSONPARSER_API const char* DsonDocument_GetImageLayerBlendMode(DsonDocumentHandle handle, int imageIndex, int layerIdx);
+// Opacity is the raw "transparency" value (1 = opaque). Sentinel 0.0 collides with a legitimately-transparent layer; bound-check with GetImageLayerCount first.
+// @since 1.4.0
+DSONPARSER_API double      DsonDocument_GetImageLayerOpacity(DsonDocumentHandle handle, int imageIndex, int layerIdx);
+// @since 1.4.0
+DSONPARSER_API bool        DsonDocument_GetImageLayerActive(DsonDocumentHandle handle, int imageIndex, int layerIdx);
+// @since 1.4.0
+DSONPARSER_API bool        DsonDocument_GetImageLayerInvert(DsonDocumentHandle handle, int imageIndex, int layerIdx);
+// @since 1.4.0
+DSONPARSER_API double      DsonDocument_GetImageLayerColorR(DsonDocumentHandle handle, int imageIndex, int layerIdx);
+// @since 1.4.0
+DSONPARSER_API double      DsonDocument_GetImageLayerColorG(DsonDocumentHandle handle, int imageIndex, int layerIdx);
+// @since 1.4.0
+DSONPARSER_API double      DsonDocument_GetImageLayerColorB(DsonDocumentHandle handle, int imageIndex, int layerIdx);
+// @since 1.4.0
+DSONPARSER_API double      DsonDocument_GetImageLayerRotation(DsonDocumentHandle handle, int imageIndex, int layerIdx);
+// Returns 1.0 for an invalid layerIdx (scale exception per R1 contract).
+// @since 1.4.0
+DSONPARSER_API double      DsonDocument_GetImageLayerScaleX(DsonDocumentHandle handle, int imageIndex, int layerIdx);
+// Returns 1.0 for an invalid layerIdx (scale exception per R1 contract).
+// @since 1.4.0
+DSONPARSER_API double      DsonDocument_GetImageLayerScaleY(DsonDocumentHandle handle, int imageIndex, int layerIdx);
+// @since 1.4.0
+DSONPARSER_API double      DsonDocument_GetImageLayerOffsetX(DsonDocumentHandle handle, int imageIndex, int layerIdx);
+// @since 1.4.0
+DSONPARSER_API double      DsonDocument_GetImageLayerOffsetY(DsonDocumentHandle handle, int imageIndex, int layerIdx);
+// @since 1.4.0
+DSONPARSER_API bool        DsonDocument_GetImageLayerMirrorX(DsonDocumentHandle handle, int imageIndex, int layerIdx);
+// @since 1.4.0
+DSONPARSER_API bool        DsonDocument_GetImageLayerMirrorY(DsonDocumentHandle handle, int imageIndex, int layerIdx);
 
 // ---- B. Skeleton / Nodes ----
 DSONPARSER_API const char* DsonDocument_GetNodeParent(DsonDocumentHandle handle, int nodeIndex);
@@ -325,6 +360,40 @@ DSONPARSER_API const char* DsonDocument_GetSceneMaterialChannelTexturePath(DsonD
 DSONPARSER_API int         DsonDocument_GetSceneMaterialChannelLayerCount(DsonDocumentHandle handle, int sceneMatIndex, int channelIdx);
 DSONPARSER_API const char* DsonDocument_GetSceneMaterialChannelLayerTexturePath(DsonDocumentHandle handle, int sceneMatIndex, int channelIdx, int layerIdx);
 DSONPARSER_API const char* DsonDocument_GetSceneMaterialChannelLayerLabel(DsonDocumentHandle handle, int sceneMatIndex, int channelIdx, int layerIdx);
+// Per-layer LIE compositing metadata — raw DAZ map-element values, verbatim; no compositing performed.
+// Layer 0 is the base; higher indexes are overlays in document order.
+// Use GetSceneMaterialChannelLayerCount to bounds-check before calling.
+// @since 1.4.0
+DSONPARSER_API const char* DsonDocument_GetSceneMaterialChannelLayerBlendMode(DsonDocumentHandle handle, int sceneMatIndex, int channelIdx, int layerIdx);
+// Opacity is the raw "transparency" value (1 = opaque). Sentinel 0.0 collides with a legitimately-transparent layer; bound-check with GetSceneMaterialChannelLayerCount first.
+// @since 1.4.0
+DSONPARSER_API double      DsonDocument_GetSceneMaterialChannelLayerOpacity(DsonDocumentHandle handle, int sceneMatIndex, int channelIdx, int layerIdx);
+// @since 1.4.0
+DSONPARSER_API bool        DsonDocument_GetSceneMaterialChannelLayerActive(DsonDocumentHandle handle, int sceneMatIndex, int channelIdx, int layerIdx);
+// @since 1.4.0
+DSONPARSER_API bool        DsonDocument_GetSceneMaterialChannelLayerInvert(DsonDocumentHandle handle, int sceneMatIndex, int channelIdx, int layerIdx);
+// @since 1.4.0
+DSONPARSER_API double      DsonDocument_GetSceneMaterialChannelLayerColorR(DsonDocumentHandle handle, int sceneMatIndex, int channelIdx, int layerIdx);
+// @since 1.4.0
+DSONPARSER_API double      DsonDocument_GetSceneMaterialChannelLayerColorG(DsonDocumentHandle handle, int sceneMatIndex, int channelIdx, int layerIdx);
+// @since 1.4.0
+DSONPARSER_API double      DsonDocument_GetSceneMaterialChannelLayerColorB(DsonDocumentHandle handle, int sceneMatIndex, int channelIdx, int layerIdx);
+// @since 1.4.0
+DSONPARSER_API double      DsonDocument_GetSceneMaterialChannelLayerRotation(DsonDocumentHandle handle, int sceneMatIndex, int channelIdx, int layerIdx);
+// Returns 1.0 for an invalid layerIdx (scale exception per R1 contract).
+// @since 1.4.0
+DSONPARSER_API double      DsonDocument_GetSceneMaterialChannelLayerScaleX(DsonDocumentHandle handle, int sceneMatIndex, int channelIdx, int layerIdx);
+// Returns 1.0 for an invalid layerIdx (scale exception per R1 contract).
+// @since 1.4.0
+DSONPARSER_API double      DsonDocument_GetSceneMaterialChannelLayerScaleY(DsonDocumentHandle handle, int sceneMatIndex, int channelIdx, int layerIdx);
+// @since 1.4.0
+DSONPARSER_API double      DsonDocument_GetSceneMaterialChannelLayerOffsetX(DsonDocumentHandle handle, int sceneMatIndex, int channelIdx, int layerIdx);
+// @since 1.4.0
+DSONPARSER_API double      DsonDocument_GetSceneMaterialChannelLayerOffsetY(DsonDocumentHandle handle, int sceneMatIndex, int channelIdx, int layerIdx);
+// @since 1.4.0
+DSONPARSER_API bool        DsonDocument_GetSceneMaterialChannelLayerMirrorX(DsonDocumentHandle handle, int sceneMatIndex, int channelIdx, int layerIdx);
+// @since 1.4.0
+DSONPARSER_API bool        DsonDocument_GetSceneMaterialChannelLayerMirrorY(DsonDocumentHandle handle, int sceneMatIndex, int channelIdx, int layerIdx);
 
 // Scene post-load addon manifest (scene.extra "Character Addon Loader",
 // settings.PostLoadAddons): companion figures a character preset loads but does

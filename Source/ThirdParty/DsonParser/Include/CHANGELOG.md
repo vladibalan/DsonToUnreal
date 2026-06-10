@@ -11,6 +11,35 @@ Entry sigils: `+` added · `~` changed · `-` removed/deprecated · `!` fixed.
 
 Nothing yet — new C-ABI changes land here, then move under a version heading on release.
 
+## 1.4.0 — 2026-06-10 · MINOR (additive)
+
+Per-layer LIE compositing metadata. DAZ Layered Image (LIE) `map` elements carry the
+per-layer instructions a faithful re-composite needs — blend `operation`, `transparency`
+(opacity), `active`/`invert` flags, `color` tint, and a 2D transform (`rotation`,
+`xscale`/`yscale`, `xoffset`/`yoffset`, `xmirror`/`ymirror`). Through 1.3.0 only each
+layer's `url`/`label` was retained (1.3.0: "per-layer blend op/transform stay
+unmodeled"); these are now parsed faithfully onto `Image::layers` (raw values, DAZ-
+semantic defaults) and exposed on **both** existing layer surfaces — the per-image
+index family (1.3.0) and the per-scene-material-channel family (1.0.0) — at parity with
+the path+label accessors. Parser stays faithful (R6.4): raw passthrough, no compositing
+performed, no cross-section merge; the consumer re-composites from the raw layers. A
+color-only base layer with no `url` stays excluded from `Image::layers` (so its fields
+are unreachable), unchanged from 1.3.0. Verified against TestFiles/HID_Nancy_9.duf (G9
+HID Nancy head diffuse + SSS Color, 4-layer stacks) and a crafted inline-`#id` snippet.
+
+28 new accessors = 14 shared suffixes × 2 prefixes (per-image
+`DsonDocument_GetImageLayer…`, args `(handle, imageIndex, layerIdx)`; per-channel
+`DsonDocument_GetSceneMaterialChannelLayer…`, args `(handle, sceneMatIndex, channelIdx, layerIdx)`):
++ …BlendMode → raw "operation" blend string, e.g. "blend_source_over"/"blend_multiply" ("" = invalid/absent)
++ …Opacity → raw "transparency" (1.0 = opaque). NB sentinel 0.0 collides with a legitimately-transparent layer — bound-check Count first
++ …Active → "active" flag (false = invalid)
++ …Invert → "invert" flag (false = invalid)
++ …ColorR / …ColorG / …ColorB → "color" RGB tint components (0.0 = invalid)
++ …Rotation → "rotation" in degrees (0.0 = invalid)
++ …ScaleX / …ScaleY → "xscale" / "yscale" (1.0 = invalid; scale exception per the R1 contract)
++ …OffsetX / …OffsetY → "xoffset" / "yoffset" (0.0 = invalid)
++ …MirrorX / …MirrorY → "xmirror" / "ymirror" mirror flags (false = invalid)
+
 ## 1.3.0 — 2026-06-09 · MINOR (additive)
 
 Per-layer LIE map stack of an `image_library` entry, reachable **by image index**.
