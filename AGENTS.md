@@ -101,6 +101,8 @@ relocate or split instead.
 - Settings/result structs passed between import stages: `Source/DsonImporter/Private/DsonImportTypes.h`
 - Parser document-handle RAII (only place `Create`/`Load`/`Destroy` runs; R3): `Source/DsonImporter/Private/DsonLoadedDocument.*`
 - Package creation, asset saving, import-folder paths: `Source/DsonImporter/Private/DsonAssetUtils.*`
+- Recipe asset type (UDsonAssetRecipe + USTRUCTs, consumer-facing): `Source/DsonImporter/Public/DsonAssetRecipe.h`
+- Recipe emission (manifest + companion slots + LIE layers): `Source/DsonImporter/Private/DsonRecipeBuilder.*`
 - Shared URL/id/UTF-8/coordinate-flip leaf helpers (see `Docs/CodeReviewRules.md` R4): `Source/DsonImporter/Private/DsonImportUtils.h`
 - Third-party parser import library and DLL packaging: `Source/ThirdParty/DsonParser/`
 - Updating the vendored parser bundle (header/version/CHANGELOG/DLL) from a local DsonParser repo: `Tools/Sync-Parser.ps1` (see `Docs/Tooling.md`)

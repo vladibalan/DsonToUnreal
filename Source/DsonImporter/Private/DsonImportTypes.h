@@ -44,6 +44,7 @@ struct FDsonImportResult
     FDsonImportSettings Settings;
     USkeleton* Skeleton = nullptr;
     USkeletalMesh* Mesh = nullptr;
-    TArray<USkeletalMesh*> CompanionMeshes;  // Slice B+: one per companion, bound to Skeleton
+    TArray<USkeletalMesh*> CompanionMeshes;  // Slice B+: one per successfully-built companion, bound to Skeleton
+    TArray<FString>        CompanionSlots;   // 1:1 aligned with CompanionMeshes — same index = same companion
     bool bAbortedBeforeAssetBuild = false;
 };

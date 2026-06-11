@@ -17,6 +17,7 @@ The plugin is an Unreal Editor module:
 - Public module entry point: `Source/DsonImporter/Public/DsonImporter.h`
   (module lifecycle + the programmatic `ImportDazAsset` entry point)
 - Public programmatic-import types: `Source/DsonImporter/Public/DsonImportRequest.h`
+- Public persisted recipe asset type: `Source/DsonImporter/Public/DsonAssetRecipe.h`
 - Implementation code: `Source/DsonImporter/Private/`
 - Bundled parser API: `Source/ThirdParty/DsonParser/`
 - Master material assets: `Content/Materials/`
@@ -159,6 +160,11 @@ shares the path→settings assembly (`FDsonValidator::ToImportSettings`) with th
 `DsonImportTypes.h`
 
 - Inter-stage types: `EGenesisGeneration` (moved here from `DsonValidator.h` to break circular include), `FDsonCompanionSource` (resolved companion-figure record, Slice A+), `FDsonImportSettings`, `FDsonImportResult` (carries `Skeleton`, `Mesh`, and `CompanionMeshes` TArray from Slice B+).
+
+`DsonAssetRecipe.h` (Public)
+- `UDsonAssetRecipe` UCLASS + companion/LIE USTRUCTs; consumer-facing recipe asset (R12); passive data container; module's first UHT-reflected type.
+`DsonRecipeBuilder.*`
+- Emits `<Name>_Recipe` under `CharacterRoot` after each import: manifest, companion slot tags, per-surface LIE recipe. Permissive (R7) — never aborts import.
 
 `DsonImportRequest.h`
 

@@ -5,6 +5,7 @@
 #include "DsonMaterialBuilder.h"
 #include "DsonMaterialDiagnostic.h"
 #include "DsonMeshBuilder.h"
+#include "DsonRecipeBuilder.h"
 #include "DsonSkeletonBuilder.h"
 #include "DsonTextureImporter.h"
 
@@ -164,12 +165,18 @@ FDsonImportResult FDsonImportPipeline::Run(
                 Settings.CharacterName, Companion.AssetName, Companion.GeometryDsfUrl,
                 Result.Skeleton, CompanionMICs, DefaultMaterial, CompanionUvSetAbsPath);
             if (CompanionMesh)
+            {
                 Result.CompanionMeshes.Add(CompanionMesh);
+                Result.CompanionSlots.Add(Companion.Slot);
+            }
             else
                 UE_LOG(LogDsonImporter, Warning,
                     TEXT("[companion] skipped (build failed): %s"), *Companion.AssetName);
         }
     }
+
+    // Emit recipe asset after all meshes are built (R7 additive: never aborts the import)
+    FDsonRecipeBuilder::Build(Result);
 
     return Result;
 }

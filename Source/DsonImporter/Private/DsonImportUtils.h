@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "DsonContentRoots.h"     // FDsonContentRoots::UrlDecode
 #include "DsonParserFunctions.h"  // GDsonParser, uint64_t/DsonDocumentHandle
 
 /*
@@ -94,5 +95,25 @@ namespace DsonImportUtils
     inline FVector DazPointToUe(double X, double Y, double Z, double Scale)
     {
         return FVector(Z * Scale, -X * Scale, Y * Scale);
+    }
+
+    // Resolves a "#fragment" LIE reference to the image_library index that holds the
+    // layer stack for this LIE entry. Returns INDEX_NONE when FragmentRef does not start
+    // with '#' or the decoded id is not found. Callers log the missing-entry warning with
+    // their own context; the function only does the lookup (R7 permissive contract intact).
+    inline int32 FindImageLibraryIndex(DsonDocumentHandle Doc, const FString& FragmentRef)
+    {
+        if (!FragmentRef.StartsWith(TEXT("#")))
+            return INDEX_NONE;
+        const FString ImageId = FDsonContentRoots::UrlDecode(FragmentRef.Mid(1));
+        const int32 Count = GDsonParser.GetImageCount ? GDsonParser.GetImageCount(Doc) : 0;
+        for (int32 i = 0; i < Count; ++i)
+        {
+            // R3: copy id before the next parser call
+            const FString EntryId = FromUtf8(GDsonParser.GetImageId ? GDsonParser.GetImageId(Doc, i) : nullptr);
+            if (EntryId == ImageId)
+                return i;
+        }
+        return INDEX_NONE;
     }
 }

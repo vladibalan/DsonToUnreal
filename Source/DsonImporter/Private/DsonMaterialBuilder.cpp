@@ -821,30 +821,17 @@ static void ApplySceneAnimationOverrides(
                     UTexture2D* Tex = nullptr;
                     if (ImageRef.StartsWith(TEXT("#")))
                     {
-                        // Resolve #fragment to image_library entry by id
-                        const FString ImageId = FDsonContentRoots::UrlDecode(ImageRef.Mid(1));
-                        const int32 ImgCount = GDsonParser.GetImageCount
-                            ? GDsonParser.GetImageCount(Doc) : 0;
-                        int32 ImageIndex = INDEX_NONE;
-                        for (int32 j = 0; j < ImgCount; ++j)
-                        {
-                            // R3: copy each id before the next parser call
-                            const FString EntryId = S(GDsonParser.GetImageId
-                                ? GDsonParser.GetImageId(Doc, j) : nullptr);
-                            if (EntryId == ImageId)
-                            {
-                                ImageIndex = j;
-                                break;
-                            }
-                        }
+                        // R4: shared helper resolves #fragment to image_library index
+                        const int32 ImageIndex = DsonImportUtils::FindImageLibraryIndex(Doc, ImageRef);
                         if (ImageIndex == INDEX_NONE)
                         {
                             UE_LOG(LogDsonImporter, Warning,
-                                TEXT("[mat-anim] '%s': image_library entry '%s' not found (ref='%s')"),
-                                *MatId, *ImageId, *ImageRef);
+                                TEXT("[mat-anim] '%s': image_library entry not found (ref='%s')"),
+                                *MatId, *ImageRef);
                         }
                         else
                         {
+                            const FString ImageId = FDsonContentRoots::UrlDecode(ImageRef.Mid(1));
                             const int32 CanvasW = GDsonParser.GetImageMapWidth
                                 ? GDsonParser.GetImageMapWidth(Doc, ImageIndex) : 0;
                             const int32 CanvasH = GDsonParser.GetImageMapHeight

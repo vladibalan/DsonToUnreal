@@ -8,6 +8,17 @@ change (`+` added · `~` changed · `-` removed/deprecated · `!` fixed). Scheme
 baseline, and the per-change gate: [`Docs/Versioning.md`](Docs/Versioning.md) and
 [`Docs/CodeReviewRules.md`](Docs/CodeReviewRules.md) R12.
 
+## 1.1.0 — 2026-06-10 · MINOR
+
++ **`UDsonAssetRecipe`** — new persisted asset emitted under
+  `…/Characters/<Name>/<Name>_Recipe` after each import. Carries raw, uncomposed
+  DAZ authoring metadata (Slice 1): manifest (source id, skeleton/mesh soft refs),
+  companion slot tags (DAZ `PostLoadAddons` slot path paired with each companion
+  mesh), and per-surface LIE recipe (ordered layer stack per channel that has LIE
+  layers — blend mode, opacity, active, invert, color, rotation, scale, offset,
+  mirror; verbatim parser values, never composed). Emission is additive and
+  permissive — a failure skips the recipe without aborting the import.
+
 ## 1.0.0 — 2026-06-10 · baseline
 
 + First versioned release. Labels the entire current tree as the consumer baseline:

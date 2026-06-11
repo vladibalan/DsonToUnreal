@@ -9,11 +9,11 @@ public class DsonImporter : ModuleRules
         PublicDependencyModuleNames.AddRange(new string[]
         {
             "Core",
+            "CoreUObject",  // UDsonAssetRecipe (Public header) derives from UObject
         });
 
         PrivateDependencyModuleNames.AddRange(new string[]
         {
-            "CoreUObject",
             "Engine",
             "UnrealEd",
             // Required for Phase 3 - skeletal mesh building

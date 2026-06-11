@@ -200,7 +200,41 @@ typedef void* DsonDocumentHandle;
     X(0, const char*, GetImageLayerTexturePath, DsonDocument_GetImageLayerTexturePath, (DsonDocumentHandle, int, int)) \
     X(0, const char*, GetImageLayerLabel,       DsonDocument_GetImageLayerLabel,       (DsonDocumentHandle, int, int)) \
     X(0, int,         GetImageMapWidth,         DsonDocument_GetImageMapWidth,         (DsonDocumentHandle, int)) \
-    X(0, int,         GetImageMapHeight,        DsonDocument_GetImageMapHeight,        (DsonDocumentHandle, int))
+    X(0, int,         GetImageMapHeight,        DsonDocument_GetImageMapHeight,        (DsonDocumentHandle, int)) \
+    \
+    /* Per-layer LIE compositing metadata — image_library family (DsonParser >= 1.4.0; all optional). */ \
+    /* Opacity is raw "transparency" (1=opaque); sentinel 0.0 collides with a transparent layer —    */ \
+    /* always bounds-check GetImageLayerCount before indexing. ScaleX/Y sentinel = 1.0.              */ \
+    X(0, const char*, GetImageLayerBlendMode, DsonDocument_GetImageLayerBlendMode, (DsonDocumentHandle, int, int)) \
+    X(0, double,      GetImageLayerOpacity,   DsonDocument_GetImageLayerOpacity,   (DsonDocumentHandle, int, int)) \
+    X(0, bool,        GetImageLayerActive,    DsonDocument_GetImageLayerActive,    (DsonDocumentHandle, int, int)) \
+    X(0, bool,        GetImageLayerInvert,    DsonDocument_GetImageLayerInvert,    (DsonDocumentHandle, int, int)) \
+    X(0, double,      GetImageLayerColorR,    DsonDocument_GetImageLayerColorR,    (DsonDocumentHandle, int, int)) \
+    X(0, double,      GetImageLayerColorG,    DsonDocument_GetImageLayerColorG,    (DsonDocumentHandle, int, int)) \
+    X(0, double,      GetImageLayerColorB,    DsonDocument_GetImageLayerColorB,    (DsonDocumentHandle, int, int)) \
+    X(0, double,      GetImageLayerRotation,  DsonDocument_GetImageLayerRotation,  (DsonDocumentHandle, int, int)) \
+    X(0, double,      GetImageLayerScaleX,    DsonDocument_GetImageLayerScaleX,    (DsonDocumentHandle, int, int)) \
+    X(0, double,      GetImageLayerScaleY,    DsonDocument_GetImageLayerScaleY,    (DsonDocumentHandle, int, int)) \
+    X(0, double,      GetImageLayerOffsetX,   DsonDocument_GetImageLayerOffsetX,   (DsonDocumentHandle, int, int)) \
+    X(0, double,      GetImageLayerOffsetY,   DsonDocument_GetImageLayerOffsetY,   (DsonDocumentHandle, int, int)) \
+    X(0, bool,        GetImageLayerMirrorX,   DsonDocument_GetImageLayerMirrorX,   (DsonDocumentHandle, int, int)) \
+    X(0, bool,        GetImageLayerMirrorY,   DsonDocument_GetImageLayerMirrorY,   (DsonDocumentHandle, int, int)) \
+    \
+    /* Per-layer LIE compositing metadata — scene material channel family (DsonParser >= 1.4.0; all optional). */ \
+    X(0, const char*, GetSceneMaterialChannelLayerBlendMode, DsonDocument_GetSceneMaterialChannelLayerBlendMode, (uint64_t, int32_t, int32_t, int32_t)) \
+    X(0, double,      GetSceneMaterialChannelLayerOpacity,   DsonDocument_GetSceneMaterialChannelLayerOpacity,   (uint64_t, int32_t, int32_t, int32_t)) \
+    X(0, bool,        GetSceneMaterialChannelLayerActive,    DsonDocument_GetSceneMaterialChannelLayerActive,    (uint64_t, int32_t, int32_t, int32_t)) \
+    X(0, bool,        GetSceneMaterialChannelLayerInvert,    DsonDocument_GetSceneMaterialChannelLayerInvert,    (uint64_t, int32_t, int32_t, int32_t)) \
+    X(0, double,      GetSceneMaterialChannelLayerColorR,    DsonDocument_GetSceneMaterialChannelLayerColorR,    (uint64_t, int32_t, int32_t, int32_t)) \
+    X(0, double,      GetSceneMaterialChannelLayerColorG,    DsonDocument_GetSceneMaterialChannelLayerColorG,    (uint64_t, int32_t, int32_t, int32_t)) \
+    X(0, double,      GetSceneMaterialChannelLayerColorB,    DsonDocument_GetSceneMaterialChannelLayerColorB,    (uint64_t, int32_t, int32_t, int32_t)) \
+    X(0, double,      GetSceneMaterialChannelLayerRotation,  DsonDocument_GetSceneMaterialChannelLayerRotation,  (uint64_t, int32_t, int32_t, int32_t)) \
+    X(0, double,      GetSceneMaterialChannelLayerScaleX,    DsonDocument_GetSceneMaterialChannelLayerScaleX,    (uint64_t, int32_t, int32_t, int32_t)) \
+    X(0, double,      GetSceneMaterialChannelLayerScaleY,    DsonDocument_GetSceneMaterialChannelLayerScaleY,    (uint64_t, int32_t, int32_t, int32_t)) \
+    X(0, double,      GetSceneMaterialChannelLayerOffsetX,   DsonDocument_GetSceneMaterialChannelLayerOffsetX,   (uint64_t, int32_t, int32_t, int32_t)) \
+    X(0, double,      GetSceneMaterialChannelLayerOffsetY,   DsonDocument_GetSceneMaterialChannelLayerOffsetY,   (uint64_t, int32_t, int32_t, int32_t)) \
+    X(0, bool,        GetSceneMaterialChannelLayerMirrorX,   DsonDocument_GetSceneMaterialChannelLayerMirrorX,   (uint64_t, int32_t, int32_t, int32_t)) \
+    X(0, bool,        GetSceneMaterialChannelLayerMirrorY,   DsonDocument_GetSceneMaterialChannelLayerMirrorY,   (uint64_t, int32_t, int32_t, int32_t))
 
 struct FDsonParserAPI
 {

@@ -1060,3 +1060,17 @@ adoption→schema+first→populate plan. Consumption (bind the new accessors + e
 follows in the next slices; the new exports still need R2 X-macro rows before they bind. Consumer
 gotchas to carry into the binding: `Opacity` sentinel 0.0 collides with a true-transparent layer
 (bound-check Count first); `ScaleX/Y` use 1.0 as the invalid sentinel.
+
+**Update (2026-06-10) — Slice 1 landed (DsonToUnreal v1.1.0).** `UDsonAssetRecipe` (public UObject
+— the module's **first UHT-reflected type**, R5-authorized for this asset) + a private
+`FDsonRecipeBuilder` emit a `<Name>_Recipe` asset per character: manifest (source id, skeleton/mesh
+soft refs), companion **slot tags**, and the per-surface **LIE recipe** (raw ordered layers + the
+1.4.0 compositing metadata; 28 layer accessors bound as R2 X-macro rows). Additive + permissive (R7)
+— never aborts the import, report surface untouched. **R12:** VersionName 1.0.0→1.1.0 (MINOR).
+**Director review caught a latent defect** the Implementer missed: the pipeline compacts failed
+companions out of `CompanionMeshes`, but the recipe correlated slot↔mesh by `CompanionFigures` index
+— so any companion build failure mis-tagged later slots. Fixed (fix task 20260611-014942) by carrying
+an aligned `FDsonImportResult::CompanionSlots` pushed in lockstep with each successful mesh. Combined
+diff build-verified (DsonHostEditor, 13-action recompile, 0 warnings/0 errors). **Remaining slices:**
+shape block (dial weights, ERC follow, JCM) + pre-baked marker — all importer-side (parser already
+exposes; no further parser FR needed).
