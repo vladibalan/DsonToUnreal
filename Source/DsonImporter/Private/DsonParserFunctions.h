@@ -47,6 +47,9 @@ typedef void* DsonDocumentHandle;
     X(0, double,      GetNodeCenterPointX,  DsonDocument_GetNodeCenterPointX,  (uint64_t, int32_t)) \
     X(0, double,      GetNodeCenterPointY,  DsonDocument_GetNodeCenterPointY,  (uint64_t, int32_t)) \
     X(0, double,      GetNodeCenterPointZ,  DsonDocument_GetNodeCenterPointZ,  (uint64_t, int32_t)) \
+    X(0, double,      GetNodeEndPointX,     DsonDocument_GetNodeEndPointX,     (uint64_t, int32_t)) \
+    X(0, double,      GetNodeEndPointY,     DsonDocument_GetNodeEndPointY,     (uint64_t, int32_t)) \
+    X(0, double,      GetNodeEndPointZ,     DsonDocument_GetNodeEndPointZ,     (uint64_t, int32_t)) \
     X(0, double,      GetNodeOrientationX,  DsonDocument_GetNodeOrientationX,  (uint64_t, int32_t)) \
     X(0, double,      GetNodeOrientationY,  DsonDocument_GetNodeOrientationY,  (uint64_t, int32_t)) \
     X(0, double,      GetNodeOrientationZ,  DsonDocument_GetNodeOrientationZ,  (uint64_t, int32_t)) \
@@ -83,8 +86,13 @@ typedef void* DsonDocumentHandle;
     X(0, const char*, GetModifierName,           DsonDocument_GetModifierName,           (uint64_t, int32_t)) \
     X(0, const char*, GetModifierType,           DsonDocument_GetModifierType,           (uint64_t, int32_t)) \
     X(0, int32_t,     GetModifierCount,          DsonDocument_GetModifierCount,          (uint64_t)) \
-    X(0, int32_t,     GetModifierFormulaCount,   DsonDocument_GetModifierFormulaCount,   (uint64_t, int32_t)) \
-    X(0, const char*, GetModifierFormulaOutput,  DsonDocument_GetModifierFormulaOutput,  (uint64_t, int32_t, int32_t)) \
+    X(0, int32_t,     GetModifierFormulaCount,          DsonDocument_GetModifierFormulaCount,          (uint64_t, int32_t)) \
+    X(0, const char*, GetModifierFormulaOutput,         DsonDocument_GetModifierFormulaOutput,         (uint64_t, int32_t, int32_t)) \
+    X(0, const char*, GetModifierFormulaStage,          DsonDocument_GetModifierFormulaStage,          (uint64_t, int32_t, int32_t)) \
+    X(0, int32_t,     GetModifierFormulaOperationCount, DsonDocument_GetModifierFormulaOperationCount, (uint64_t, int32_t, int32_t)) \
+    X(0, const char*, GetModifierFormulaOperationOp,    DsonDocument_GetModifierFormulaOperationOp,    (uint64_t, int32_t, int32_t, int32_t)) \
+    X(0, double,      GetModifierFormulaOperationVal,   DsonDocument_GetModifierFormulaOperationVal,   (uint64_t, int32_t, int32_t, int32_t)) \
+    X(0, const char*, GetModifierFormulaOperationUrl,   DsonDocument_GetModifierFormulaOperationUrl,   (uint64_t, int32_t, int32_t, int32_t)) \
     X(0, int32_t,     GetModifierSkinVertexCount, DsonDocument_GetModifierSkinVertexCount, (uint64_t, int32_t)) \
     X(0, int32_t,     GetModifierSkinJointCount,  DsonDocument_GetModifierSkinJointCount,  (uint64_t, int32_t)) \
     \
@@ -105,8 +113,13 @@ typedef void* DsonDocumentHandle;
     X(0, double,      GetSceneModifierChannelMin,     DsonDocument_GetSceneModifierChannelMin,     (uint64_t, int32_t)) \
     X(0, double,      GetSceneModifierChannelMax,     DsonDocument_GetSceneModifierChannelMax,     (uint64_t, int32_t)) \
     X(0, bool,        GetSceneModifierChannelClamped, DsonDocument_GetSceneModifierChannelClamped, (uint64_t, int32_t)) \
-    X(0, int32_t,     GetSceneModifierFormulaCount,   DsonDocument_GetSceneModifierFormulaCount,   (uint64_t, int32_t)) \
-    X(0, const char*, GetSceneModifierFormulaOutput,  DsonDocument_GetSceneModifierFormulaOutput,  (uint64_t, int32_t, int32_t)) \
+    X(0, int32_t,     GetSceneModifierFormulaCount,          DsonDocument_GetSceneModifierFormulaCount,          (uint64_t, int32_t)) \
+    X(0, const char*, GetSceneModifierFormulaOutput,         DsonDocument_GetSceneModifierFormulaOutput,         (uint64_t, int32_t, int32_t)) \
+    X(0, const char*, GetSceneModifierFormulaStage,          DsonDocument_GetSceneModifierFormulaStage,          (uint64_t, int32_t, int32_t)) \
+    X(0, int32_t,     GetSceneModifierFormulaOperationCount, DsonDocument_GetSceneModifierFormulaOperationCount, (uint64_t, int32_t, int32_t)) \
+    X(0, const char*, GetSceneModifierFormulaOperationOp,    DsonDocument_GetSceneModifierFormulaOperationOp,    (uint64_t, int32_t, int32_t, int32_t)) \
+    X(0, double,      GetSceneModifierFormulaOperationVal,   DsonDocument_GetSceneModifierFormulaOperationVal,   (uint64_t, int32_t, int32_t, int32_t)) \
+    X(0, const char*, GetSceneModifierFormulaOperationUrl,   DsonDocument_GetSceneModifierFormulaOperationUrl,   (uint64_t, int32_t, int32_t, int32_t)) \
     \
     /* Morph targets (morphIndex addresses the filtered list of type=="morph" modifiers) */ \
     X(0, int32_t,     GetMorphCount,                  DsonDocument_GetMorphCount,                  (uint64_t)) \

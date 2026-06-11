@@ -70,6 +70,71 @@ struct DSONIMPORTER_API FDsonDialWeight
     UPROPERTY() bool    bClamped = false;       // whether channel is clamped to [Min, Max]
 };
 
+// Which DAZ output channel a formula targets; derived mechanically from the output URL
+// ?property suffix only — never evaluated, never composed. The consumer uses this tag
+// to route ERC (BoneCenterPoint/BoneEndPoint) vs morph (MorphValue) vs unclassified.
+UENUM()
+enum class EDsonFormulaTarget : uint8
+{
+    Other,           // unrecognized ?property, or no ?property in the URL
+    MorphValue,      // ?value — drives a morph modifier's channel
+    BoneCenterPoint, // ?center_point/... — drives a bone origin component
+    BoneEndPoint,    // ?end_point/... — drives a bone end component
+};
+
+// One raw RPN operation from a DAZ formula. Op is the literal DAZ token
+// (push/mult/div/add/sub/pow/spline_tcb) and is the discriminator:
+//   Op=="push" with Url set => url-push (driver input channel, Val unused)
+//   Op=="push" with Url empty => const-push (Val is the constant)
+//   other ops use neither operand field
+// Both fields are carried raw regardless of which branch applies.
+USTRUCT()
+struct DSONIMPORTER_API FDsonFormulaOp
+{
+    GENERATED_BODY()
+
+    UPROPERTY() FString Op;           // literal DAZ RPN token
+    UPROPERTY() double  Val = 0.0;    // constant value (used when Op=="push" and Url is empty)
+    UPROPERTY() FString Url;          // input-channel URL (used when Op=="push" and Url is non-empty)
+};
+
+// One raw DAZ formula record. All fields are raw DAZ values; never evaluated or
+// composed by the importer. A consumer that evaluates these formulas works in DAZ
+// semantics and applies the DAZ->UE coordinate flip to the result as a unit.
+USTRUCT()
+struct DSONIMPORTER_API FDsonFormula
+{
+    GENERATED_BODY()
+
+    UPROPERTY() FString SourceModifierId;      // carrier modifier id (scene: UrlDecoded #fragment of its URL; figure: GetModifierId)
+    UPROPERTY() FString SourceModifierName;    // GetModifierName for figure-lib formulas; empty for scene-modifier formulas
+    UPROPERTY() bool    bFromSceneModifier = false; // true = dialed-in scene control/dial; false = intrinsic baked figure rig (JCM/corrective)
+    UPROPERTY() FString BoundMorphTargetName;  // imported UMorphTarget bound to the CARRIER modifier, if any; empty for ERC/controls
+    UPROPERTY() float   SourceValue       = 0.0f;  // raw scene dial value (GetSceneModifierChannelValue); 0 for figure-lib formulas
+    UPROPERTY() FString OutputUrl;             // full output channel URL including ?property (raw)
+    UPROPERTY() EDsonFormulaTarget OutputTarget = EDsonFormulaTarget::Other; // mechanical tag derived from OutputUrl ?property
+    UPROPERTY() FString Stage;                 // raw DAZ stage string ("sum" or "mult")
+    UPROPERTY() TArray<FDsonFormulaOp> Operations;
+};
+
+// Base rig point for one bone in raw DAZ coordinates (NOT UE-flipped). Used by
+// ERC-follow consumers to compute followed-position = base +/- evaluated delta.
+// Keeping raw DAZ matches the rest of the FDsonFormula block (ops and Vals are
+// also DAZ-space); the consumer applies the DAZ->UE flip to the composed result.
+USTRUCT()
+struct DSONIMPORTER_API FDsonNodeRigPoint
+{
+    GENERATED_BODY()
+
+    UPROPERTY() FString NodeName;
+    UPROPERTY() float   CenterX = 0.0f;
+    UPROPERTY() float   CenterY = 0.0f;
+    UPROPERTY() float   CenterZ = 0.0f;
+    UPROPERTY() float   EndX    = 0.0f;
+    UPROPERTY() float   EndY    = 0.0f;
+    UPROPERTY() float   EndZ    = 0.0f;
+};
+
 // Companion figure slot pairing: the DAZ PostLoadAddons slot path matched to the
 // imported USkeletalMesh at the same position in the companion build order.
 USTRUCT()
@@ -104,4 +169,13 @@ public:
     // Per-morph dial weights from scene.modifiers (raw, uncomposed; correlated to
     // imported UMorphTargets by bound name; uncorrelated modifiers are omitted)
     UPROPERTY() TArray<FDsonDialWeight>           DialWeights;
+
+    // Raw DAZ formula records from scene.modifiers (bFromSceneModifier=true) and the
+    // body figure modifier_library (bFromSceneModifier=false). Never evaluated or
+    // composed — the consumer evaluates and applies DAZ->UE flip to the result as a unit.
+    UPROPERTY() TArray<FDsonFormula>              Formulas;
+
+    // Base rig points (raw DAZ coordinates) for bones referenced by ERC-follow formulas
+    // (OutputTarget==BoneCenterPoint or BoneEndPoint). One entry per unique NodeName.
+    UPROPERTY() TArray<FDsonNodeRigPoint>         RigPoints;
 };

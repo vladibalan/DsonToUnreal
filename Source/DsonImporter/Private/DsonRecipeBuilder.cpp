@@ -268,6 +268,95 @@ static void AppendLieSurfaces(
     }
 }
 
+// Classifies a formula output URL by its ?property suffix.
+// Mechanical derivation only — no formula evaluation.
+static EDsonFormulaTarget ClassifyOutputUrl(const FString& OutputUrl)
+{
+    int32 QueryIdx = INDEX_NONE;
+    if (!OutputUrl.FindChar(TEXT('?'), QueryIdx))
+        return EDsonFormulaTarget::Other;
+    const FString Prop = OutputUrl.Mid(QueryIdx + 1);
+    if (Prop.Equals(TEXT("value"), ESearchCase::CaseSensitive))
+        return EDsonFormulaTarget::MorphValue;
+    if (Prop.StartsWith(TEXT("center_point"), ESearchCase::CaseSensitive))
+        return EDsonFormulaTarget::BoneCenterPoint;
+    if (Prop.StartsWith(TEXT("end_point"), ESearchCase::CaseSensitive))
+        return EDsonFormulaTarget::BoneEndPoint;
+    return EDsonFormulaTarget::Other;
+}
+
+// Reads OutputUrl, Stage, OutputTarget, and Operations for one formula index.
+// bIsScene selects the scene-modifier vs. modifier-library accessor family (R7: all optional exports
+// guarded). Caller fills SourceModifierId, SourceModifierName, bFromSceneModifier,
+// BoundMorphTargetName, and SourceValue.
+// R3: every const char* copied via S() before the next parser call.
+static FDsonFormula ReadOneFormula(uint64_t Handle, int32 ModIdx, int32 FormulaIdx, bool bIsScene)
+{
+    FDsonFormula F;
+    if (bIsScene)
+    {
+        F.OutputUrl = S(GDsonParser.GetSceneModifierFormulaOutput
+            ? GDsonParser.GetSceneModifierFormulaOutput(Handle, ModIdx, FormulaIdx) : nullptr);
+        F.Stage     = S(GDsonParser.GetSceneModifierFormulaStage
+            ? GDsonParser.GetSceneModifierFormulaStage(Handle, ModIdx, FormulaIdx) : nullptr);
+    }
+    else
+    {
+        F.OutputUrl = S(GDsonParser.GetModifierFormulaOutput
+            ? GDsonParser.GetModifierFormulaOutput(Handle, ModIdx, FormulaIdx) : nullptr);
+        F.Stage     = S(GDsonParser.GetModifierFormulaStage
+            ? GDsonParser.GetModifierFormulaStage(Handle, ModIdx, FormulaIdx) : nullptr);
+    }
+    F.OutputTarget = ClassifyOutputUrl(F.OutputUrl);
+
+    const int32 OpCount = bIsScene
+        ? (GDsonParser.GetSceneModifierFormulaOperationCount
+            ? GDsonParser.GetSceneModifierFormulaOperationCount(Handle, ModIdx, FormulaIdx) : 0)
+        : (GDsonParser.GetModifierFormulaOperationCount
+            ? GDsonParser.GetModifierFormulaOperationCount(Handle, ModIdx, FormulaIdx) : 0);
+    F.Operations.Reserve(OpCount);
+    for (int32 oi = 0; oi < OpCount; ++oi)
+    {
+        FDsonFormulaOp Op;
+        // R3: copy each string before the next parser call; Val is double (no lifetime concern)
+        if (bIsScene)
+        {
+            Op.Op  = S(GDsonParser.GetSceneModifierFormulaOperationOp
+                ? GDsonParser.GetSceneModifierFormulaOperationOp (Handle, ModIdx, FormulaIdx, oi) : nullptr);
+            Op.Val = GDsonParser.GetSceneModifierFormulaOperationVal
+                ? GDsonParser.GetSceneModifierFormulaOperationVal(Handle, ModIdx, FormulaIdx, oi) : 0.0;
+            Op.Url = S(GDsonParser.GetSceneModifierFormulaOperationUrl
+                ? GDsonParser.GetSceneModifierFormulaOperationUrl(Handle, ModIdx, FormulaIdx, oi) : nullptr);
+        }
+        else
+        {
+            Op.Op  = S(GDsonParser.GetModifierFormulaOperationOp
+                ? GDsonParser.GetModifierFormulaOperationOp (Handle, ModIdx, FormulaIdx, oi) : nullptr);
+            Op.Val = GDsonParser.GetModifierFormulaOperationVal
+                ? GDsonParser.GetModifierFormulaOperationVal(Handle, ModIdx, FormulaIdx, oi) : 0.0;
+            Op.Url = S(GDsonParser.GetModifierFormulaOperationUrl
+                ? GDsonParser.GetModifierFormulaOperationUrl(Handle, ModIdx, FormulaIdx, oi) : nullptr);
+        }
+        F.Operations.Add(MoveTemp(Op));
+    }
+    return F;
+}
+
+// Linear scan for a node by id in a document's node_library. Returns INDEX_NONE if not found.
+// R3: S() copies each transient id string before the next GetNodeId call.
+static int32 FindNodeByIdLinear(uint64_t DsonHandle, const FString& NodeId)
+{
+    if (!GDsonParser.GetNodeCount || !GDsonParser.GetNodeId)
+        return INDEX_NONE;
+    const int32 Count = GDsonParser.GetNodeCount(DsonHandle);
+    for (int32 i = 0; i < Count; ++i)
+    {
+        if (S(GDsonParser.GetNodeId(DsonHandle, i)) == NodeId)
+            return i;
+    }
+    return INDEX_NONE;
+}
+
 void FDsonRecipeBuilder::Build(const FDsonImportResult& Result)
 {
     const FDsonImportSettings& Settings = Result.Settings;
@@ -335,15 +424,24 @@ void FDsonRecipeBuilder::Build(const FDsonImportResult& Result)
             Result.PreBakedComposites, Companion.Slot, Recipe->LieSurfaces);
     }
 
-    // --- Dial weights ---
-    // Enumerate scene.modifiers from the DUF. For each URL: URL-decode the fragment id,
-    // resolve the referenced DSF, build morphId->name from it (cached by path), and emit
-    // a bound FDsonDialWeight only if the name is in the imported UMorphTarget set (so
-    // HD morphs and control morphs with no UMorphTarget produce no dangling binding).
+    // --- Dial weights + formula emission ---
     int32 DiagTotalModifiers = 0;
     int32 DiagNonDefault     = 0;
     int32 DiagCorrelated     = 0;
     int32 DiagUncorrelated   = 0;
+
+    // R4: hoisted — shared by dial-weight pass, scene-formula pass, and figure-formula pass
+    // R1: UE 5.4 GetMorphTargets() returns const TArray<TObjectPtr<UMorphTarget>>&
+    TSet<FString> ImportedTargetNames;
+    if (Result.Mesh)
+    {
+        for (const TObjectPtr<UMorphTarget>& MT : Result.Mesh->GetMorphTargets())
+            if (MT)
+                ImportedTargetNames.Add(MT->GetFName().ToString());
+    }
+    const TArray<FString> ContentRoots = FDsonContentRoots::Detect();
+    // Cache: normalized path -> morphId->name; avoids reopening the same DSF per modifier entry.
+    TMap<FString, TMap<FString, FString>> PathToMorphIdMap;
 
     const bool bHaveDialAccessors =
         GDsonParser.GetSceneModifierCount &&
@@ -352,19 +450,6 @@ void FDsonRecipeBuilder::Build(const FDsonImportResult& Result)
 
     if (bHaveDialAccessors)
     {
-        // R1: UE 5.4 GetMorphTargets() returns const TArray<TObjectPtr<UMorphTarget>>&
-        TSet<FString> ImportedTargetNames;
-        if (Result.Mesh)
-        {
-            for (const TObjectPtr<UMorphTarget>& MT : Result.Mesh->GetMorphTargets())
-                if (MT)
-                    ImportedTargetNames.Add(MT->GetFName().ToString());
-        }
-
-        const TArray<FString> ContentRoots = FDsonContentRoots::Detect();
-        // Cache: normalized path -> morphId->name; avoids reopening the same DSF per modifier entry.
-        TMap<FString, TMap<FString, FString>> PathToMorphIdMap;
-
         DiagTotalModifiers = GDsonParser.GetSceneModifierCount(H);
         for (int32 si = 0; si < DiagTotalModifiers; ++si)
         {
@@ -467,6 +552,208 @@ void FDsonRecipeBuilder::Build(const FDsonImportResult& Result)
             *Settings.CharacterName);
     }
 
+    // --- Scene.modifiers formula emission (second pass; reuses PathToMorphIdMap cache) ---
+    // Emits one FDsonFormula per formula on each scene modifier that has any.
+    // BoundMorphTargetName reuses the cache built by the dial-weight pass (R4).
+    const bool bHaveSceneFormulas =
+        GDsonParser.GetSceneModifierCount   &&
+        GDsonParser.GetSceneModifierUrl     &&
+        GDsonParser.GetSceneModifierFormulaCount &&
+        GDsonParser.GetSceneModifierFormulaOutput;
+
+    if (bHaveSceneFormulas)
+    {
+        const int32 SceneModCount = GDsonParser.GetSceneModifierCount(H);
+        for (int32 si = 0; si < SceneModCount; ++si)
+        {
+            const int32 FormulaCount = GDsonParser.GetSceneModifierFormulaCount(H, si);
+            if (FormulaCount <= 0)
+                continue;
+
+            // R3: copy URL before next parser call
+            const FString Url = S(GDsonParser.GetSceneModifierUrl(H, si));
+
+            // Need #fragment for SourceModifierId
+            int32 HashIdx = INDEX_NONE;
+            if (!Url.FindChar(TEXT('#'), HashIdx) || HashIdx + 1 >= Url.Len())
+                continue;
+            const FString ModifierId = FDsonContentRoots::UrlDecode(Url.Mid(HashIdx + 1));
+
+            const float SourceValue = static_cast<float>(GDsonParser.GetSceneModifierChannelValue
+                ? GDsonParser.GetSceneModifierChannelValue(H, si) : 0.0);
+
+            // BoundMorphTargetName: reuse PathToMorphIdMap (extend if a new DSF is encountered)
+            FString BoundName;
+            const FString ResolvedPath = FDsonContentRoots::ResolveUrl(Url, ContentRoots);
+            if (!ResolvedPath.IsEmpty())
+            {
+                FString PathKey = ResolvedPath;
+                FPaths::NormalizeFilename(PathKey);
+                PathKey.ToLowerInline();
+                if (!PathToMorphIdMap.Contains(PathKey))
+                {
+                    FDsonLoadedDocument TempDoc;
+                    if (TempDoc.LoadFromFileAsWarning(ResolvedPath, TEXT("[recipe-formulas]")))
+                        PathToMorphIdMap.Add(PathKey, BuildMorphIdToNameMap(TempDoc.GetHandle64()));
+                    else
+                        PathToMorphIdMap.Add(PathKey, TMap<FString, FString>());
+                }
+                if (const FString* MorphName = PathToMorphIdMap[PathKey].Find(ModifierId))
+                    if (!MorphName->IsEmpty() && ImportedTargetNames.Contains(*MorphName))
+                        BoundName = *MorphName;
+            }
+
+            for (int32 fi = 0; fi < FormulaCount; ++fi)
+            {
+                FDsonFormula F = ReadOneFormula(H, si, fi, true);
+                F.SourceModifierId    = ModifierId;
+                F.bFromSceneModifier  = true;
+                F.SourceValue         = SourceValue;
+                F.BoundMorphTargetName = BoundName;
+                // SourceModifierName intentionally empty for scene-modifier formulas
+
+                if (Settings.bDumpMaterialDiagnostics)
+                {
+                    UE_LOG(LogDsonImporter, Log,
+                        TEXT("[recipe-shape] formula(scene): id='%s' output='%s' tag=%d stage='%s' ops=%d bound='%s'"),
+                        *F.SourceModifierId, *F.OutputUrl, static_cast<int32>(F.OutputTarget),
+                        *F.Stage, F.Operations.Num(), *F.BoundMorphTargetName);
+                }
+                Recipe->Formulas.Add(MoveTemp(F));
+            }
+        }
+    }
+
+    // --- Figure modifier_library formula emission ---
+    // Opens the body-figure DSF once and walks all modifier_library entries with formulas.
+    // FigureDoc stays in scope for the RigPoints pass that follows.
+    FDsonLoadedDocument FigureDoc;
+    uint64_t FigHandle = 0;
+    if (!Settings.ResolvedFigureDsfPath.IsEmpty())
+    {
+        if (!FigureDoc.LoadFromFileAsWarning(Settings.ResolvedFigureDsfPath, TEXT("[recipe-formulas-figure]")))
+        {
+            UE_LOG(LogDsonImporter, Warning,
+                TEXT("[recipe] '%s': figure DSF '%s' could not be opened; figure-lib formulas skipped"),
+                *Settings.CharacterName, *Settings.ResolvedFigureDsfPath);
+        }
+        else
+        {
+            FigHandle = FigureDoc.GetHandle64();
+            // R4: reuse BuildMorphIdToNameMap for the figure DSF (same helper used by the dial pass)
+            const TMap<FString, FString> FigureMorphIdMap = BuildMorphIdToNameMap(FigHandle);
+
+            const bool bHaveFigureFormulas =
+                GDsonParser.GetModifierCount         &&
+                GDsonParser.GetModifierFormulaCount  &&
+                GDsonParser.GetModifierFormulaOutput;
+
+            if (bHaveFigureFormulas)
+            {
+                const int32 ModCount = GDsonParser.GetModifierCount(FigHandle);
+                for (int32 mi = 0; mi < ModCount; ++mi)
+                {
+                    const int32 FormulaCount = GDsonParser.GetModifierFormulaCount(FigHandle, mi);
+                    if (FormulaCount <= 0)
+                        continue;
+
+                    // R3: copy id and name before any further parser calls
+                    const FString ModId   = S(GDsonParser.GetModifierId
+                        ? GDsonParser.GetModifierId  (FigHandle, mi) : nullptr);
+                    const FString ModName = S(GDsonParser.GetModifierName
+                        ? GDsonParser.GetModifierName(FigHandle, mi) : nullptr);
+
+                    // BoundMorphTargetName: figure morph map lookup, validated vs imported targets
+                    FString BoundName;
+                    if (const FString* MorphName = FigureMorphIdMap.Find(ModId))
+                        if (!MorphName->IsEmpty() && ImportedTargetNames.Contains(*MorphName))
+                            BoundName = *MorphName;
+
+                    for (int32 fi = 0; fi < FormulaCount; ++fi)
+                    {
+                        FDsonFormula F = ReadOneFormula(FigHandle, mi, fi, false);
+                        F.SourceModifierId    = ModId;
+                        F.SourceModifierName  = ModName;
+                        F.bFromSceneModifier  = false;
+                        F.SourceValue         = 0.0f;
+                        F.BoundMorphTargetName = BoundName;
+
+                        if (Settings.bDumpMaterialDiagnostics)
+                        {
+                            UE_LOG(LogDsonImporter, Log,
+                                TEXT("[recipe-shape] formula(figure): id='%s' name='%s' output='%s' tag=%d stage='%s' ops=%d bound='%s'"),
+                                *F.SourceModifierId, *F.SourceModifierName, *F.OutputUrl,
+                                static_cast<int32>(F.OutputTarget), *F.Stage,
+                                F.Operations.Num(), *F.BoundMorphTargetName);
+                        }
+                        Recipe->Formulas.Add(MoveTemp(F));
+                    }
+                }
+            }
+        }
+    }
+
+    // --- RigPoints: one entry per unique bone referenced by ERC-follow formulas ---
+    // Resolve target node from the formula output URL's #fragment id.
+    // Primary: figure DSF (FigHandle); fallback: body DUF (H).
+    // Raw DAZ coordinates, not UE-flipped (whole formula block is DAZ-space; R4/R7).
+    {
+        TSet<FString> EmittedNodeNames;
+        for (const FDsonFormula& F : Recipe->Formulas)
+        {
+            if (F.OutputTarget != EDsonFormulaTarget::BoneCenterPoint &&
+                F.OutputTarget != EDsonFormulaTarget::BoneEndPoint)
+                continue;
+
+            // Parse node id: content between '#' and '?' in the output URL
+            int32 HashIdx = INDEX_NONE;
+            int32 QueryIdx = INDEX_NONE;
+            if (!F.OutputUrl.FindChar(TEXT('#'), HashIdx) || !F.OutputUrl.FindChar(TEXT('?'), QueryIdx))
+                continue;
+            if (QueryIdx <= HashIdx + 1)
+                continue;
+            const FString NodeId = FDsonContentRoots::UrlDecode(
+                F.OutputUrl.Mid(HashIdx + 1, QueryIdx - HashIdx - 1));
+            if (NodeId.IsEmpty())
+                continue;
+
+            // Find node: figure DSF first (owns the rig data), then body DUF fallback
+            int32 NodeIdx = (FigHandle != 0) ? FindNodeByIdLinear(FigHandle, NodeId) : INDEX_NONE;
+            uint64_t NodeHandle = (NodeIdx != INDEX_NONE) ? FigHandle : 0;
+            if (NodeIdx == INDEX_NONE)
+            {
+                NodeIdx = FindNodeByIdLinear(H, NodeId);
+                if (NodeIdx != INDEX_NONE)
+                    NodeHandle = H;
+            }
+
+            if (NodeIdx == INDEX_NONE)
+            {
+                UE_LOG(LogDsonImporter, Warning,
+                    TEXT("[recipe] '%s': RigPoint node '%s' not found (output='%s'); skipped"),
+                    *Settings.CharacterName, *NodeId, *F.OutputUrl);
+                continue;
+            }
+
+            // R3: copy NodeName before any further parser calls
+            const FString NodeName = S(GDsonParser.GetNodeName
+                ? GDsonParser.GetNodeName(NodeHandle, NodeIdx) : nullptr);
+            if (EmittedNodeNames.Contains(NodeName))
+                continue;
+            EmittedNodeNames.Add(NodeName);
+
+            FDsonNodeRigPoint RP;
+            RP.NodeName = NodeName;
+            RP.CenterX = static_cast<float>(GDsonParser.GetNodeCenterPointX ? GDsonParser.GetNodeCenterPointX(NodeHandle, NodeIdx) : 0.0);
+            RP.CenterY = static_cast<float>(GDsonParser.GetNodeCenterPointY ? GDsonParser.GetNodeCenterPointY(NodeHandle, NodeIdx) : 0.0);
+            RP.CenterZ = static_cast<float>(GDsonParser.GetNodeCenterPointZ ? GDsonParser.GetNodeCenterPointZ(NodeHandle, NodeIdx) : 0.0);
+            RP.EndX    = static_cast<float>(GDsonParser.GetNodeEndPointX ? GDsonParser.GetNodeEndPointX(NodeHandle, NodeIdx) : 0.0);
+            RP.EndY    = static_cast<float>(GDsonParser.GetNodeEndPointY ? GDsonParser.GetNodeEndPointY(NodeHandle, NodeIdx) : 0.0);
+            RP.EndZ    = static_cast<float>(GDsonParser.GetNodeEndPointZ ? GDsonParser.GetNodeEndPointZ(NodeHandle, NodeIdx) : 0.0);
+            Recipe->RigPoints.Add(MoveTemp(RP));
+        }
+    }
+
     // --- Pre-baked marker diagnostic ---
     int32 DiagBaked = 0;
     int32 DiagRaw   = 0;
@@ -487,17 +774,38 @@ void FDsonRecipeBuilder::Build(const FDsonImportResult& Result)
     }
 
     // --- Summary diagnostic (required per step 6) ---
+    int32 DiagFMorphVal  = 0;
+    int32 DiagFErcCenter = 0;
+    int32 DiagFErcEnd    = 0;
+    int32 DiagFOther     = 0;
+    int32 DiagFBound     = 0;
+    for (const FDsonFormula& F : Recipe->Formulas)
+    {
+        switch (F.OutputTarget)
+        {
+        case EDsonFormulaTarget::MorphValue:      ++DiagFMorphVal;  break;
+        case EDsonFormulaTarget::BoneCenterPoint: ++DiagFErcCenter; break;
+        case EDsonFormulaTarget::BoneEndPoint:    ++DiagFErcEnd;    break;
+        default:                                  ++DiagFOther;     break;
+        }
+        if (!F.BoundMorphTargetName.IsEmpty())
+            ++DiagFBound;
+    }
+
     UE_LOG(LogDsonImporter, Log,
-        TEXT("[recipe-shape] '%s': modifiers=%d non-default=%d correlated=%d uncorrelated=%d | LIE baked=%d raw=%d | companions=%d"),
+        TEXT("[recipe-shape] '%s': modifiers=%d non-default=%d correlated=%d uncorrelated=%d | LIE baked=%d raw=%d | companions=%d | formulas=%d (morphval=%d erc-center=%d erc-end=%d other=%d) bound=%d rigpoints=%d"),
         *Settings.CharacterName,
         DiagTotalModifiers, DiagNonDefault, DiagCorrelated, DiagUncorrelated,
         DiagBaked, DiagRaw,
-        Recipe->CompanionSlots.Num());
+        Recipe->CompanionSlots.Num(),
+        Recipe->Formulas.Num(), DiagFMorphVal, DiagFErcCenter, DiagFErcEnd, DiagFOther,
+        DiagFBound, Recipe->RigPoints.Num());
 
     UE_LOG(LogDsonImporter, Log,
-        TEXT("[recipe] '%s': %d dial weight(s), %d companion slot(s), %d LIE surface(s)"),
+        TEXT("[recipe] '%s': %d dial weight(s), %d formula(s), %d rigpoint(s), %d companion slot(s), %d LIE surface(s)"),
         *Settings.CharacterName,
-        Recipe->DialWeights.Num(), Recipe->CompanionSlots.Num(), Recipe->LieSurfaces.Num());
+        Recipe->DialWeights.Num(), Recipe->Formulas.Num(), Recipe->RigPoints.Num(),
+        Recipe->CompanionSlots.Num(), Recipe->LieSurfaces.Num());
 
     FDsonAssetUtils::SaveAssetPackage(Package, Recipe, PackagePath, TEXT("[recipe]"));
 }
