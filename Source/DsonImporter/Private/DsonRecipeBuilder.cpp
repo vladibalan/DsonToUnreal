@@ -6,6 +6,7 @@
 #include "DsonImportTypes.h"
 #include "DsonImportUtils.h"
 #include "DsonLoadedDocument.h"
+#include "DsonMorphBuilder.h"
 #include "DsonParserFunctions.h"
 
 #include "Animation/MorphTarget.h"
@@ -357,6 +358,78 @@ static int32 FindNodeByIdLinear(uint64_t DsonHandle, const FString& NodeId)
     return INDEX_NONE;
 }
 
+// Walks one document's modifier_library and appends one FDsonFormula per formula.
+// bFromSceneModifier: true for externally-referenced DSFs; false for the base figure DSF.
+// ModifierIdToDialValue: scene dial value map; only used when bFromSceneModifier==true.
+// EmittedKeys: dedup set keyed by "ModifierId|OutputUrl|Stage"; shared across all passes.
+// R3: all parser strings copied via S() before the next parser call.
+// R4: single copy of the modifier_library emit loop — do not inline a second copy.
+// R7: missing optional exports return early; open handles are caller-managed (permissive).
+static void AppendModifierLibraryFormulas(
+    uint64_t Handle,
+    const TMap<FString, FString>& MorphIdMap,
+    const TSet<FString>& ImportedTargetNames,
+    bool bFromSceneModifier,
+    const TMap<FString, float>& ModifierIdToDialValue,
+    TSet<FString>& EmittedKeys,
+    const FDsonImportSettings& Settings,
+    TArray<FDsonFormula>& OutFormulas)
+{
+    if (!GDsonParser.GetModifierCount || !GDsonParser.GetModifierFormulaCount ||
+        !GDsonParser.GetModifierFormulaOutput)
+        return;
+
+    const int32 ModCount = GDsonParser.GetModifierCount(Handle);
+    for (int32 mi = 0; mi < ModCount; ++mi)
+    {
+        const int32 FormulaCount = GDsonParser.GetModifierFormulaCount(Handle, mi);
+        if (FormulaCount <= 0)
+            continue;
+
+        // R3: copy id and name before any further parser calls
+        const FString ModId   = S(GDsonParser.GetModifierId
+            ? GDsonParser.GetModifierId  (Handle, mi) : nullptr);
+        const FString ModName = S(GDsonParser.GetModifierName
+            ? GDsonParser.GetModifierName(Handle, mi) : nullptr);
+
+        FString BoundName;
+        if (const FString* MorphName = MorphIdMap.Find(ModId))
+            if (!MorphName->IsEmpty() && ImportedTargetNames.Contains(*MorphName))
+                BoundName = *MorphName;
+
+        const float SourceVal = bFromSceneModifier
+            ? ModifierIdToDialValue.FindRef(ModId)
+            : 0.0f;
+
+        for (int32 fi = 0; fi < FormulaCount; ++fi)
+        {
+            FDsonFormula F = ReadOneFormula(Handle, mi, fi, false);
+
+            const FString Key = ModId + TEXT("|") + F.OutputUrl + TEXT("|") + F.Stage;
+            if (EmittedKeys.Contains(Key))
+                continue;
+            EmittedKeys.Add(Key);
+
+            F.SourceModifierId     = ModId;
+            F.SourceModifierName   = ModName;
+            F.bFromSceneModifier   = bFromSceneModifier;
+            F.SourceValue          = SourceVal;
+            F.BoundMorphTargetName = BoundName;
+
+            if (Settings.bDumpMaterialDiagnostics)
+            {
+                UE_LOG(LogDsonImporter, Log,
+                    TEXT("[recipe-shape] formula(%s): id='%s' name='%s' output='%s' tag=%d stage='%s' ops=%d bound='%s'"),
+                    bFromSceneModifier ? TEXT("external") : TEXT("figure"),
+                    *F.SourceModifierId, *F.SourceModifierName, *F.OutputUrl,
+                    static_cast<int32>(F.OutputTarget), *F.Stage,
+                    F.Operations.Num(), *F.BoundMorphTargetName);
+            }
+            OutFormulas.Add(MoveTemp(F));
+        }
+    }
+}
+
 void FDsonRecipeBuilder::Build(const FDsonImportResult& Result)
 {
     const FDsonImportSettings& Settings = Result.Settings;
@@ -430,7 +503,8 @@ void FDsonRecipeBuilder::Build(const FDsonImportResult& Result)
     int32 DiagCorrelated     = 0;
     int32 DiagUncorrelated   = 0;
 
-    // R4: hoisted — shared by dial-weight pass, scene-formula pass, and figure-formula pass
+    // R4: hoisted — shared by dial-weight pass, scene-formula pass, figure-formula pass,
+    //     and external-doc formula pass
     // R1: UE 5.4 GetMorphTargets() returns const TArray<TObjectPtr<UMorphTarget>>&
     TSet<FString> ImportedTargetNames;
     if (Result.Mesh)
@@ -442,6 +516,10 @@ void FDsonRecipeBuilder::Build(const FDsonImportResult& Result)
     const TArray<FString> ContentRoots = FDsonContentRoots::Detect();
     // Cache: normalized path -> morphId->name; avoids reopening the same DSF per modifier entry.
     TMap<FString, TMap<FString, FString>> PathToMorphIdMap;
+    // modifierId -> scene dial value; populated by the dial pass, consumed by formula passes.
+    TMap<FString, float> ModifierIdToDialValue;
+    // Dedup across all formula passes: key = "ModifierId|OutputUrl|Stage".
+    TSet<FString> EmittedFormulaKeys;
 
     const bool bHaveDialAccessors =
         GDsonParser.GetSceneModifierCount &&
@@ -479,6 +557,7 @@ void FDsonRecipeBuilder::Build(const FDsonImportResult& Result)
                 continue;
             }
             const FString ModifierId = FDsonContentRoots::UrlDecode(Url.Mid(HashIdx + 1));
+            ModifierIdToDialValue.Add(ModifierId, Value);
 
             // Resolve the referenced DSF from the modifier URL.
             // R4: ResolveUrl strips fragment and decodes the path internally.
@@ -612,6 +691,11 @@ void FDsonRecipeBuilder::Build(const FDsonImportResult& Result)
                 F.BoundMorphTargetName = BoundName;
                 // SourceModifierName intentionally empty for scene-modifier formulas
 
+                const FString Key = F.SourceModifierId + TEXT("|") + F.OutputUrl + TEXT("|") + F.Stage;
+                if (EmittedFormulaKeys.Contains(Key))
+                    continue;
+                EmittedFormulaKeys.Add(Key);
+
                 if (Settings.bDumpMaterialDiagnostics)
                 {
                     UE_LOG(LogDsonImporter, Log,
@@ -643,53 +727,29 @@ void FDsonRecipeBuilder::Build(const FDsonImportResult& Result)
             // R4: reuse BuildMorphIdToNameMap for the figure DSF (same helper used by the dial pass)
             const TMap<FString, FString> FigureMorphIdMap = BuildMorphIdToNameMap(FigHandle);
 
-            const bool bHaveFigureFormulas =
-                GDsonParser.GetModifierCount         &&
-                GDsonParser.GetModifierFormulaCount  &&
-                GDsonParser.GetModifierFormulaOutput;
+            // R4: AppendModifierLibraryFormulas is the single copy of the modifier_library walk.
+            AppendModifierLibraryFormulas(
+                FigHandle, FigureMorphIdMap, ImportedTargetNames, false,
+                ModifierIdToDialValue, EmittedFormulaKeys, Settings, Recipe->Formulas);
+        }
+    }
 
-            if (bHaveFigureFormulas)
-            {
-                const int32 ModCount = GDsonParser.GetModifierCount(FigHandle);
-                for (int32 mi = 0; mi < ModCount; ++mi)
-                {
-                    const int32 FormulaCount = GDsonParser.GetModifierFormulaCount(FigHandle, mi);
-                    if (FormulaCount <= 0)
-                        continue;
-
-                    // R3: copy id and name before any further parser calls
-                    const FString ModId   = S(GDsonParser.GetModifierId
-                        ? GDsonParser.GetModifierId  (FigHandle, mi) : nullptr);
-                    const FString ModName = S(GDsonParser.GetModifierName
-                        ? GDsonParser.GetModifierName(FigHandle, mi) : nullptr);
-
-                    // BoundMorphTargetName: figure morph map lookup, validated vs imported targets
-                    FString BoundName;
-                    if (const FString* MorphName = FigureMorphIdMap.Find(ModId))
-                        if (!MorphName->IsEmpty() && ImportedTargetNames.Contains(*MorphName))
-                            BoundName = *MorphName;
-
-                    for (int32 fi = 0; fi < FormulaCount; ++fi)
-                    {
-                        FDsonFormula F = ReadOneFormula(FigHandle, mi, fi, false);
-                        F.SourceModifierId    = ModId;
-                        F.SourceModifierName  = ModName;
-                        F.bFromSceneModifier  = false;
-                        F.SourceValue         = 0.0f;
-                        F.BoundMorphTargetName = BoundName;
-
-                        if (Settings.bDumpMaterialDiagnostics)
-                        {
-                            UE_LOG(LogDsonImporter, Log,
-                                TEXT("[recipe-shape] formula(figure): id='%s' name='%s' output='%s' tag=%d stage='%s' ops=%d bound='%s'"),
-                                *F.SourceModifierId, *F.SourceModifierName, *F.OutputUrl,
-                                static_cast<int32>(F.OutputTarget), *F.Stage,
-                                F.Operations.Num(), *F.BoundMorphTargetName);
-                        }
-                        Recipe->Formulas.Add(MoveTemp(F));
-                    }
-                }
-            }
+    // --- External-document formula pass ---
+    // Opens all formula-reachable external DSFs (same walk as the morph builder) and
+    // emits each document's modifier_library formulas with bFromSceneModifier=true.
+    // R4: reuses DiscoverFormulaReachableDocuments (single source of the walk) and
+    //     AppendModifierLibraryFormulas (single copy of the emit loop).
+    // R7: DiscoverFormulaReachableDocuments is permissive — unresolvable files warn and skip.
+    {
+        TArray<FDsonLoadedDocument> ExternalDocs;
+        TArray<uint64_t> ExternalHandles;
+        FDsonMorphBuilder::DiscoverFormulaReachableDocuments(Settings, ExternalDocs, ExternalHandles);
+        for (int32 di = 0; di < ExternalDocs.Num(); ++di)
+        {
+            const TMap<FString, FString> ExtMorphIdMap = BuildMorphIdToNameMap(ExternalHandles[di]);
+            AppendModifierLibraryFormulas(
+                ExternalHandles[di], ExtMorphIdMap, ImportedTargetNames, true,
+                ModifierIdToDialValue, EmittedFormulaKeys, Settings, Recipe->Formulas);
         }
     }
 

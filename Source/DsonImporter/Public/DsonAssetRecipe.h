@@ -108,7 +108,7 @@ struct DSONIMPORTER_API FDsonFormula
 
     UPROPERTY() FString SourceModifierId;      // carrier modifier id (scene: UrlDecoded #fragment of its URL; figure: GetModifierId)
     UPROPERTY() FString SourceModifierName;    // GetModifierName for figure-lib formulas; empty for scene-modifier formulas
-    UPROPERTY() bool    bFromSceneModifier = false; // true = dialed-in scene control/dial; false = intrinsic baked figure rig (JCM/corrective)
+    UPROPERTY() bool    bFromSceneModifier = false; // true = carrier document reached via scene.modifiers walk (applied/dialed control or its formula tree); false = base figure DSF (intrinsic rig)
     UPROPERTY() FString BoundMorphTargetName;  // imported UMorphTarget bound to the CARRIER modifier, if any; empty for ERC/controls
     UPROPERTY() float   SourceValue       = 0.0f;  // raw scene dial value (GetSceneModifierChannelValue); 0 for figure-lib formulas
     UPROPERTY() FString OutputUrl;             // full output channel URL including ?property (raw)
@@ -170,9 +170,11 @@ public:
     // imported UMorphTargets by bound name; uncorrelated modifiers are omitted)
     UPROPERTY() TArray<FDsonDialWeight>           DialWeights;
 
-    // Raw DAZ formula records from scene.modifiers (bFromSceneModifier=true) and the
-    // body figure modifier_library (bFromSceneModifier=false). Never evaluated or
-    // composed — the consumer evaluates and applies DAZ->UE flip to the result as a unit.
+    // Raw DAZ formula records from three sources: scene.modifiers inline formulas
+    // (bFromSceneModifier=true), external modifier DSFs reached via the scene.modifiers
+    // reachability walk (bFromSceneModifier=true), and the body figure modifier_library
+    // (bFromSceneModifier=false). Never evaluated or composed — the consumer evaluates
+    // and applies DAZ->UE flip to the result as a unit.
     UPROPERTY() TArray<FDsonFormula>              Formulas;
 
     // Base rig points (raw DAZ coordinates) for bones referenced by ERC-follow formulas

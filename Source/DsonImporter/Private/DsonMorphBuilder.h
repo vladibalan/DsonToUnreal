@@ -1,6 +1,7 @@
 #pragma once
 #include "CoreMinimal.h"
 
+#include "DsonLoadedDocument.h"
 #include "MeshDescription.h"
 #include "SkeletalMeshAttributes.h"
 
@@ -32,4 +33,13 @@ public:
         FMeshDescription& MeshDesc,
         FSkeletalMeshAttributes& SkelAttribs,
         const TArray<FVertexID>& VertexIDs);
+
+    // Discovers all formula-reachable external morph DSFs from the scene.modifiers
+    // walk and opens them. OutHandles[i] == OutDocs[i].GetHandle64(). The base
+    // figure DSF is excluded (callers handle it separately). Permissive: files
+    // that fail to open are skipped with a warning; never fatal.
+    static void DiscoverFormulaReachableDocuments(
+        const FDsonImportSettings& Settings,
+        TArray<FDsonLoadedDocument>& OutDocs,
+        TArray<uint64_t>& OutHandles);
 };

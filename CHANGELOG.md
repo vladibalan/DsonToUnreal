@@ -11,13 +11,16 @@ baseline, and the per-change gate: [`Docs/Versioning.md`](Docs/Versioning.md) an
 ## 1.5.0 — 2026-06-11 · MINOR
 
 + **`UDsonAssetRecipe::Formulas`** — new `TArray<FDsonFormula>` carrying raw, uncomposed DAZ formula
-  records from two sources: `scene.modifiers` (bFromSceneModifier=true — character/control dials
-  such as `HID Nancy 9`; ERC-follow dials) and the body figure modifier_library
+  records from three sources: (1) `scene.modifiers` inline formulas (bFromSceneModifier=true —
+  control/ERC dials with formulas defined inline in the DUF), (2) external modifier DSFs reached
+  via the scene.modifiers reachability walk (bFromSceneModifier=true — e.g. `HID Nancy 9.dsf`,
+  FACS control DSFs applied to the figure), and (3) the body figure modifier_library
   (bFromSceneModifier=false — JCM corrective morphs, intrinsic rig formulas). Each record carries
   the full RPN op list (`FDsonFormulaOp[]`: Op token, Val, Url), the output URL with its
   `EDsonFormulaTarget` tag (MorphValue / BoneCenterPoint / BoneEndPoint / Other), the carrier
   modifier id/name, the dial value, and the bound `UMorphTarget` name where the carrier is a morph.
-  No formula evaluation, no composition — faithful raw DAZ data for downstream authoring.
+  No formula evaluation, no composition — faithful raw DAZ data for downstream authoring. Formulas
+  are deduped across all three passes by `ModifierId|OutputUrl|Stage`.
 + **`UDsonAssetRecipe::RigPoints`** — new `TArray<FDsonNodeRigPoint>` with one entry per unique bone
   referenced by an ERC-follow formula (OutputTarget BoneCenterPoint or BoneEndPoint). Stores raw
   DAZ center_point + end_point XYZ so a consumer can compute followed-position = base ± evaluated

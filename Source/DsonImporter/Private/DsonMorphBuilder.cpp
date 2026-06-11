@@ -280,6 +280,15 @@ namespace
     }
 }
 
+void FDsonMorphBuilder::DiscoverFormulaReachableDocuments(
+    const FDsonImportSettings& Settings,
+    TArray<FDsonLoadedDocument>& OutDocs,
+    TArray<uint64_t>& OutHandles)
+{
+    FDsonMorphDiscoveryStats DiscoveryStats;
+    LoadFormulaReachableMorphDocuments(Settings, OutDocs, OutHandles, DiscoveryStats);
+}
+
 void FDsonMorphBuilder::Apply(
     const FDsonImportSettings& Settings,
     uint64_t FigureDsfHandle,
