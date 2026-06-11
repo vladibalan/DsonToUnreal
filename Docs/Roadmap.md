@@ -241,7 +241,7 @@ check path-reconstructing consumers; rationale → `DecisionLog.md`.
   fallback", remove or correct them. Search `Source/DsonImporter/` for
   `Genesis 3` / `G3` references.
 
-## Authoring-metadata recipe emission (P2) — Slice 1 landed 2026-06-10
+## Authoring-metadata recipe emission (P2) — Slice 1 landed & runtime-verified (G9 Nancy) 2026-06-10
 
 `UDsonAssetRecipe` emitted beside each import (`v1.1.0`): manifest, companion slot tags, and
 per-surface LIE recipe (raw layers + 1.4.0 compositing metadata). Remaining slices: dial weights,
