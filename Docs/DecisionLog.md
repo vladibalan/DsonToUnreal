@@ -1112,7 +1112,27 @@ factored into `AppendLieSurfaces` and run over **each companion MAT-preset DUF**
 (new `FDsonLieSurface.SourceCompanionSlot` tags origin), so the eye composites are emitted and the
 marker fires; the dead `ObjectTools.h` include was removed. Additive/permissive (R7); R3 lifetime
 clean (id→name maps hold `FString` copies built before each `FDsonLoadedDocument` is destroyed).
-Director-built (DsonHostEditor up to date, exit 0). **Runtime confirmation pending a Nancy re-import**
-(expected `correlated` ≥ 1 — `HID Nancy 9` ± FACS, `*_HD3`/`SkinBinding` staying uncorrelated by
-nature; `LIE baked` ≥ 2). **Remaining recipe work: ERC/JCM deltas only** (the original heavy
-formula-graph slice — no further parser FR).
+Director-built (DsonHostEditor up to date, exit 0).
+
+**Runtime result (Nancy import, 2026-06-11) — corrects the "expected" above; Slice 3 fixed the dial
+*infrastructure* but met neither headline outcome on the acceptance figure.**
+`[recipe-shape] modifiers=5 non-default=4 correlated=2 uncorrelated=3 | LIE baked=0 raw=2`.
+- **Dials 0→2, but the *character* dial is a formula driver.** The 2 that bound (`body_bs_Navel_HD3`,
+  `head_bs_MouthRealism_HD3`) are generic base HD correctives. `HID Nancy 9` + `facs_ctrl_EyeRestingFocalPoint`
+  are **formula-control modifiers** — not in their files' `type=="morph"` list (both hit the
+  "not in morph map" branch), no `UMorphTarget`; their `val=1.0` is a formula *input*. Correctly
+  uncorrelated under the bind-to-real-target rule → they belong to the **ERC/JCM slice**, which gives
+  them meaning via the formula graph. So the dial-weight feature captures direct morph dials; the
+  headline character dial is deferred (not dropped) to ERC/JCM.
+- **Marker still inert (`baked=0`); companion LIE emission missed.** The log shows all 4 companion MAT
+  presets built cleanly (incl. `Genesis9Eyes: 4 MIC(s)`) and the recipe loaded them with **no**
+  load-failure warning, yet `AppendLieSurfaces` found **0** LIE surfaces in them. Root cause: the eye
+  LIE is bound via **`scene.animations` key-0** (the same path where `CompositeImageLayers` bakes it),
+  **not** via a `scene.material` channel `#fragment` image-URL — the only thing `AppendLieSurfaces`
+  reads. So the eye LIE (and every baked composite) is invisible to the recipe walk.
+
+**Decision (2026-06-11, user): fix the anim-bound LIE next.** Extend the LIE walk to resolve
+`scene.animations` key-0 `image` entries (reuse `DsonMaterialBuilder`'s `ParseAnimationUrl` + the
+key-0 `image`→`image_library` path; `ImageId = UrlDecode(value.Mid(1))` already matches
+`PreBakedComposites`) so the eye LIE is emitted as raw layers and `bImporterPreBaked` fires. Dials
+accepted as-is. **Remaining after that: ERC/JCM deltas** (folds in the control dials; no parser FR).

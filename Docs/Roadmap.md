@@ -247,9 +247,9 @@ check path-reconstructing consumers; rationale → `DecisionLog.md`.
 |---|---|---|
 | 1 | v1.1.0 · 2026-06-10 | Manifest (source id, skeleton/mesh refs), companion slot tags, per-surface LIE recipe (raw layers + compositing metadata) |
 | 2 | v1.2.0 · 2026-06-11 | Dial weights (`DialWeights[]` — raw channel value + range, bound UE morph-target name), pre-baked LIE marker (`bImporterPreBaked` + `BakedComposite`) |
-| 3 | v1.3.0 · 2026-06-11 | Dial-weight join broadened to external morph DSFs (URL-decode + per-URL DSF resolve, validated against imported `UMorphTarget` set); companion LIE surfaces emitted + baked-eye marker fires; `FDsonLieSurface.SourceCompanionSlot` |
+| 3 | v1.3.0 · 2026-06-11 | Dial-weight join broadened to external morph DSFs (URL-decode + per-URL resolve, validated vs imported `UMorphTarget` set) — binds **direct** morph dials; control/formula dials (e.g. `HID Nancy 9`) → ERC/JCM. Companion MAT-preset walk + `FDsonLieSurface.SourceCompanionSlot`. ⚠ Eye LIE/marker **not** firing yet — eye LIE is `scene.animations`-bound (Nancy: `baked=0`); see `DecisionLog.md` |
 
-Remaining: ERC/JCM deltas. Deferred (P4): HD, preset/variant sets. Per-item triage → `DecisionLog.md`.
+Remaining: anim-bound LIE emission (eye LIE + marker); then ERC/JCM deltas. Deferred (P4): HD, preset/variant sets. Per-item triage → `DecisionLog.md`.
 
 ## Next up
 
