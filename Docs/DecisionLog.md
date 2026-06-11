@@ -1093,3 +1093,26 @@ to the external-DSF set (mirroring the morph builder's discovery) in the **ERC/J
 removes a now-dead `ObjectTools.h` include left in `DsonMorphBuilder.cpp` by the helper extraction.
 **Schema + pre-baked marker + diagnostic are complete; only the dial-weight join completeness is
 pending Nancy numbers.**
+
+**Update (2026-06-11) — Slice 3 landed (DsonToUnreal v1.3.0), completing Slice 2 on real G9 data.**
+The merge-then-measure Nancy import showed both Slice-2 correlations empty:
+`[recipe-shape] modifiers=5 non-default=4 correlated=0 uncorrelated=5 | LIE baked=0 raw=2`. The
+`bDumpMaterialDiagnostics` per-entry lines + an on-disk check pinned **two** distinct causes (not
+one): (1) **dials live in external morph DSFs and the URL fragments are percent-encoded** — e.g.
+`…/HID%20Nancy%209.dsf#HID%20Nancy%209` (id `HID Nancy 9`), `facs_ctrl_EyeRestingFocalPoint`, two
+`*_HD3` (HD), and `Genesis9.dsf#SkinBinding` (not a morph) — so the figure-DSF-only, raw-fragment
+lookup matched nothing; (2) **the only baked LIE is the eyes companion** (`T_Eye_Color-3` +
+`T_Eye_Translucency-3` on disk under `Characters/HID_Nancy_9/Textures/Composites/`), but the recipe
+walked only the body DUF, so the baked surfaces were never emitted and the marker had nothing to flag
+(`baked=0` was *correct*, not a bug — the body's 2 LIE surfaces genuinely aren't baked). Fixes
+(v1.3.0): dial join now **URL-decodes** the fragment, **resolves+opens each modifier's referenced
+DSF directly** (cached by path), and **validates against the actually-imported `UMorphTarget` set**
+so HD/control morphs with no target produce no dangling bindings; the per-surface LIE loop was
+factored into `AppendLieSurfaces` and run over **each companion MAT-preset DUF** as well as the body
+(new `FDsonLieSurface.SourceCompanionSlot` tags origin), so the eye composites are emitted and the
+marker fires; the dead `ObjectTools.h` include was removed. Additive/permissive (R7); R3 lifetime
+clean (id→name maps hold `FString` copies built before each `FDsonLoadedDocument` is destroyed).
+Director-built (DsonHostEditor up to date, exit 0). **Runtime confirmation pending a Nancy re-import**
+(expected `correlated` ≥ 1 — `HID Nancy 9` ± FACS, `*_HD3`/`SkinBinding` staying uncorrelated by
+nature; `LIE baked` ≥ 2). **Remaining recipe work: ERC/JCM deltas only** (the original heavy
+formula-graph slice — no further parser FR).
