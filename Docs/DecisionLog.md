@@ -1157,3 +1157,10 @@ and left the design-read channel unspecified, forcing the user to copy/paste a w
 `Docs/AgentWorkflow.md` so a `Feedback requested: YES` design read is written to
 `.handoff/feedback-<id>.md` (`Status: design-review`) and reviewed from disk. Standing preference
 recorded for interim sessions.
+
+**Runtime result (Nancy, 2026-06-11) — confirmed.** `[recipe-shape] … LIE baked=4 raw=6 | … 10 LIE
+surface(s)`. The 4 baked entries are Eye Left/Right × {`diffuse`, `Translucency Color`}, all resolving
+to the 2 shared composites `T_Eye_Color-3` / `T_Eye_Translucency-3` (`BakedComposite` soft refs
+correct). No dedup-collision warning fired (eye LIE is anim-only). The pre-baked marker + companion/
+eye LIE feature is **done & verified**; dials unchanged (2 direct; character/control dials → ERC/JCM).
+**Recipe-emission workstream remaining: ERC/JCM deltas only.**

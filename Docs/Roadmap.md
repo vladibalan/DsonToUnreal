@@ -247,7 +247,7 @@ check path-reconstructing consumers; rationale → `DecisionLog.md`.
 | 1 | v1.1.0 · 2026-06-10 | Manifest (source id, skeleton/mesh refs), companion slot tags, per-surface LIE recipe (raw layers + compositing metadata) |
 | 2 | v1.2.0 · 2026-06-11 | Dial weights (`DialWeights[]` — raw channel value + range, bound UE morph-target name), pre-baked LIE marker (`bImporterPreBaked` + `BakedComposite`) |
 | 3 | v1.3.0 · 2026-06-11 | Dial-weight join broadened to external morph DSFs (URL-decode + per-URL resolve, validated vs imported `UMorphTarget` set) — binds **direct** morph dials; control/formula dials (e.g. `HID Nancy 9`) → ERC/JCM. Companion MAT-preset walk + `FDsonLieSurface.SourceCompanionSlot`. |
-| 4 | v1.4.0 · 2026-06-11 | Anim-bound (`scene.animations` key-0 `image`) LIE surfaces emitted — eye LIE on G9 Eyes companion now in recipe; pre-baked marker **wired** for the eye composites (build-verified; runtime `baked≥2` pending Nancy confirm). `ParseAnimationUrl`/`StripUniquifyingSuffix` extracted to `DsonImportUtils.h` (R4). |
+| 4 | v1.4.0 · 2026-06-11 | Anim-bound (`scene.animations` key-0 `image`) LIE surfaces emitted — eye LIE on G9 Eyes companion now in recipe; pre-baked marker **fires** (Nancy-verified: `baked=4` — both eyes × diffuse + Translucency; 10 LIE surfaces total). `ParseAnimationUrl`/`StripUniquifyingSuffix` extracted to `DsonImportUtils.h` (R4). |
 
 Remaining: **ERC/JCM** deltas only. Deferred (P4): HD, preset/variant sets. Per-item triage → `DecisionLog.md`.
 
