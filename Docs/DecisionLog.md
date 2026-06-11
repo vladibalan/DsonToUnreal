@@ -1164,3 +1164,37 @@ to the 2 shared composites `T_Eye_Color-3` / `T_Eye_Translucency-3` (`BakedCompo
 correct). No dedup-collision warning fired (eye LIE is anim-only). The pre-baked marker + companion/
 eye LIE feature is **done & verified**; dials unchanged (2 direct; character/control dials → ERC/JCM).
 **Recipe-emission workstream remaining: ERC/JCM deltas only.**
+
+**Update (2026-06-11) — Slice 5 landed (v1.5.0): ERC/JCM formula records — recipe-emission workstream
+COMPLETE.** `UDsonAssetRecipe` gains `Formulas[]` (raw DAZ formula records) + `RigPoints[]` (base bone
+center/end point). Two-pass, faithful (P1/P3 — no evaluation, no composition): (1) **scene.modifiers**
+formulas (the dialed-in control/ERC dials, incl. the `HID Nancy 9` / `facs_ctrl_EyeRestingFocalPoint`
+character/control dials Slice 3 correctly left uncorrelated), and (2) **body figure modifier_library**
+formulas (the intrinsic JCM/corrective rig — `Settings.ResolvedFigureDsfPath`, opened in the recipe builder
+the same way `DsonMorphBuilder` does). 13 previously-unbound parser exports bound as R2 X-macro rows (10
+formula-op accessors over both index spaces + 3 `GetNodeEndPoint*`); **no parser FR** — the formula RPN API
++ node end_point already shipped (published-header reachability confirmed pre-task, per the Slice-3 "grep the
+published accessors first" lesson).
+
+**Design decisions (the user's calls, grounded in P1/P3 faithful/agnostic emission):**
+- **Hybrid raw + mechanical tag, not pre-classified buckets.** Each formula carries its full raw RPN op list
+  + output URL, plus an `EDsonFormulaTarget` tag derived *only* from the output-URL `?property` (MorphValue /
+  BoneCenterPoint / BoneEndPoint / Other). The importer never sorts into ERC/JCM/dial arrays — that taxonomy
+  is the consumer's; nothing is dropped or interpreted.
+- **`BoundMorphTargetName` binds the formula's CARRIER modifier, not its output target.** For a JCM the carrier
+  IS the delta-bearing morph → binds its `UMorphTarget`; for ERC/control carriers (no morph) it stays empty.
+  Binding the output would be confused by ERC (bone channel) and adds nothing for JCMs.
+- **RigPoints stay RAW DAZ (not UE-flipped).** The whole formula block is DAZ-space (ops, Vals, channel names);
+  a consumer evaluates in DAZ and flips the *result* as a unit. A UE-flipped base + DAZ-space delta is incoherent.
+- **Scope = scene.modifiers + body figure modifier_library only** (no transitive external crawl). JCMs live in
+  the figure modifier_library, so both passes are required to deliver the "JCM" half.
+
+**Process / verification.** Two-phase file-based handoff — Implementer wrote a `Status: design-review` feedback
+first (confirmed JCM sourcing from the figure modifier_library, the carrier bind, raw-DAZ, ~350–600 figure
+formulas est.), Director reviewed from disk and signed off in the task-file, then Phase 2 coded. Director
+**independently build-verified**: a forced full-module recompile (touch the changed TUs first — UBT otherwise
+returns an "up to date" no-op, since the Implementer had already built), 18 actions, `DsonParserAbiCheck` +
+`DsonRecipeBuilder` + UHT clean, 0 warnings; squash-merged to `main` (18f6c56). **Runtime population NOT yet
+confirmed** — `[recipe-shape]` formula/rigpoint counts on a Nancy editor import are the merge-then-measure
+check; Roadmap marks Slice 5 "wired, runtime-pending" (Slice-3/4 discipline: don't assert runtime before the
+import). **Deferred (P4):** HD, preset/variant option sets.
