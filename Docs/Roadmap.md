@@ -248,7 +248,7 @@ check path-reconstructing consumers; rationale → `DecisionLog.md`.
 | 1 | v1.1.0 · 2026-06-10 | Manifest (source id, skeleton/mesh refs), companion slot tags, per-surface LIE recipe (raw layers + compositing metadata) |
 | 2 | v1.2.0 · 2026-06-11 | Dial weights (`DialWeights[]` — raw channel value + range, bound UE morph-target name), pre-baked LIE marker (`bImporterPreBaked` + `BakedComposite`) |
 
-Remaining: ERC/JCM deltas. Deferred (P4): HD, preset/variant sets.
+Remaining: ERC/JCM deltas; **dial-weight join** broadened to external morph DSFs (figure-DSF-only today — pending Nancy `[recipe-shape]` numbers; see `DecisionLog.md`). Deferred (P4): HD, preset/variant sets.
 Per-item triage and slicing history → `DecisionLog.md`.
 
 ## Next up

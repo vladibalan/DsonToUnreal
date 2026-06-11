@@ -1074,3 +1074,22 @@ an aligned `FDsonImportResult::CompanionSlots` pushed in lockstep with each succ
 diff build-verified (DsonHostEditor, 13-action recompile, 0 warnings/0 errors). **Remaining slices:**
 shape block (dial weights, ERC follow, JCM) + pre-baked marker — all importer-side (parser already
 exposes; no further parser FR needed).
+
+**Update (2026-06-11) — Slice 2 landed (DsonToUnreal v1.2.0).** Added `DialWeights[]` to
+`UDsonAssetRecipe` (per-morph raw scene.modifier channel value + min/max/clamped + the bound UE
+morph-target name via the now-shared `DsonImportUtils::ReadMorphObjectName`, R4) and a pre-baked LIE
+marker on `FDsonLieSurface` (`bImporterPreBaked` + `BakedComposite`), set **only** for the N>=2
+composites the importer actually baked — recorded by plumbing the texture importer's baked-composite
+set through `FDsonImportResult` (not re-derived; same `UrlDecode(#fragment)` ImageId key on both
+sides). Bound the scene-modifier channel accessors + `GetMorphId` as R2 X-macro rows; added the
+always-on `[recipe-shape]` diagnostic. Additive/permissive (R7); Director-built (DsonHostEditor up to
+date, exit 0). **Known limitation carried into Slice 3 (instrumented, not silent):** the dial-weight
+join maps scene.modifier ids against **figure-DSF morphs only**, while morph targets import from the
+figure DSF **plus external morph DSFs** (`DsonMorphBuilder::LoadFormulaReachableMorphDocuments`) — so
+externally-defined dials (likely a G9 HID's character-defining dials) are counted `uncorrelated` and
+omitted. Surfaced by the `[recipe-shape]` correlated/uncorrelated counts. Director review + the user
+chose **merge-then-measure**: run a Nancy import, read the counts, then broaden the morphId→name map
+to the external-DSF set (mirroring the morph builder's discovery) in the **ERC/JCM slice**, which also
+removes a now-dead `ObjectTools.h` include left in `DsonMorphBuilder.cpp` by the helper extraction.
+**Schema + pre-baked marker + diagnostic are complete; only the dial-weight join completeness is
+pending Nancy numbers.**
