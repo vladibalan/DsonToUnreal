@@ -13,15 +13,15 @@
 #include "Engine/SkeletalMesh.h"
 #include "Misc/Paths.h"
 
-static FString S(const char* Raw) { return DsonImportUtils::FromUtf8(Raw); }
+using DsonImportUtils::FromUtf8;
 
 // Reads all 14 compositing fields for one per-image layer (image_library family).
 static FDsonLieLayer ReadImageLayer(DsonDocumentHandle Doc, int32 ImageIdx, int32 LayerIdx)
 {
     FDsonLieLayer L;
-    // R3: each string accessor result copied via S() before the next parser call
-    L.TexturePath = S(GDsonParser.GetImageLayerTexturePath ? GDsonParser.GetImageLayerTexturePath(Doc, ImageIdx, LayerIdx) : nullptr);
-    L.BlendMode   = S(GDsonParser.GetImageLayerBlendMode   ? GDsonParser.GetImageLayerBlendMode  (Doc, ImageIdx, LayerIdx) : nullptr);
+    // R3: each string accessor result copied via FromUtf8() before the next parser call
+    L.TexturePath = FromUtf8(GDsonParser.GetImageLayerTexturePath ? GDsonParser.GetImageLayerTexturePath(Doc, ImageIdx, LayerIdx) : nullptr);
+    L.BlendMode   = FromUtf8(GDsonParser.GetImageLayerBlendMode   ? GDsonParser.GetImageLayerBlendMode  (Doc, ImageIdx, LayerIdx) : nullptr);
     L.Opacity  = static_cast<float>(GDsonParser.GetImageLayerOpacity  ? GDsonParser.GetImageLayerOpacity (Doc, ImageIdx, LayerIdx) : 1.0);
     L.bActive  = GDsonParser.GetImageLayerActive  ? GDsonParser.GetImageLayerActive (Doc, ImageIdx, LayerIdx) : false;
     L.bInvert  = GDsonParser.GetImageLayerInvert  ? GDsonParser.GetImageLayerInvert (Doc, ImageIdx, LayerIdx) : false;
@@ -42,8 +42,8 @@ static FDsonLieLayer ReadImageLayer(DsonDocumentHandle Doc, int32 ImageIdx, int3
 static FDsonLieLayer ReadChannelLayer(uint64_t H, int32 MatIdx, int32 ChanIdx, int32 LayerIdx)
 {
     FDsonLieLayer L;
-    L.TexturePath = S(GDsonParser.GetSceneMaterialChannelLayerTexturePath ? GDsonParser.GetSceneMaterialChannelLayerTexturePath(H, MatIdx, ChanIdx, LayerIdx) : nullptr);
-    L.BlendMode   = S(GDsonParser.GetSceneMaterialChannelLayerBlendMode   ? GDsonParser.GetSceneMaterialChannelLayerBlendMode  (H, MatIdx, ChanIdx, LayerIdx) : nullptr);
+    L.TexturePath = FromUtf8(GDsonParser.GetSceneMaterialChannelLayerTexturePath ? GDsonParser.GetSceneMaterialChannelLayerTexturePath(H, MatIdx, ChanIdx, LayerIdx) : nullptr);
+    L.BlendMode   = FromUtf8(GDsonParser.GetSceneMaterialChannelLayerBlendMode   ? GDsonParser.GetSceneMaterialChannelLayerBlendMode  (H, MatIdx, ChanIdx, LayerIdx) : nullptr);
     L.Opacity  = static_cast<float>(GDsonParser.GetSceneMaterialChannelLayerOpacity  ? GDsonParser.GetSceneMaterialChannelLayerOpacity (H, MatIdx, ChanIdx, LayerIdx) : 1.0);
     L.bActive  = GDsonParser.GetSceneMaterialChannelLayerActive  ? GDsonParser.GetSceneMaterialChannelLayerActive (H, MatIdx, ChanIdx, LayerIdx) : false;
     L.bInvert  = GDsonParser.GetSceneMaterialChannelLayerInvert  ? GDsonParser.GetSceneMaterialChannelLayerInvert (H, MatIdx, ChanIdx, LayerIdx) : false;
@@ -73,7 +73,7 @@ static TMap<FString, FString> BuildMorphIdToNameMap(uint64_t DsonHandle)
     for (int32 m = 0; m < MorphCount; ++m)
     {
         // R3: copy id before the next parser call
-        const FString MorphId = S(GDsonParser.GetMorphId(DsonHandle, m));
+        const FString MorphId = FromUtf8(GDsonParser.GetMorphId(DsonHandle, m));
         if (MorphId.IsEmpty())
             continue;
         const FString MorphName = DsonImportUtils::ReadMorphObjectName(DsonHandle, m);
@@ -103,10 +103,10 @@ static void AppendLieSurfaces(
             ? GDsonParser.GetSceneMaterialGroupCount(H, mi) : 0;
         // R3: copy group name before next parser call
         const FString GroupName = (GroupCount > 0 && GDsonParser.GetSceneMaterialGroupName)
-            ? S(GDsonParser.GetSceneMaterialGroupName(H, mi, 0))
+            ? FromUtf8(GDsonParser.GetSceneMaterialGroupName(H, mi, 0))
             : FString();
         // R3: copy scene mat id before next parser call
-        const FString SceneMatId = S(GDsonParser.GetSceneMaterialId
+        const FString SceneMatId = FromUtf8(GDsonParser.GetSceneMaterialId
             ? GDsonParser.GetSceneMaterialId(H, mi) : nullptr);
 
         TSet<FString> EmittedChannels;
@@ -117,7 +117,7 @@ static void AppendLieSurfaces(
         for (int32 ci = 0; ci < ChanCount; ++ci)
         {
             // R3: copy channel id before next parser call
-            const FString ChannelId = S(GDsonParser.GetSceneMaterialChannelId
+            const FString ChannelId = FromUtf8(GDsonParser.GetSceneMaterialChannelId
                 ? GDsonParser.GetSceneMaterialChannelId(H, mi, ci) : nullptr);
 
             // Bounds-check LayerCount before reading Opacity (sentinel 0.0 / ScaleX 1.0 hazard)
@@ -141,7 +141,7 @@ static void AppendLieSurfaces(
 
             // No inline layers — check for #fragment image URL (Nancy head diffuse/SSS case)
             // R3: copy image URL before next parser call
-            const FString ImageUrl = S(GDsonParser.GetSceneMaterialChannelImageUrl
+            const FString ImageUrl = FromUtf8(GDsonParser.GetSceneMaterialChannelImageUrl
                 ? GDsonParser.GetSceneMaterialChannelImageUrl(H, mi, ci) : nullptr);
             if (!ImageUrl.StartsWith(TEXT("#")))
                 continue;
@@ -190,7 +190,7 @@ static void AppendLieSurfaces(
         for (int32 ai = 0; ai < AnimCount; ++ai)
         {
             // R3: copy URL before next parser call
-            const FString AnimUrl = S(GDsonParser.GetSceneAnimationUrl
+            const FString AnimUrl = FromUtf8(GDsonParser.GetSceneAnimationUrl
                 ? GDsonParser.GetSceneAnimationUrl(Doc, ai) : nullptr);
             if (AnimUrl.IsEmpty())
                 continue;
@@ -222,7 +222,7 @@ static void AppendLieSurfaces(
                 continue;
 
             // R3: copy string value before next parser call
-            const FString FragmentRef = S(GDsonParser.GetSceneAnimationString
+            const FString FragmentRef = FromUtf8(GDsonParser.GetSceneAnimationString
                 ? GDsonParser.GetSceneAnimationString(Doc, ai) : nullptr);
             if (!FragmentRef.StartsWith(TEXT("#")))
             {
@@ -290,22 +290,22 @@ static EDsonFormulaTarget ClassifyOutputUrl(const FString& OutputUrl)
 // bIsScene selects the scene-modifier vs. modifier-library accessor family (R7: all optional exports
 // guarded). Caller fills SourceModifierId, SourceModifierName, bFromSceneModifier,
 // BoundMorphTargetName, and SourceValue.
-// R3: every const char* copied via S() before the next parser call.
+// R3: every const char* copied via FromUtf8() before the next parser call.
 static FDsonFormula ReadOneFormula(uint64_t Handle, int32 ModIdx, int32 FormulaIdx, bool bIsScene)
 {
     FDsonFormula F;
     if (bIsScene)
     {
-        F.OutputUrl = S(GDsonParser.GetSceneModifierFormulaOutput
+        F.OutputUrl = FromUtf8(GDsonParser.GetSceneModifierFormulaOutput
             ? GDsonParser.GetSceneModifierFormulaOutput(Handle, ModIdx, FormulaIdx) : nullptr);
-        F.Stage     = S(GDsonParser.GetSceneModifierFormulaStage
+        F.Stage     = FromUtf8(GDsonParser.GetSceneModifierFormulaStage
             ? GDsonParser.GetSceneModifierFormulaStage(Handle, ModIdx, FormulaIdx) : nullptr);
     }
     else
     {
-        F.OutputUrl = S(GDsonParser.GetModifierFormulaOutput
+        F.OutputUrl = FromUtf8(GDsonParser.GetModifierFormulaOutput
             ? GDsonParser.GetModifierFormulaOutput(Handle, ModIdx, FormulaIdx) : nullptr);
-        F.Stage     = S(GDsonParser.GetModifierFormulaStage
+        F.Stage     = FromUtf8(GDsonParser.GetModifierFormulaStage
             ? GDsonParser.GetModifierFormulaStage(Handle, ModIdx, FormulaIdx) : nullptr);
     }
     F.OutputTarget = ClassifyOutputUrl(F.OutputUrl);
@@ -322,20 +322,20 @@ static FDsonFormula ReadOneFormula(uint64_t Handle, int32 ModIdx, int32 FormulaI
         // R3: copy each string before the next parser call; Val is double (no lifetime concern)
         if (bIsScene)
         {
-            Op.Op  = S(GDsonParser.GetSceneModifierFormulaOperationOp
+            Op.Op  = FromUtf8(GDsonParser.GetSceneModifierFormulaOperationOp
                 ? GDsonParser.GetSceneModifierFormulaOperationOp (Handle, ModIdx, FormulaIdx, oi) : nullptr);
             Op.Val = GDsonParser.GetSceneModifierFormulaOperationVal
                 ? GDsonParser.GetSceneModifierFormulaOperationVal(Handle, ModIdx, FormulaIdx, oi) : 0.0;
-            Op.Url = S(GDsonParser.GetSceneModifierFormulaOperationUrl
+            Op.Url = FromUtf8(GDsonParser.GetSceneModifierFormulaOperationUrl
                 ? GDsonParser.GetSceneModifierFormulaOperationUrl(Handle, ModIdx, FormulaIdx, oi) : nullptr);
         }
         else
         {
-            Op.Op  = S(GDsonParser.GetModifierFormulaOperationOp
+            Op.Op  = FromUtf8(GDsonParser.GetModifierFormulaOperationOp
                 ? GDsonParser.GetModifierFormulaOperationOp (Handle, ModIdx, FormulaIdx, oi) : nullptr);
             Op.Val = GDsonParser.GetModifierFormulaOperationVal
                 ? GDsonParser.GetModifierFormulaOperationVal(Handle, ModIdx, FormulaIdx, oi) : 0.0;
-            Op.Url = S(GDsonParser.GetModifierFormulaOperationUrl
+            Op.Url = FromUtf8(GDsonParser.GetModifierFormulaOperationUrl
                 ? GDsonParser.GetModifierFormulaOperationUrl(Handle, ModIdx, FormulaIdx, oi) : nullptr);
         }
         F.Operations.Add(MoveTemp(Op));
@@ -344,7 +344,7 @@ static FDsonFormula ReadOneFormula(uint64_t Handle, int32 ModIdx, int32 FormulaI
 }
 
 // Linear scan for a node by id in a document's node_library. Returns INDEX_NONE if not found.
-// R3: S() copies each transient id string before the next GetNodeId call.
+// R3: FromUtf8() copies each transient id string before the next GetNodeId call.
 static int32 FindNodeByIdLinear(uint64_t DsonHandle, const FString& NodeId)
 {
     if (!GDsonParser.GetNodeCount || !GDsonParser.GetNodeId)
@@ -352,7 +352,7 @@ static int32 FindNodeByIdLinear(uint64_t DsonHandle, const FString& NodeId)
     const int32 Count = GDsonParser.GetNodeCount(DsonHandle);
     for (int32 i = 0; i < Count; ++i)
     {
-        if (S(GDsonParser.GetNodeId(DsonHandle, i)) == NodeId)
+        if (FromUtf8(GDsonParser.GetNodeId(DsonHandle, i)) == NodeId)
             return i;
     }
     return INDEX_NONE;
@@ -362,7 +362,7 @@ static int32 FindNodeByIdLinear(uint64_t DsonHandle, const FString& NodeId)
 // bFromSceneModifier: true for externally-referenced DSFs; false for the base figure DSF.
 // ModifierIdToDialValue: scene dial value map; only used when bFromSceneModifier==true.
 // EmittedKeys: dedup set keyed by "ModifierId|OutputUrl|Stage"; shared across all passes.
-// R3: all parser strings copied via S() before the next parser call.
+// R3: all parser strings copied via FromUtf8() before the next parser call.
 // R4: single copy of the modifier_library emit loop — do not inline a second copy.
 // R7: missing optional exports return early; open handles are caller-managed (permissive).
 static void AppendModifierLibraryFormulas(
@@ -387,9 +387,9 @@ static void AppendModifierLibraryFormulas(
             continue;
 
         // R3: copy id and name before any further parser calls
-        const FString ModId   = S(GDsonParser.GetModifierId
+        const FString ModId   = FromUtf8(GDsonParser.GetModifierId
             ? GDsonParser.GetModifierId  (Handle, mi) : nullptr);
-        const FString ModName = S(GDsonParser.GetModifierName
+        const FString ModName = FromUtf8(GDsonParser.GetModifierName
             ? GDsonParser.GetModifierName(Handle, mi) : nullptr);
 
         FString BoundName;
@@ -458,8 +458,8 @@ void FDsonRecipeBuilder::Build(const FDsonImportResult& Result)
     UDsonAssetRecipe* Recipe = NewObject<UDsonAssetRecipe>(Package, *RecipeName, RF_Public | RF_Standalone);
 
     // --- Manifest ---
-    // R3: GetAssetId returns const char*, copy immediately via S()
-    Recipe->SourceId = S(GDsonParser.GetAssetId ? GDsonParser.GetAssetId(Doc) : nullptr);
+    // R3: GetAssetId returns const char*, copy immediately via FromUtf8()
+    Recipe->SourceId = FromUtf8(GDsonParser.GetAssetId ? GDsonParser.GetAssetId(Doc) : nullptr);
     Recipe->CharacterName = Settings.CharacterName;
     if (Result.Skeleton)
         Recipe->Skeleton = Result.Skeleton;
@@ -532,7 +532,7 @@ void FDsonRecipeBuilder::Build(const FDsonImportResult& Result)
         for (int32 si = 0; si < DiagTotalModifiers; ++si)
         {
             // R3: copy URL before next parser call
-            const FString Url = S(GDsonParser.GetSceneModifierUrl(H, si));
+            const FString Url = FromUtf8(GDsonParser.GetSceneModifierUrl(H, si));
 
             const float Value = static_cast<float>(
                 GDsonParser.GetSceneModifierChannelValue(H, si));
@@ -650,7 +650,7 @@ void FDsonRecipeBuilder::Build(const FDsonImportResult& Result)
                 continue;
 
             // R3: copy URL before next parser call
-            const FString Url = S(GDsonParser.GetSceneModifierUrl(H, si));
+            const FString Url = FromUtf8(GDsonParser.GetSceneModifierUrl(H, si));
 
             // Need #fragment for SourceModifierId
             int32 HashIdx = INDEX_NONE;
@@ -796,7 +796,7 @@ void FDsonRecipeBuilder::Build(const FDsonImportResult& Result)
             }
 
             // R3: copy NodeName before any further parser calls
-            const FString NodeName = S(GDsonParser.GetNodeName
+            const FString NodeName = FromUtf8(GDsonParser.GetNodeName
                 ? GDsonParser.GetNodeName(NodeHandle, NodeIdx) : nullptr);
             if (EmittedNodeNames.Contains(NodeName))
                 continue;

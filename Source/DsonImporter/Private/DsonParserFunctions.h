@@ -23,10 +23,10 @@ typedef void* DsonDocumentHandle;
  * else) is preserved deliberately.
  */
 #define DSON_PARSER_API_LIST(X) \
-    /* Core lifecycle + asset/scene basics (required) */ \
+    /* Core lifecycle + asset/scene basics */ \
     X(1, DsonDocumentHandle, Create,                    DsonDocument_Create,                    ()) \
     X(1, void,               Destroy,                   DsonDocument_Destroy,                   (DsonDocumentHandle)) \
-    X(1, int,                LoadFromString,            DsonDocument_LoadFromString,            (DsonDocumentHandle, const char*)) \
+    X(0, int,                LoadFromString,            DsonDocument_LoadFromString,            (DsonDocumentHandle, const char*)) /* optional: unused; LoadFromBuffer is the loader (gzip auto-detect) */ \
     X(1, int,                LoadFromBuffer,            DsonDocument_LoadFromBuffer,            (DsonDocumentHandle, const char*, int)) \
     X(1, const char*,        GetLastError,              DsonParser_GetLastError,                ()) \
     X(1, const char*,        GetAssetType,              DsonDocument_GetAssetType,              (DsonDocumentHandle)) \

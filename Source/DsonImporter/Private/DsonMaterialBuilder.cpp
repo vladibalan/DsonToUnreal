@@ -269,12 +269,7 @@ static EDsonSurfaceClass ClassifySurfaceGroup(const FString& GroupName)
     return EDsonSurfaceClass::Unknown;
 }
 
-// ---------------------------------------------------------------------------
-// Helper: nullable const char* -> FString (same pattern as the diagnostic)
-// ---------------------------------------------------------------------------
-
-// Short local alias for the shared nullable-utf8 -> FString helper (used heavily below).
-static FString S(const char* Raw) { return DsonImportUtils::FromUtf8(Raw); }
+using DsonImportUtils::FromUtf8;
 
 static FString BuildLayerTextureSuffix(const FString& LayerLabel, int32 LayerIdx)
 {
@@ -287,9 +282,9 @@ static FString BuildLayerTextureSuffix(const FString& LayerLabel, int32 LayerIdx
 
 static FString ReadSceneMaterialChannelTextureRef(uint64_t DsonHandle, int32 SceneMatIdx, int32 ChannelIdx)
 {
-    const FString TexturePath = S(GDsonParser.GetSceneMaterialChannelTexturePath
+    const FString TexturePath = FromUtf8(GDsonParser.GetSceneMaterialChannelTexturePath
         ? GDsonParser.GetSceneMaterialChannelTexturePath(DsonHandle, SceneMatIdx, ChannelIdx) : nullptr);
-    const FString ImgUrl = S(GDsonParser.GetSceneMaterialChannelImageUrl
+    const FString ImgUrl = FromUtf8(GDsonParser.GetSceneMaterialChannelImageUrl
         ? GDsonParser.GetSceneMaterialChannelImageUrl(DsonHandle, SceneMatIdx, ChannelIdx) : nullptr);
 
     // texture_path is the parser's resolved image_library link (including LIE base);
@@ -300,11 +295,11 @@ static FString ReadSceneMaterialChannelTextureRef(uint64_t DsonHandle, int32 Sce
 static FSceneMaterialMetadata ReadSceneMaterialMetadata(uint64_t DsonHandle, int32 SceneMatIdx)
 {
     FSceneMaterialMetadata Metadata;
-    Metadata.MatId = S(GDsonParser.GetSceneMaterialId
+    Metadata.MatId = FromUtf8(GDsonParser.GetSceneMaterialId
         ? GDsonParser.GetSceneMaterialId(DsonHandle, SceneMatIdx) : nullptr);
-    Metadata.Url = S(GDsonParser.GetSceneMaterialUrl
+    Metadata.Url = FromUtf8(GDsonParser.GetSceneMaterialUrl
         ? GDsonParser.GetSceneMaterialUrl(DsonHandle, SceneMatIdx) : nullptr);
-    Metadata.ShaderType = S(GDsonParser.GetSceneMaterialShaderType
+    Metadata.ShaderType = FromUtf8(GDsonParser.GetSceneMaterialShaderType
         ? GDsonParser.GetSceneMaterialShaderType(DsonHandle, SceneMatIdx) : nullptr);
     return Metadata;
 }
@@ -381,11 +376,11 @@ static void ApplyMaterialChannel(
     if (Binding.TextureParam != NAME_None)
     {
         const FString TexPath = bLib
-            ? S(GDsonParser.GetMaterialChannelTexturePath    ? GDsonParser.GetMaterialChannelTexturePath(H, Mid, c)    : nullptr)
-            : S(GDsonParser.GetSceneMaterialChannelTexturePath ? GDsonParser.GetSceneMaterialChannelTexturePath(H, Mid, c) : nullptr);
+            ? FromUtf8(GDsonParser.GetMaterialChannelTexturePath    ? GDsonParser.GetMaterialChannelTexturePath(H, Mid, c)    : nullptr)
+            : FromUtf8(GDsonParser.GetSceneMaterialChannelTexturePath ? GDsonParser.GetSceneMaterialChannelTexturePath(H, Mid, c) : nullptr);
         const FString ImgUrl = bLib
-            ? S(GDsonParser.GetMaterialChannelImageUrl    ? GDsonParser.GetMaterialChannelImageUrl(H, Mid, c)    : nullptr)
-            : S(GDsonParser.GetSceneMaterialChannelImageUrl ? GDsonParser.GetSceneMaterialChannelImageUrl(H, Mid, c) : nullptr);
+            ? FromUtf8(GDsonParser.GetMaterialChannelImageUrl    ? GDsonParser.GetMaterialChannelImageUrl(H, Mid, c)    : nullptr)
+            : FromUtf8(GDsonParser.GetSceneMaterialChannelImageUrl ? GDsonParser.GetSceneMaterialChannelImageUrl(H, Mid, c) : nullptr);
         const FString TextureRef = !TexPath.IsEmpty() ? TexPath : ImgUrl;
         if (!TextureRef.IsEmpty())
         {
@@ -421,8 +416,8 @@ static void ApplyMappedMaterialChannels(
     for (int32 c = 0; c < ChCount; ++c)
     {
         const FString ChId = bLib
-            ? S(GDsonParser.GetMaterialChannelId      ? GDsonParser.GetMaterialChannelId(H, Mid, c)      : nullptr)
-            : S(GDsonParser.GetSceneMaterialChannelId ? GDsonParser.GetSceneMaterialChannelId(H, Mid, c) : nullptr);
+            ? FromUtf8(GDsonParser.GetMaterialChannelId      ? GDsonParser.GetMaterialChannelId(H, Mid, c)      : nullptr)
+            : FromUtf8(GDsonParser.GetSceneMaterialChannelId ? GDsonParser.GetSceneMaterialChannelId(H, Mid, c) : nullptr);
 
         const FDazParamBinding* Binding = Mapping.Find(ChId);
         if (!Binding)
@@ -446,7 +441,7 @@ static FDazChannelInfo FindSceneMaterialChannelById(
 
     for (int32 c = 0; c < ChCount; ++c)
     {
-        const FString ChId = S(GDsonParser.GetSceneMaterialChannelId
+        const FString ChId = FromUtf8(GDsonParser.GetSceneMaterialChannelId
             ? GDsonParser.GetSceneMaterialChannelId(DsonHandle, SceneMatIdx, c) : nullptr);
         if (ChId != ChannelId)
             continue;
@@ -475,7 +470,7 @@ static FDazColorChannelInfo FindSceneMaterialColorChannelById(
 
     for (int32 c = 0; c < ChCount; ++c)
     {
-        const FString ChId = S(GDsonParser.GetSceneMaterialChannelId
+        const FString ChId = FromUtf8(GDsonParser.GetSceneMaterialChannelId
             ? GDsonParser.GetSceneMaterialChannelId(DsonHandle, SceneMatIdx, c) : nullptr);
         if (ChId != ChannelId)
             continue;
@@ -605,7 +600,7 @@ static bool ReadFirstSceneMaterialGroupName(
     if (GroupCount == 0 || !NameRaw)
         return false;
 
-    OutGroupName = S(NameRaw);
+    OutGroupName = FromUtf8(NameRaw);
     return true;
 }
 
@@ -645,7 +640,7 @@ static FDazChannelSource ResolveChannelSource(uint64_t H, int32 SceneMatIdx, con
     const int32 MatCount = GDsonParser.GetMaterialCount ? GDsonParser.GetMaterialCount(H) : 0;
     for (int32 i = 0; i < MatCount; ++i)
     {
-        const FString LibId = S(GDsonParser.GetMaterialId ? GDsonParser.GetMaterialId(H, i) : nullptr);
+        const FString LibId = FromUtf8(GDsonParser.GetMaterialId ? GDsonParser.GetMaterialId(H, i) : nullptr);
         if (LibId == FragmentId)
             return { true, i };
     }
@@ -686,7 +681,7 @@ static void ApplySceneAnimationOverrides(
     for (int32 i = 0; i < AnimCount; ++i)
     {
         // R3: copy const char* to FString before the next parser call
-        const FString UrlStr = S(GDsonParser.GetSceneAnimationUrl
+        const FString UrlStr = FromUtf8(GDsonParser.GetSceneAnimationUrl
             ? GDsonParser.GetSceneAnimationUrl(Doc, i) : nullptr);
         if (UrlStr.IsEmpty())
             continue;
@@ -717,7 +712,7 @@ static void ApplySceneAnimationOverrides(
             if (Binding->TextureParam != NAME_None && ValueKind == 3)
             {
                 // R3: copy string result before next parser call
-                const FString TextureRef = S(GDsonParser.GetSceneAnimationString
+                const FString TextureRef = FromUtf8(GDsonParser.GetSceneAnimationString
                     ? GDsonParser.GetSceneAnimationString(Doc, i) : nullptr);
                 if (!TextureRef.IsEmpty())
                 {
@@ -740,7 +735,7 @@ static void ApplySceneAnimationOverrides(
             if (Binding->TextureParam != NAME_None && ValueKind == 3)
             {
                 // R3: copy string before next parser call
-                const FString ImageRef = S(GDsonParser.GetSceneAnimationString
+                const FString ImageRef = FromUtf8(GDsonParser.GetSceneAnimationString
                     ? GDsonParser.GetSceneAnimationString(Doc, i) : nullptr);
                 if (!ImageRef.IsEmpty())
                 {
@@ -769,7 +764,7 @@ static void ApplySceneAnimationOverrides(
                             for (int32 k = 0; k < LayerCount; ++k)
                             {
                                 // R3: copy each path before the next parser call
-                                LayerPaths.Add(S(GDsonParser.GetImageLayerTexturePath
+                                LayerPaths.Add(FromUtf8(GDsonParser.GetImageLayerTexturePath
                                     ? GDsonParser.GetImageLayerTexturePath(Doc, ImageIndex, k) : nullptr));
                             }
                             Tex = TextureImporter.CompositeImageLayers(LayerPaths, ImageId, Binding->bSRGB, CanvasW, CanvasH);
@@ -940,7 +935,7 @@ void FDsonMaterialBuilder::ImportStandaloneChannelTextures(
 
     for (int32 c = 0; c < ChCount; ++c)
     {
-        const FString ChId = S(GDsonParser.GetSceneMaterialChannelId
+        const FString ChId = FromUtf8(GDsonParser.GetSceneMaterialChannelId
             ? GDsonParser.GetSceneMaterialChannelId(DsonHandle, SceneMatIdx, c) : nullptr);
 
         if (GetStandaloneImageChannelIds().Contains(ChId))
@@ -957,12 +952,12 @@ void FDsonMaterialBuilder::ImportStandaloneChannelTextures(
 
         for (int32 LayerIdx = 1; LayerIdx < LayerCount; ++LayerIdx)
         {
-            const FString LayerPath = S(GDsonParser.GetSceneMaterialChannelLayerTexturePath(
+            const FString LayerPath = FromUtf8(GDsonParser.GetSceneMaterialChannelLayerTexturePath(
                 DsonHandle, SceneMatIdx, c, LayerIdx));
             if (LayerPath.IsEmpty())
                 continue;
 
-            const FString LayerLabel = S(GDsonParser.GetSceneMaterialChannelLayerLabel
+            const FString LayerLabel = FromUtf8(GDsonParser.GetSceneMaterialChannelLayerLabel
                 ? GDsonParser.GetSceneMaterialChannelLayerLabel(DsonHandle, SceneMatIdx, c, LayerIdx) : nullptr);
 
             // Parser exposes no per-layer colorspace; makeup and LIE overlays are treated as color-domain.
@@ -1252,7 +1247,7 @@ void FDsonMaterialBuilder::BuildAllSceneMaterials(
 
         if (!bHasGroupName)
         {
-            FString SceneId = S(GDsonParser.GetSceneMaterialId
+            FString SceneId = FromUtf8(GDsonParser.GetSceneMaterialId
                 ? GDsonParser.GetSceneMaterialId(H, i) : nullptr);
             UE_LOG(LogDsonImporter, Warning,
                 TEXT("[mat] scene material '%s' has no mappable group - MIC built but not wired"), *SceneId);

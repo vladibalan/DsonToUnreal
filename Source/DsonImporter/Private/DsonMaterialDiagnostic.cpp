@@ -18,10 +18,7 @@
 // Helpers
 // ---------------------------------------------------------------------------
 
-// Short local alias for the shared nullable-utf8 -> FString helper (used heavily below).
-// The caller must not make further parser calls between obtaining the raw pointer and
-// passing it here - see the "immediate conversion" rule in the hard rules.
-static FString S(const char* Raw) { return DsonImportUtils::FromUtf8(Raw); }
+using DsonImportUtils::FromUtf8;
 
 static bool IsColorChannel(const FString& ChannelId)
 {
@@ -56,9 +53,9 @@ static FSceneMaterialChannelDiagnostic ReadSceneMaterialChannelDiagnostic(
     int32 ChannelIdx)
 {
     FSceneMaterialChannelDiagnostic Channel;
-    Channel.Id = S(GDsonParser.GetSceneMaterialChannelId
+    Channel.Id = FromUtf8(GDsonParser.GetSceneMaterialChannelId
         ? GDsonParser.GetSceneMaterialChannelId(DsonHandle, SceneMatIdx, ChannelIdx) : nullptr);
-    Channel.Type = S(GDsonParser.GetSceneMaterialChannelType
+    Channel.Type = FromUtf8(GDsonParser.GetSceneMaterialChannelType
         ? GDsonParser.GetSceneMaterialChannelType(DsonHandle, SceneMatIdx, ChannelIdx) : nullptr);
     Channel.Value = GDsonParser.GetSceneMaterialChannelValue
         ? GDsonParser.GetSceneMaterialChannelValue(DsonHandle, SceneMatIdx, ChannelIdx) : 0.0;
@@ -70,9 +67,9 @@ static FSceneMaterialChannelDiagnostic ReadSceneMaterialChannelDiagnostic(
         ? GDsonParser.GetSceneMaterialChannelColorG(DsonHandle, SceneMatIdx, ChannelIdx) : 0.0;
     Channel.ColorB = GDsonParser.GetSceneMaterialChannelColorB
         ? GDsonParser.GetSceneMaterialChannelColorB(DsonHandle, SceneMatIdx, ChannelIdx) : 0.0;
-    Channel.ImageUrl = S(GDsonParser.GetSceneMaterialChannelImageUrl
+    Channel.ImageUrl = FromUtf8(GDsonParser.GetSceneMaterialChannelImageUrl
         ? GDsonParser.GetSceneMaterialChannelImageUrl(DsonHandle, SceneMatIdx, ChannelIdx) : nullptr);
-    Channel.TexturePath = S(GDsonParser.GetSceneMaterialChannelTexturePath
+    Channel.TexturePath = FromUtf8(GDsonParser.GetSceneMaterialChannelTexturePath
         ? GDsonParser.GetSceneMaterialChannelTexturePath(DsonHandle, SceneMatIdx, ChannelIdx) : nullptr);
     return Channel;
 }
@@ -87,7 +84,7 @@ static TArray<FString> ReadLibraryMaterialGroups(uint64_t DsonHandle, int32 Mate
 
     for (int32 g = 0; g < GroupCount; ++g)
     {
-        Groups.Add(S(GDsonParser.GetMaterialGroupName
+        Groups.Add(FromUtf8(GDsonParser.GetMaterialGroupName
             ? GDsonParser.GetMaterialGroupName(DsonHandle, MaterialIdx, g) : nullptr));
     }
 
@@ -104,7 +101,7 @@ static TArray<FString> ReadSceneMaterialGroups(uint64_t DsonHandle, int32 SceneM
 
     for (int32 g = 0; g < GroupCount; ++g)
     {
-        Groups.Add(S(GDsonParser.GetSceneMaterialGroupName
+        Groups.Add(FromUtf8(GDsonParser.GetSceneMaterialGroupName
             ? GDsonParser.GetSceneMaterialGroupName(DsonHandle, SceneMatIdx, g) : nullptr));
     }
 
@@ -135,7 +132,7 @@ static void DumpOneFile(const FString& FilePath, const FDsonImportSettings& Sett
     const uint64_t H = reinterpret_cast<uint64_t>(Handle);
 
     // Header
-    FString AssetTypeStr = S(GDsonParser.GetAssetType ? GDsonParser.GetAssetType(Handle) : nullptr);
+    FString AssetTypeStr = FromUtf8(GDsonParser.GetAssetType ? GDsonParser.GetAssetType(Handle) : nullptr);
 
     UE_LOG(LogDsonImporter, Log, TEXT("=== DSON Material Diagnostic ==="));
     UE_LOG(LogDsonImporter, Log, TEXT("File: %s"), *FilePath);
@@ -150,12 +147,12 @@ static void DumpOneFile(const FString& FilePath, const FDsonImportSettings& Sett
     for (int32 i = 0; i < MatCount; ++i)
     {
         // Each const char* is converted to FString before the next parser call
-        FString MatId      = S(GDsonParser.GetMaterialId         ? GDsonParser.GetMaterialId(H, i)         : nullptr);
-        FString MatName    = S(GDsonParser.GetMaterialName       ? GDsonParser.GetMaterialName(H, i)       : nullptr);
-        FString MatType    = S(GDsonParser.GetMaterialType       ? GDsonParser.GetMaterialType(H, i)       : nullptr);
-        FString ShaderType = S(GDsonParser.GetMaterialShaderType ? GDsonParser.GetMaterialShaderType(H, i) : nullptr);
-        FString GeomId     = S(GDsonParser.GetMaterialGeometryId ? GDsonParser.GetMaterialGeometryId(H, i) : nullptr);
-        FString UVSetId    = S(GDsonParser.GetMaterialUVSetId    ? GDsonParser.GetMaterialUVSetId(H, i)    : nullptr);
+        FString MatId      = FromUtf8(GDsonParser.GetMaterialId         ? GDsonParser.GetMaterialId(H, i)         : nullptr);
+        FString MatName    = FromUtf8(GDsonParser.GetMaterialName       ? GDsonParser.GetMaterialName(H, i)       : nullptr);
+        FString MatType    = FromUtf8(GDsonParser.GetMaterialType       ? GDsonParser.GetMaterialType(H, i)       : nullptr);
+        FString ShaderType = FromUtf8(GDsonParser.GetMaterialShaderType ? GDsonParser.GetMaterialShaderType(H, i) : nullptr);
+        FString GeomId     = FromUtf8(GDsonParser.GetMaterialGeometryId ? GDsonParser.GetMaterialGeometryId(H, i) : nullptr);
+        FString UVSetId    = FromUtf8(GDsonParser.GetMaterialUVSetId    ? GDsonParser.GetMaterialUVSetId(H, i)    : nullptr);
 
         UE_LOG(LogDsonImporter, Log, TEXT("[%d] id=\"%s\" name=\"%s\""), i, *MatId, *MatName);
         UE_LOG(LogDsonImporter, Log, TEXT("    type=\"%s\"  shader_type=\"%s\""), *MatType, *ShaderType);
@@ -169,8 +166,8 @@ static void DumpOneFile(const FString& FilePath, const FDsonImportSettings& Sett
         UE_LOG(LogDsonImporter, Log, TEXT("    Channels (%d):"), ChCount);
         for (int32 c = 0; c < ChCount; ++c)
         {
-            FString ChId   = S(GDsonParser.GetMaterialChannelId   ? GDsonParser.GetMaterialChannelId(H, i, c)   : nullptr);
-            FString ChType = S(GDsonParser.GetMaterialChannelType ? GDsonParser.GetMaterialChannelType(H, i, c) : nullptr);
+            FString ChId   = FromUtf8(GDsonParser.GetMaterialChannelId   ? GDsonParser.GetMaterialChannelId(H, i, c)   : nullptr);
+            FString ChType = FromUtf8(GDsonParser.GetMaterialChannelType ? GDsonParser.GetMaterialChannelType(H, i, c) : nullptr);
             UE_LOG(LogDsonImporter, Log, TEXT("      [%d] id=\"%s\" type=\"%s\""), c, *ChId, *ChType);
         }
     }
@@ -183,13 +180,13 @@ static void DumpOneFile(const FString& FilePath, const FDsonImportSettings& Sett
 
     for (int32 i = 0; i < SceneMatCount; ++i)
     {
-        FString SceneId      = S(GDsonParser.GetSceneMaterialId         ? GDsonParser.GetSceneMaterialId(H, i)         : nullptr);
-        FString SceneName    = S(GDsonParser.GetSceneMaterialName       ? GDsonParser.GetSceneMaterialName(H, i)       : nullptr);
-        FString SceneType    = S(GDsonParser.GetSceneMaterialType       ? GDsonParser.GetSceneMaterialType(H, i)       : nullptr);
-        FString SceneShader  = S(GDsonParser.GetSceneMaterialShaderType ? GDsonParser.GetSceneMaterialShaderType(H, i) : nullptr);
-        FString SceneGeomId  = S(GDsonParser.GetSceneMaterialGeometryId ? GDsonParser.GetSceneMaterialGeometryId(H, i) : nullptr);
-        FString SceneUVSetId = S(GDsonParser.GetSceneMaterialUVSetId    ? GDsonParser.GetSceneMaterialUVSetId(H, i)    : nullptr);
-        FString SceneUrl     = S(GDsonParser.GetSceneMaterialUrl        ? GDsonParser.GetSceneMaterialUrl(H, i)        : nullptr);
+        FString SceneId      = FromUtf8(GDsonParser.GetSceneMaterialId         ? GDsonParser.GetSceneMaterialId(H, i)         : nullptr);
+        FString SceneName    = FromUtf8(GDsonParser.GetSceneMaterialName       ? GDsonParser.GetSceneMaterialName(H, i)       : nullptr);
+        FString SceneType    = FromUtf8(GDsonParser.GetSceneMaterialType       ? GDsonParser.GetSceneMaterialType(H, i)       : nullptr);
+        FString SceneShader  = FromUtf8(GDsonParser.GetSceneMaterialShaderType ? GDsonParser.GetSceneMaterialShaderType(H, i) : nullptr);
+        FString SceneGeomId  = FromUtf8(GDsonParser.GetSceneMaterialGeometryId ? GDsonParser.GetSceneMaterialGeometryId(H, i) : nullptr);
+        FString SceneUVSetId = FromUtf8(GDsonParser.GetSceneMaterialUVSetId    ? GDsonParser.GetSceneMaterialUVSetId(H, i)    : nullptr);
+        FString SceneUrl     = FromUtf8(GDsonParser.GetSceneMaterialUrl        ? GDsonParser.GetSceneMaterialUrl(H, i)        : nullptr);
 
         UE_LOG(LogDsonImporter, Log, TEXT("[%d] id=\"%s\" name=\"%s\""), i, *SceneId, *SceneName);
         UE_LOG(LogDsonImporter, Log, TEXT("    type=\"%s\"  shader_type=\"%s\""), *SceneType, *SceneShader);
