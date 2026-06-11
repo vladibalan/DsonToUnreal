@@ -43,6 +43,9 @@ public:
     int32 GetCacheHitCount()  const { return CacheHitCount;  }
     int32 GetFailureCount()   const { return FailureCount;   }
     const TArray<FString>& GetFailedUrls() const { return FailedUrls; }
+    // Returns the set of image ids that were composited from >=2 layers at import.
+    // Keyed by the image id passed to CompositeImageLayers; populated only for the N>=2 path.
+    const TMap<FString, TObjectPtr<UTexture2D>>& GetPreBakedComposites() const { return PreBakedById; }
 
 private:
     // Derives the content-root-relative subpath from the image URL.
@@ -55,9 +58,10 @@ private:
 
     TArray<FString>                     ContentRoots;
     FString                             CharacterName;
-    TMap<FString, TObjectPtr<UTexture2D>> Cache;          // key: resolved absolute path + sRGB + optional asset suffix
+    TMap<FString, TObjectPtr<UTexture2D>> Cache;            // key: resolved absolute path + sRGB + optional asset suffix
     TMap<FString, TObjectPtr<UTexture2D>> BakedNormalCache; // key: resolved paths + strengths
     TMap<FString, TObjectPtr<UTexture2D>> CompositeCache;   // key: image id + sRGB
+    TMap<FString, TObjectPtr<UTexture2D>> PreBakedById;     // key: image id — N>=2 composites only (not N==1 ImportOrFind)
     int32                               ImportedCount = 0;
     int32                               CacheHitCount = 0;
     int32                               FailureCount  = 0;

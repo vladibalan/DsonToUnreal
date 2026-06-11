@@ -8,6 +8,25 @@ change (`+` added · `~` changed · `-` removed/deprecated · `!` fixed). Scheme
 baseline, and the per-change gate: [`Docs/Versioning.md`](Docs/Versioning.md) and
 [`Docs/CodeReviewRules.md`](Docs/CodeReviewRules.md) R12.
 
+## 1.2.0 — 2026-06-11 · MINOR
+
++ **`FDsonDialWeight`** — new array `UDsonAssetRecipe::DialWeights`. One entry per
+  imported morph target whose corresponding `scene.modifiers` entry exists in the DUF:
+  raw channel value + min/max/clamped range, the DAZ modifier URL, and the sanitized UE
+  morph-target name (`ObjectTools::SanitizeObjectName`, same logic the morph builder
+  uses). Uncorrelated modifiers (external morph DSF, no matching figure-DSF morph id)
+  are silently omitted. Downstream consumers use `BoundMorphTargetName` to look up the
+  already-imported `UMorphTarget` and re-apply the dialed weight.
++ **Pre-baked LIE marker** — `FDsonLieSurface` gains `bImporterPreBaked` + `BakedComposite`.
+  Set for every `#fragment` image channel where the importer alpha-composited ≥2 layers
+  into a single `UTexture2D` at import time. Downstream consumers must NOT re-composite
+  those surfaces from the raw `Layers` — the `BakedComposite` texture is the realized
+  result. N==1 (single-layer) channels are never marked.
+~ **`[recipe-shape]` diagnostic** — emit counts at import: modifiers seen / non-default /
+  correlated / uncorrelated; LIE surfaces baked / raw. Per-entry detail gated on
+  `bDumpMaterialDiagnostics`.
+~ **`UDsonAssetRecipe` comment** updated to reflect Slice 2 contents.
+
 ## 1.1.0 — 2026-06-10 · MINOR
 
 + **`UDsonAssetRecipe`** — new persisted asset emitted under

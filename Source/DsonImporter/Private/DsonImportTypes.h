@@ -1,9 +1,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "UObject/SoftObjectPtr.h"
 
 class USkeletalMesh;
 class USkeleton;
+class UTexture2D;
 
 // Moved here from DsonValidator.h so DsonValidator.h can include DsonImportTypes.h
 // without a circular dependency (DsonImportTypes.h -> DsonValidator.h -> ...).
@@ -47,4 +49,7 @@ struct FDsonImportResult
     TArray<USkeletalMesh*> CompanionMeshes;  // Slice B+: one per successfully-built companion, bound to Skeleton
     TArray<FString>        CompanionSlots;   // 1:1 aligned with CompanionMeshes — same index = same companion
     bool bAbortedBeforeAssetBuild = false;
+    // Slice 2: image ids that were alpha-composited (N>=2 layers) into a single UTexture2D at import.
+    // Populated by FDsonTextureImporter; read by FDsonRecipeBuilder to set bImporterPreBaked markers.
+    TMap<FString, TSoftObjectPtr<UTexture2D>> PreBakedComposites;
 };

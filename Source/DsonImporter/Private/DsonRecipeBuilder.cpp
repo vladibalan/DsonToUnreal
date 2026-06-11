@@ -55,6 +55,30 @@ static FDsonLieLayer ReadChannelLayer(uint64_t H, int32 MatIdx, int32 ChanIdx, i
     return L;
 }
 
+// Builds a map from morphId -> sanitized UE morph-target name for every morph in DsonHandle.
+// Used to correlate DUF scene.modifier URLs to the UMorphTargets that were actually imported.
+// R4: reuses DsonImportUtils::ReadMorphObjectName (same logic the morph builder uses).
+static TMap<FString, FString> BuildMorphIdToNameMap(uint64_t FigureHandle)
+{
+    TMap<FString, FString> IdToName;
+    if (!GDsonParser.GetMorphCount || !GDsonParser.GetMorphId)
+        return IdToName;
+
+    const int32 MorphCount = GDsonParser.GetMorphCount(FigureHandle);
+    IdToName.Reserve(MorphCount);
+    for (int32 m = 0; m < MorphCount; ++m)
+    {
+        // R3: copy id before the next parser call
+        const FString MorphId = S(GDsonParser.GetMorphId(FigureHandle, m));
+        if (MorphId.IsEmpty())
+            continue;
+        const FString MorphName = DsonImportUtils::ReadMorphObjectName(FigureHandle, m);
+        if (!MorphName.IsEmpty())
+            IdToName.Add(MorphId, MorphName);
+    }
+    return IdToName;
+}
+
 void FDsonRecipeBuilder::Build(const FDsonImportResult& Result)
 {
     const FDsonImportSettings& Settings = Result.Settings;
@@ -137,6 +161,7 @@ void FDsonRecipeBuilder::Build(const FDsonImportResult& Result)
                 Surface.Layers.Reserve(InlineCount);
                 for (int32 li = 0; li < InlineCount; ++li)
                     Surface.Layers.Add(ReadChannelLayer(H, mi, ci, li));
+                // Inline channel layers are not composited by the importer — no pre-bake marker.
                 Recipe->LieSurfaces.Add(MoveTemp(Surface));
                 continue;
             }
@@ -169,13 +194,154 @@ void FDsonRecipeBuilder::Build(const FDsonImportResult& Result)
             Surface.Layers.Reserve(ImgLayerCount);
             for (int32 li = 0; li < ImgLayerCount; ++li)
                 Surface.Layers.Add(ReadImageLayer(Doc, ImageIndex, li));
+
+            // R4: do not re-derive the bake decision — record what actually happened (plumbed set).
+            // The image id is the URL-decoded #fragment (same key CompositeImageLayers used).
+            const FString ImageId = FDsonContentRoots::UrlDecode(ImageUrl.Mid(1));
+            if (const TSoftObjectPtr<UTexture2D>* Baked = Result.PreBakedComposites.Find(ImageId))
+            {
+                Surface.bImporterPreBaked = true;
+                Surface.BakedComposite    = *Baked;
+            }
+
             Recipe->LieSurfaces.Add(MoveTemp(Surface));
         }
     }
 
+    // --- Dial weights ---
+    // Enumerate scene.modifiers from the DUF (primary source of dialed values).
+    // Correlate each to an imported morph target by matching the URL fragment (modifier id)
+    // against morphs in the base figure DSF. External-morph-DSF modifiers are skipped
+    // with a warning (permissive, R7) — the diagnostic counts them as uncorrelated.
+    int32 DiagTotalModifiers = 0;
+    int32 DiagNonDefault     = 0;
+    int32 DiagCorrelated     = 0;
+    int32 DiagUncorrelated   = 0;
+
+    const bool bHaveDialAccessors =
+        GDsonParser.GetSceneModifierCount &&
+        GDsonParser.GetSceneModifierUrl   &&
+        GDsonParser.GetSceneModifierChannelValue;
+
+    if (bHaveDialAccessors && !Settings.ResolvedFigureDsfPath.IsEmpty())
+    {
+        // Open figure DSF to build morphId -> UE name map (R3: RAII via FDsonLoadedDocument).
+        FDsonLoadedDocument FigureDocument;
+        if (!FigureDocument.LoadFromFileAsWarning(Settings.ResolvedFigureDsfPath, TEXT("[recipe-dials]")))
+        {
+            UE_LOG(LogDsonImporter, Warning,
+                TEXT("[recipe] '%s': could not open figure DSF for dial-weight correlation; dial weights skipped"),
+                *Settings.CharacterName);
+        }
+        else
+        {
+            const TMap<FString, FString> MorphIdToName =
+                BuildMorphIdToNameMap(FigureDocument.GetHandle64());
+
+            DiagTotalModifiers = GDsonParser.GetSceneModifierCount(H);
+            for (int32 si = 0; si < DiagTotalModifiers; ++si)
+            {
+                // R3: copy URL before next parser call
+                const FString Url = S(GDsonParser.GetSceneModifierUrl(H, si));
+
+                const float Value = static_cast<float>(
+                    GDsonParser.GetSceneModifierChannelValue(H, si));
+                const float Min = static_cast<float>(
+                    GDsonParser.GetSceneModifierChannelMin
+                        ? GDsonParser.GetSceneModifierChannelMin(H, si) : 0.0);
+                const float Max = static_cast<float>(
+                    GDsonParser.GetSceneModifierChannelMax
+                        ? GDsonParser.GetSceneModifierChannelMax(H, si) : 1.0);
+                const bool bClamped =
+                    GDsonParser.GetSceneModifierChannelClamped
+                        ? GDsonParser.GetSceneModifierChannelClamped(H, si) : false;
+
+                if (FMath::Abs(Value) > KINDA_SMALL_NUMBER)
+                    ++DiagNonDefault;
+
+                // Extract modifier id from URL fragment (the part after '#').
+                // e.g. "/data/.../morph.dsf#ctrlFull_Nancy" -> "ctrlFull_Nancy"
+                int32 HashIdx = INDEX_NONE;
+                if (!Url.FindChar(TEXT('#'), HashIdx) || HashIdx + 1 >= Url.Len())
+                {
+                    ++DiagUncorrelated;
+                    continue;
+                }
+                const FString ModifierId = Url.Mid(HashIdx + 1);
+
+                const FString* MorphName = MorphIdToName.Find(ModifierId);
+                if (!MorphName)
+                {
+                    ++DiagUncorrelated;
+                    if (Settings.bDumpMaterialDiagnostics)
+                    {
+                        UE_LOG(LogDsonImporter, Log,
+                            TEXT("[recipe-shape] dial uncorrelated: url='%s' val=%.4f"),
+                            *Url, Value);
+                    }
+                    continue;
+                }
+
+                ++DiagCorrelated;
+
+                FDsonDialWeight DW;
+                DW.BoundMorphTargetName = *MorphName;
+                DW.SourceUrl            = Url;
+                DW.Value                = Value;
+                DW.Min                  = Min;
+                DW.Max                  = Max;
+                DW.bClamped             = bClamped;
+
+                if (Settings.bDumpMaterialDiagnostics)
+                {
+                    UE_LOG(LogDsonImporter, Log,
+                        TEXT("[recipe-shape] dial: morph='%s' id='%s' val=%.4f min=%.4f max=%.4f clamped=%d"),
+                        *DW.BoundMorphTargetName, *ModifierId, DW.Value, DW.Min, DW.Max,
+                        static_cast<int32>(DW.bClamped));
+                }
+
+                Recipe->DialWeights.Add(MoveTemp(DW));
+            }
+        }
+    }
+    else if (!bHaveDialAccessors)
+    {
+        UE_LOG(LogDsonImporter, Verbose,
+            TEXT("[recipe] '%s': scene-modifier channel accessors unavailable; dial weights skipped"),
+            *Settings.CharacterName);
+    }
+
+    // --- Pre-baked marker diagnostic ---
+    int32 DiagBaked = 0;
+    int32 DiagRaw   = 0;
+    for (const FDsonLieSurface& Surface : Recipe->LieSurfaces)
+    {
+        if (Surface.bImporterPreBaked)
+            ++DiagBaked;
+        else
+            ++DiagRaw;
+
+        if (Settings.bDumpMaterialDiagnostics && Surface.bImporterPreBaked)
+        {
+            UE_LOG(LogDsonImporter, Log,
+                TEXT("[recipe-shape] baked LIE: group='%s' channel='%s' path='%s'"),
+                *Surface.MaterialGroupName, *Surface.ChannelId,
+                *Surface.BakedComposite.ToString());
+        }
+    }
+
+    // --- Summary diagnostic (required per step 6) ---
     UE_LOG(LogDsonImporter, Log,
-        TEXT("[recipe] '%s': %d companion slot(s), %d LIE surface(s)"),
-        *Settings.CharacterName, Recipe->CompanionSlots.Num(), Recipe->LieSurfaces.Num());
+        TEXT("[recipe-shape] '%s': modifiers=%d non-default=%d correlated=%d uncorrelated=%d | LIE baked=%d raw=%d | companions=%d"),
+        *Settings.CharacterName,
+        DiagTotalModifiers, DiagNonDefault, DiagCorrelated, DiagUncorrelated,
+        DiagBaked, DiagRaw,
+        Recipe->CompanionSlots.Num());
+
+    UE_LOG(LogDsonImporter, Log,
+        TEXT("[recipe] '%s': %d dial weight(s), %d companion slot(s), %d LIE surface(s)"),
+        *Settings.CharacterName,
+        Recipe->DialWeights.Num(), Recipe->CompanionSlots.Num(), Recipe->LieSurfaces.Num());
 
     FDsonAssetUtils::SaveAssetPackage(Package, Recipe, PackagePath, TEXT("[recipe]"));
 }

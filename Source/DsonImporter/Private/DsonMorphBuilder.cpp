@@ -202,24 +202,6 @@ namespace
         }
     }
 
-    static FString ReadMorphObjectName(uint64_t DsonHandle, int32 MorphIdx)
-    {
-        FString Name = GDsonParser.GetMorphName
-            ? DsonImportUtils::FromUtf8(GDsonParser.GetMorphName(DsonHandle, MorphIdx))
-            : FString();
-        if (Name.IsEmpty() && GDsonParser.GetMorphLabel)
-        {
-            Name = DsonImportUtils::FromUtf8(
-                GDsonParser.GetMorphLabel(DsonHandle, MorphIdx));
-        }
-
-        if (Name.IsEmpty())
-            return FString();
-
-        const FString SanitizedName = ObjectTools::SanitizeObjectName(Name);
-        return SanitizedName.IsEmpty() ? FString() : SanitizedName;
-    }
-
     static bool IsVertexIndexValid(int32 VertexIdx, int32 NumBaseVertices)
     {
         return VertexIdx >= 0 && VertexIdx < NumBaseVertices;
@@ -265,7 +247,7 @@ namespace
         const int32 MorphCount = GDsonParser.GetMorphCount(DsonHandle);
         for (int32 m = 0; m < MorphCount; ++m)
         {
-            const FString MorphName = ReadMorphObjectName(DsonHandle, m);
+            const FString MorphName = DsonImportUtils::ReadMorphObjectName(DsonHandle, m);
             if (MorphName.IsEmpty())
                 continue;
 

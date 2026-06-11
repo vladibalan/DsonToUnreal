@@ -516,6 +516,7 @@ UTexture2D* FDsonTextureImporter::CompositeImageLayers(
         if (Existing && (Existing->SRGB != 0) == bSRGB)
         {
             CompositeCache.Add(CacheKey, Existing);
+            PreBakedById.Add(ImageId, Existing);
             ++CacheHitCount;
             return Existing;
         }
@@ -545,6 +546,7 @@ UTexture2D* FDsonTextureImporter::CompositeImageLayers(
         return nullptr;
 
     CompositeCache.Add(CacheKey, Texture);
+    PreBakedById.Add(ImageId, Texture);
     ++ImportedCount;
 
     UE_LOG(LogDsonImporter, Verbose,

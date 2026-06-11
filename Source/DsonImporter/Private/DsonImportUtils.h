@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "DsonContentRoots.h"     // FDsonContentRoots::UrlDecode
 #include "DsonParserFunctions.h"  // GDsonParser, uint64_t/DsonDocumentHandle
+#include "ObjectTools.h"          // ObjectTools::SanitizeObjectName (for ReadMorphObjectName)
 
 /*
  * Intent:
@@ -115,5 +116,23 @@ namespace DsonImportUtils
                 return i;
         }
         return INDEX_NONE;
+    }
+
+    // Derives the sanitized UE morph-target name for the morph at the given filtered
+    // morphIndex in DsonHandle. Prefers GetMorphName, falls back to GetMorphLabel.
+    // Returns empty string when both are absent or the sanitized result is empty.
+    // Matches the naming used by FDsonMorphBuilder so dial-weight entries bind correctly.
+    inline FString ReadMorphObjectName(uint64_t DsonHandle, int32 MorphIdx)
+    {
+        // R3: copy both strings immediately after each parser call
+        FString Name = GDsonParser.GetMorphName
+            ? FromUtf8(GDsonParser.GetMorphName(DsonHandle, MorphIdx))
+            : FString();
+        if (Name.IsEmpty() && GDsonParser.GetMorphLabel)
+            Name = FromUtf8(GDsonParser.GetMorphLabel(DsonHandle, MorphIdx));
+        if (Name.IsEmpty())
+            return FString();
+        const FString Sanitized = ObjectTools::SanitizeObjectName(Name);
+        return Sanitized.IsEmpty() ? FString() : Sanitized;
     }
 }

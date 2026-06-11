@@ -6,6 +6,7 @@
 
 class USkeletalMesh;
 class USkeleton;
+class UTexture2D;
 
 #include "DsonAssetRecipe.generated.h"
 
@@ -44,6 +45,28 @@ struct DSONIMPORTER_API FDsonLieSurface
     UPROPERTY() FString              MaterialGroupName;  // first polygon group name (surface key)
     UPROPERTY() FString              ChannelId;          // DAZ channel id, e.g. "Diffuse Color"
     UPROPERTY() TArray<FDsonLieLayer> Layers;
+    // Set when the importer alpha-composited a >=2-layer stack into one UTexture2D at import;
+    // BakedComposite points at the saved composite. A downstream consumer must NOT re-composite
+    // this surface from the raw Layers — the baked texture IS the realized result.
+    UPROPERTY() bool                          bImporterPreBaked = false;
+    UPROPERTY() TSoftObjectPtr<UTexture2D>    BakedComposite;
+};
+
+// Dialed weight for one imported morph target: the raw channel value (and range) the
+// DAZ scene carries for this modifier, plus the bound UE morph-target name so a
+// downstream step can re-apply the dial to the already-imported UMorphTarget.
+// Values are raw (P1/P3) — no formula expansion, no composed dialed shape.
+USTRUCT()
+struct DSONIMPORTER_API FDsonDialWeight
+{
+    GENERATED_BODY()
+
+    UPROPERTY() FString BoundMorphTargetName;  // ObjectTools::SanitizeObjectName(MorphName??Label) — matches actual UMorphTarget
+    UPROPERTY() FString SourceUrl;             // scene.modifiers URL (e.g. ".../morph.dsf#ModifierId")
+    UPROPERTY() float   Value    = 0.0f;       // raw dialed channel value from scene.modifiers
+    UPROPERTY() float   Min      = 0.0f;       // channel minimum
+    UPROPERTY() float   Max      = 1.0f;       // channel maximum
+    UPROPERTY() bool    bClamped = false;       // whether channel is clamped to [Min, Max]
 };
 
 // Companion figure slot pairing: the DAZ PostLoadAddons slot path matched to the
@@ -76,4 +99,8 @@ public:
 
     // Per-surface LIE recipe (one entry per channel that has a layer stack > 0)
     UPROPERTY() TArray<FDsonLieSurface>          LieSurfaces;
+
+    // Per-morph dial weights from scene.modifiers (raw, uncomposed; correlated to
+    // imported UMorphTargets by bound name; uncorrelated modifiers are omitted)
+    UPROPERTY() TArray<FDsonDialWeight>           DialWeights;
 };

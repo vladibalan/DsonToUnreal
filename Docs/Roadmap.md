@@ -25,7 +25,7 @@ Load-bearing invariants (coordinate flip, winding, scale) are owned by
 `CodeReviewRules.md` R4 / the `DazPointToUe` helper (and restated in
 `Docs/Reference.md`) — referenced here, never restated, so they cannot drift.
 
-_Last updated: 2026-06-10._
+_Last updated: 2026-06-11._
 
 ## Phase status
 
@@ -203,10 +203,8 @@ step that later consumes the import, not here.
   `Σ(leaf_deltas × evaluated_value)`, or applying a DUF's dialed expression/body shape.
   The rest-state morphs land as faithful **source** for that later step.
 
-Carrying the dial/formula *metadata* itself across faithfully (vs. evaluating it) is a
-separate P2/P4 matter, not the baking ruled out here. Notes from when this was scoped as
-in-plugin work are retained as downstream reference:
-**[`Docs/FormulaMorphsV2.md`](FormulaMorphsV2.md)**.
+Dial weights (raw metadata, not evaluated) landed in v1.2.0 → see recipe-emission section above.
+Notes from the original scoping: **[`Docs/FormulaMorphsV2.md`](FormulaMorphsV2.md)**.
 
 ## Asset import folder structure — ✅ Done (2026-06-10)
 
@@ -241,12 +239,17 @@ check path-reconstructing consumers; rationale → `DecisionLog.md`.
   fallback", remove or correct them. Search `Source/DsonImporter/` for
   `Genesis 3` / `G3` references.
 
-## Authoring-metadata recipe emission (P2) — Slice 1 landed & runtime-verified (G9 Nancy) 2026-06-10
+## Authoring-metadata recipe emission (P2) — Slices 1–2 landed (v1.2.0)
 
-`UDsonAssetRecipe` emitted beside each import (`v1.1.0`): manifest, companion slot tags, and
-per-surface LIE recipe (raw layers + 1.4.0 compositing metadata). Remaining slices: dial weights,
-ERC/JCM deltas, pre-baked markers (importer-side, parser already exposes); HD and preset/variant
-sets deferred (P4). Per-item triage and slicing history → `DecisionLog.md`.
+`UDsonAssetRecipe` emitted beside each import. Landed:
+
+| Slice | Shipped | Contents |
+|---|---|---|
+| 1 | v1.1.0 · 2026-06-10 | Manifest (source id, skeleton/mesh refs), companion slot tags, per-surface LIE recipe (raw layers + compositing metadata) |
+| 2 | v1.2.0 · 2026-06-11 | Dial weights (`DialWeights[]` — raw channel value + range, bound UE morph-target name), pre-baked LIE marker (`bImporterPreBaked` + `BakedComposite`) |
+
+Remaining: ERC/JCM deltas. Deferred (P4): HD, preset/variant sets.
+Per-item triage and slicing history → `DecisionLog.md`.
 
 ## Next up
 

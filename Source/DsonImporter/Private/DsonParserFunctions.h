@@ -99,13 +99,18 @@ typedef void* DsonDocumentHandle;
     X(0, bool,        GetVertexBoneInfluenceCapped,  DsonDocument_GetVertexBoneInfluenceCapped,  (uint64_t, int32_t, int32_t, int32_t, int32_t, const char**, double*)) \
     \
     /* Scene modifiers (external morph-file discovery: each url points at a morph .dsf) */ \
-    X(0, int32_t,     GetSceneModifierCount,         DsonDocument_GetSceneModifierCount,         (uint64_t)) \
-    X(0, const char*, GetSceneModifierUrl,           DsonDocument_GetSceneModifierUrl,           (uint64_t, int32_t)) \
-    X(0, int32_t,     GetSceneModifierFormulaCount,  DsonDocument_GetSceneModifierFormulaCount,  (uint64_t, int32_t)) \
-    X(0, const char*, GetSceneModifierFormulaOutput, DsonDocument_GetSceneModifierFormulaOutput, (uint64_t, int32_t, int32_t)) \
+    X(0, int32_t,     GetSceneModifierCount,          DsonDocument_GetSceneModifierCount,          (uint64_t)) \
+    X(0, const char*, GetSceneModifierUrl,            DsonDocument_GetSceneModifierUrl,            (uint64_t, int32_t)) \
+    X(0, double,      GetSceneModifierChannelValue,   DsonDocument_GetSceneModifierChannelValue,   (uint64_t, int32_t)) \
+    X(0, double,      GetSceneModifierChannelMin,     DsonDocument_GetSceneModifierChannelMin,     (uint64_t, int32_t)) \
+    X(0, double,      GetSceneModifierChannelMax,     DsonDocument_GetSceneModifierChannelMax,     (uint64_t, int32_t)) \
+    X(0, bool,        GetSceneModifierChannelClamped, DsonDocument_GetSceneModifierChannelClamped, (uint64_t, int32_t)) \
+    X(0, int32_t,     GetSceneModifierFormulaCount,   DsonDocument_GetSceneModifierFormulaCount,   (uint64_t, int32_t)) \
+    X(0, const char*, GetSceneModifierFormulaOutput,  DsonDocument_GetSceneModifierFormulaOutput,  (uint64_t, int32_t, int32_t)) \
     \
     /* Morph targets (morphIndex addresses the filtered list of type=="morph" modifiers) */ \
     X(0, int32_t,     GetMorphCount,                  DsonDocument_GetMorphCount,                  (uint64_t)) \
+    X(0, const char*, GetMorphId,                     DsonDocument_GetMorphId,                     (uint64_t, int32_t)) \
     X(0, const char*, GetMorphName,                   DsonDocument_GetMorphName,                   (uint64_t, int32_t)) \
     X(0, const char*, GetMorphLabel,                  DsonDocument_GetMorphLabel,                  (uint64_t, int32_t)) \
     X(0, const char*, GetMorphGeometryId,             DsonDocument_GetMorphGeometryId,             (uint64_t, int32_t)) \

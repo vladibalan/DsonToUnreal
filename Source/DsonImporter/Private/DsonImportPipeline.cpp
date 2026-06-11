@@ -175,6 +175,11 @@ FDsonImportResult FDsonImportPipeline::Run(
         }
     }
 
+    // Plumb pre-baked composites into Result so the recipe builder can set bImporterPreBaked markers.
+    // R4: do not re-derive the bake decision — record what CompositeImageLayers actually did.
+    for (const auto& Pair : Importer.GetPreBakedComposites())
+        Result.PreBakedComposites.Add(Pair.Key, TSoftObjectPtr<UTexture2D>(Pair.Value.Get()));
+
     // Emit recipe asset after all meshes are built (R7 additive: never aborts the import)
     FDsonRecipeBuilder::Build(Result);
 
