@@ -135,4 +135,74 @@ namespace DsonImportUtils
         const FString Sanitized = ObjectTools::SanitizeObjectName(Name);
         return Sanitized.IsEmpty() ? FString() : Sanitized;
     }
+
+    // Strips a trailing -<digits> uniquifying suffix (e.g. "EyeMoisture Left-1" -> "EyeMoisture Left").
+    // Only strips when the entire tail after the last '-' is digits and the dash is not at position 0.
+    inline FString StripUniquifyingSuffix(const FString& Id)
+    {
+        const int32 Len = Id.Len();
+        int32 i = Len - 1;
+        while (i >= 0 && FChar::IsDigit(Id[i]))
+            --i;
+        if (i < 0 || i == Len - 1 || Id[i] != TEXT('-') || i == 0)
+            return Id;
+        return Id.Left(i);
+    }
+
+    // Parses one scene.animations url into (matId, channelId, leaf).
+    // Accepts top-level form (<channel>/<leaf>) and extra form
+    // (extra/studio_material_channels/channels/<Name>/<leaf>).
+    // Returns false and leaves out-params untouched for anything else.
+    inline bool ParseAnimationUrl(
+        const FString& Url,
+        FString& OutMatId,
+        FString& OutChannelId,
+        FString& OutLeaf)
+    {
+        static const FString MaterialsMarker(TEXT("#materials/"));
+        const int32 MatSegIdx = Url.Find(MaterialsMarker, ESearchCase::CaseSensitive);
+        if (MatSegIdx == INDEX_NONE)
+            return false;
+
+        const int32 AfterMarker = MatSegIdx + MaterialsMarker.Len();
+        const int32 SepIdx = Url.Find(TEXT(":?"), ESearchCase::CaseSensitive,
+            ESearchDir::FromStart, AfterMarker);
+        if (SepIdx == INDEX_NONE)
+            return false;
+
+        FString MatId = Url.Mid(AfterMarker, SepIdx - AfterMarker);
+        const FString PropertyPath = Url.Mid(SepIdx + 2); // skip ":?"
+
+        TArray<FString> Segs;
+        PropertyPath.ParseIntoArray(Segs, TEXT("/"), /*bCullEmpty=*/true);
+
+        FString ChannelId;
+        FString Leaf;
+
+        if (Segs.Num() == 2)
+        {
+            ChannelId = Segs[0];
+            Leaf = Segs[1];
+        }
+        else if (Segs.Num() == 5
+            && Segs[0] == TEXT("extra")
+            && Segs[1] == TEXT("studio_material_channels")
+            && Segs[2] == TEXT("channels"))
+        {
+            ChannelId = FDsonContentRoots::UrlDecode(Segs[3]);
+            Leaf = Segs[4];
+        }
+        else
+        {
+            return false;
+        }
+
+        if (Leaf != TEXT("value") && Leaf != TEXT("image_file") && Leaf != TEXT("image"))
+            return false;
+
+        OutMatId     = MoveTemp(MatId);
+        OutChannelId = MoveTemp(ChannelId);
+        OutLeaf      = MoveTemp(Leaf);
+        return true;
+    }
 }

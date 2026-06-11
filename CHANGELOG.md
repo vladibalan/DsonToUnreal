@@ -8,6 +8,17 @@ change (`+` added · `~` changed · `-` removed/deprecated · `!` fixed). Scheme
 baseline, and the per-change gate: [`Docs/Versioning.md`](Docs/Versioning.md) and
 [`Docs/CodeReviewRules.md`](Docs/CodeReviewRules.md) R12.
 
+## 1.4.0 — 2026-06-11 · MINOR
+
++ **Anim-bound LIE surfaces** — `AppendLieSurfaces` now scans `scene.animations` key-0
+  `Leaf=="image"` entries per scene material (e.g. the eye LIE on G9 Eyes companion).
+  These were previously invisible to the recipe walk (only `scene.materials` channel
+  `#fragment` URLs were read). The pre-baked marker (`bImporterPreBaked` / `BakedComposite`)
+  now fires for anim-bound composites. Dedup: if the same channel is reachable via both
+  paths, the channel-walk result is kept and a warning is logged.
+~ **`ParseAnimationUrl` / `StripUniquifyingSuffix`** moved to `DsonImportUtils.h` (shared
+  inline helpers, R4); `DsonMaterialBuilder` call sites updated — no behavior change.
+
 ## 1.3.0 — 2026-06-11 · MINOR
 
 + **`FDsonLieSurface.SourceCompanionSlot`** — new field on every LIE surface. Empty for body

@@ -624,19 +624,6 @@ static void CaptureFirstUvSetUrl(uint64_t DsonHandle, int32 SceneMatIdx, FString
     }
 }
 
-// Strips a trailing -<digits> uniquifying suffix (e.g. "EyeMoisture Left-1" -> "EyeMoisture Left").
-// Only strips when the entire tail after the last '-' is digits and the dash is not at position 0.
-static FString StripUniquifyingSuffix(const FString& Id)
-{
-    const int32 Len = Id.Len();
-    int32 i = Len - 1;
-    while (i >= 0 && FChar::IsDigit(Id[i]))
-        --i;
-    if (i < 0 || i == Len - 1 || Id[i] != TEXT('-') || i == 0)
-        return Id;
-    return Id.Left(i);
-}
-
 // Returns the channel source for a scene material: if its url is a bare #fragment with
 // zero inline channels, resolve the fragment to a material_library index and return it;
 // otherwise return the scene-material index. Permissive: logs a warning and falls back to
@@ -673,67 +660,6 @@ static FDazChannelSource ResolveChannelSource(uint64_t H, int32 SceneMatIdx, con
 // Scene animation (key-0) override helpers
 // ---------------------------------------------------------------------------
 
-// Parses one scene.animations url into (matId, channelId, leaf).
-// Accepts top-level form (<channel>/<leaf>, 2 segments) and extra form
-// (extra/studio_material_channels/channels/<Name>/<leaf>, 5 segments).
-// Returns false and leaves out-params untouched for anything else.
-static bool ParseAnimationUrl(
-    const FString& Url,
-    FString& OutMatId,
-    FString& OutChannelId,
-    FString& OutLeaf)
-{
-    // Require "#materials/" marker
-    static const FString MaterialsMarker(TEXT("#materials/"));
-    const int32 MatSegIdx = Url.Find(MaterialsMarker, ESearchCase::CaseSensitive);
-    if (MatSegIdx == INDEX_NONE)
-        return false;
-
-    // matId runs from after "#materials/" up to the ":?" separator
-    const int32 AfterMarker = MatSegIdx + MaterialsMarker.Len();
-    const int32 SepIdx = Url.Find(TEXT(":?"), ESearchCase::CaseSensitive,
-        ESearchDir::FromStart, AfterMarker);
-    if (SepIdx == INDEX_NONE)
-        return false;
-
-    FString MatId = Url.Mid(AfterMarker, SepIdx - AfterMarker);
-    const FString PropertyPath = Url.Mid(SepIdx + 2); // skip ":?"
-
-    // Split on "/"; encoded channel names use %20 for spaces, no literal "/"
-    TArray<FString> Segs;
-    PropertyPath.ParseIntoArray(Segs, TEXT("/"), /*bCullEmpty=*/true);
-
-    FString ChannelId;
-    FString Leaf;
-
-    if (Segs.Num() == 2)
-    {
-        // Top-level: <channel>/<leaf>
-        ChannelId = Segs[0];
-        Leaf = Segs[1];
-    }
-    else if (Segs.Num() == 5
-        && Segs[0] == TEXT("extra")
-        && Segs[1] == TEXT("studio_material_channels")
-        && Segs[2] == TEXT("channels"))
-    {
-        // Extra: extra/studio_material_channels/channels/<Name>/<leaf>
-        ChannelId = FDsonContentRoots::UrlDecode(Segs[3]);
-        Leaf = Segs[4];
-    }
-    else
-    {
-        return false;
-    }
-
-    if (Leaf != TEXT("value") && Leaf != TEXT("image_file") && Leaf != TEXT("image"))
-        return false;
-
-    OutMatId    = MoveTemp(MatId);
-    OutChannelId = MoveTemp(ChannelId);
-    OutLeaf     = MoveTemp(Leaf);
-    return true;
-}
 
 // Applies scene.animations key-0 values for the given matId onto MIC,
 // overriding any placeholders set by the base scene.materials pass.
@@ -766,7 +692,7 @@ static void ApplySceneAnimationOverrides(
             continue;
 
         FString ParsedMatId, ChannelId, Leaf;
-        if (!ParseAnimationUrl(UrlStr, ParsedMatId, ChannelId, Leaf))
+        if (!DsonImportUtils::ParseAnimationUrl(UrlStr, ParsedMatId, ChannelId, Leaf))
             continue;
 
         // UrlDecode the parsed matId (e.g. "EyeMoisture%20Left" -> "EyeMoisture Left") then
@@ -774,7 +700,7 @@ static void ApplySceneAnimationOverrides(
         // stripped (e.g. "EyeMoisture Left-1" -> "EyeMoisture Left"). Regular surface ids like
         // "Face" are unchanged by both transforms, so there is no regression on them.
         const FString DecodedParsedMatId = FDsonContentRoots::UrlDecode(ParsedMatId);
-        if (DecodedParsedMatId != MatId && DecodedParsedMatId != StripUniquifyingSuffix(MatId))
+        if (DecodedParsedMatId != MatId && DecodedParsedMatId != DsonImportUtils::StripUniquifyingSuffix(MatId))
             continue;
 
         ++MatchedForMat;

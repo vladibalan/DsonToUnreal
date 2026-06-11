@@ -104,6 +104,11 @@ static void AppendLieSurfaces(
         const FString GroupName = (GroupCount > 0 && GDsonParser.GetSceneMaterialGroupName)
             ? S(GDsonParser.GetSceneMaterialGroupName(H, mi, 0))
             : FString();
+        // R3: copy scene mat id before next parser call
+        const FString SceneMatId = S(GDsonParser.GetSceneMaterialId
+            ? GDsonParser.GetSceneMaterialId(H, mi) : nullptr);
+
+        TSet<FString> EmittedChannels;
 
         const int32 ChanCount = GDsonParser.GetSceneMaterialChannelCount
             ? GDsonParser.GetSceneMaterialChannelCount(H, mi) : 0;
@@ -129,6 +134,7 @@ static void AppendLieSurfaces(
                     Surface.Layers.Add(ReadChannelLayer(H, mi, ci, li));
                 // Inline channel layers are not composited by the importer — no pre-bake marker.
                 OutSurfaces.Add(MoveTemp(Surface));
+                EmittedChannels.Add(ChannelId);
                 continue;
             }
 
@@ -171,6 +177,92 @@ static void AppendLieSurfaces(
                 Surface.BakedComposite    = *Baked;
             }
 
+            OutSurfaces.Add(MoveTemp(Surface));
+            EmittedChannels.Add(ChannelId);
+        }
+
+        // Anim-bound image LIE scan: handles scene.animations key-0 Leaf=="image" entries
+        // (e.g. eye LIE on G9 Eyes companion), which the channel walk does not see.
+        const int32 AnimCount = GDsonParser.GetSceneAnimationCount
+            ? GDsonParser.GetSceneAnimationCount(Doc) : 0;
+
+        for (int32 ai = 0; ai < AnimCount; ++ai)
+        {
+            // R3: copy URL before next parser call
+            const FString AnimUrl = S(GDsonParser.GetSceneAnimationUrl
+                ? GDsonParser.GetSceneAnimationUrl(Doc, ai) : nullptr);
+            if (AnimUrl.IsEmpty())
+                continue;
+
+            FString ParsedMatId, ChannelId, Leaf;
+            if (!DsonImportUtils::ParseAnimationUrl(AnimUrl, ParsedMatId, ChannelId, Leaf))
+                continue;
+            if (Leaf != TEXT("image"))
+                continue;
+
+            // matId reconciliation: same as ApplySceneAnimationOverrides
+            const FString DecodedParsedMatId = FDsonContentRoots::UrlDecode(ParsedMatId);
+            if (DecodedParsedMatId != SceneMatId &&
+                DecodedParsedMatId != DsonImportUtils::StripUniquifyingSuffix(SceneMatId))
+                continue;
+
+            // Dedup: warn if channel was already emitted by the channel walk (both-paths collision)
+            if (EmittedChannels.Contains(ChannelId))
+            {
+                UE_LOG(LogDsonImporter, Warning,
+                    TEXT("[recipe] '%s' ch '%s': anim image and channel-walk both reachable; anim path skipped (dedup)"),
+                    *GroupName, *ChannelId);
+                continue;
+            }
+
+            const int32 ValueKind = GDsonParser.GetSceneAnimationValueKind
+                ? GDsonParser.GetSceneAnimationValueKind(Doc, ai) : -1;
+            if (ValueKind != 3)
+                continue;
+
+            // R3: copy string value before next parser call
+            const FString FragmentRef = S(GDsonParser.GetSceneAnimationString
+                ? GDsonParser.GetSceneAnimationString(Doc, ai) : nullptr);
+            if (!FragmentRef.StartsWith(TEXT("#")))
+            {
+                UE_LOG(LogDsonImporter, Warning,
+                    TEXT("[recipe] '%s' ch '%s': anim image value not a #fragment ref (val='%s')"),
+                    *GroupName, *ChannelId, *FragmentRef);
+                continue;
+            }
+
+            // R4: shared helper resolves #fragment -> image_library index
+            const int32 AnimImageIndex = DsonImportUtils::FindImageLibraryIndex(Doc, FragmentRef);
+            if (AnimImageIndex == INDEX_NONE)
+            {
+                UE_LOG(LogDsonImporter, Warning,
+                    TEXT("[recipe] '%s' ch '%s': anim image_library entry not found (ref='%s')"),
+                    *GroupName, *ChannelId, *FragmentRef);
+                continue;
+            }
+
+            const int32 LayerCount = GDsonParser.GetImageLayerCount
+                ? GDsonParser.GetImageLayerCount(Doc, AnimImageIndex) : 0;
+            if (LayerCount == 0)
+                continue;
+
+            FDsonLieSurface Surface;
+            Surface.MaterialGroupName   = GroupName;
+            Surface.ChannelId           = ChannelId;
+            Surface.SourceCompanionSlot = CompanionSlot;
+            Surface.Layers.Reserve(LayerCount);
+            for (int32 li = 0; li < LayerCount; ++li)
+                Surface.Layers.Add(ReadImageLayer(Doc, AnimImageIndex, li));
+
+            // Pre-bake marker: same key the channel path uses (UrlDecode of #fragment id)
+            const FString AnimImageId = FDsonContentRoots::UrlDecode(FragmentRef.Mid(1));
+            if (const TSoftObjectPtr<UTexture2D>* Baked = PreBakedComposites.Find(AnimImageId))
+            {
+                Surface.bImporterPreBaked = true;
+                Surface.BakedComposite    = *Baked;
+            }
+
+            EmittedChannels.Add(ChannelId);
             OutSurfaces.Add(MoveTemp(Surface));
         }
     }
