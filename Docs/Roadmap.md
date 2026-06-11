@@ -240,7 +240,7 @@ check path-reconstructing consumers; rationale → `DecisionLog.md`.
 - **Pre-code design reads go by file, not chat** — when `Feedback requested: YES`, the Implementer
   writes the design read to `.handoff/feedback-<id>.md` (`Status: design-review`), reviewed from disk; fix `Docs/AgentWorkflow.md` (template + `Feedback requested` line).
 
-## Authoring-metadata recipe emission (P2) — Slices 1–5 wired (v1.5.0)
+## Authoring-metadata recipe emission (P2) — Slices 1–5 complete (v1.5.0)
 
 | Slice | Shipped | Contents |
 |---|---|---|
@@ -248,7 +248,7 @@ check path-reconstructing consumers; rationale → `DecisionLog.md`.
 | 2 | v1.2.0 · 2026-06-11 | Dial weights (`DialWeights[]` — raw channel value + range, bound UE morph-target name), pre-baked LIE marker (`bImporterPreBaked` + `BakedComposite`) |
 | 3 | v1.3.0 · 2026-06-11 | Dial-weight join broadened to external morph DSFs (URL-decode + per-URL resolve, validated vs imported `UMorphTarget` set) — binds **direct** morph dials; control/formula dials (e.g. `HID Nancy 9`) → ERC/JCM. Companion MAT-preset walk + `FDsonLieSurface.SourceCompanionSlot`. |
 | 4 | v1.4.0 · 2026-06-11 | Anim-bound (`scene.animations` key-0 `image`) LIE surfaces emitted — eye LIE on G9 Eyes companion now in recipe; pre-baked marker **fires** (Nancy-verified: `baked=4` — both eyes × diffuse + Translucency; 10 LIE surfaces total). `ParseAnimationUrl`/`StripUniquifyingSuffix` extracted to `DsonImportUtils.h` (R4). |
-| 5 | v1.5.0 · 2026-06-11 | ERC/JCM formula records: `Formulas[]` (raw RPN ops, output URL, EDsonFormulaTarget tag, bound morph name) + `RigPoints[]` (base bone center/end point in raw DAZ coords). Three-source emission: (1) scene.modifiers inline, (2) external-referenced modifier DSFs (scene.modifiers reachability walk — e.g. HID Nancy 9.dsf, FACS DSFs), (3) figure modifier_library (JCM/corrective). 13 new parser exports bound. Dedup across all passes. Runtime-pending (expect formulas>0 on Nancy import). |
+| 5 | v1.5.0 · 2026-06-11 | ERC/JCM formula records: `Formulas[]` (raw RPN ops, output URL, EDsonFormulaTarget tag, bound morph name) + `RigPoints[]` (base bone center/end point in raw DAZ coords). Three-source emission: (1) scene.modifiers inline, (2) external-referenced modifier DSFs (scene.modifiers reachability walk — e.g. HID Nancy 9.dsf, FACS DSFs), (3) figure modifier_library (JCM/corrective). 13 new parser exports bound. Dedup across all passes. **Runtime-confirmed on Nancy:** `formulas=2032` (morphval=7, erc=2023, other=2), `bound=2024`, `rigpoints=138` — bulk is proportion-morph ERC rigging-follow. |
 
 ## Next up
 

@@ -1198,3 +1198,29 @@ returns an "up to date" no-op, since the Implementer had already built), 18 acti
 confirmed** — `[recipe-shape]` formula/rigpoint counts on a Nancy editor import are the merge-then-measure
 check; Roadmap marks Slice 5 "wired, runtime-pending" (Slice-3/4 discipline: don't assert runtime before the
 import). **Deferred (P4):** HD, preset/variant option sets.
+
+**Runtime result (Nancy, 2026-06-11) -- Slice 5 corrected & CONFIRMED; recipe-emission
+workstream CLOSED.** The first Nancy import after Slice 5 showed `formulas=0`. Root-caused
+(Director inspected the actual DSON on disk): the targeted formulas live in **external
+referenced DSFs**, not where the chosen scope looked. The DUF's `scene.modifiers` entries are
+bare `#fragment` references carrying only the dial value (e.g. `HID Nancy 9`'s 5 formulas live
+in `HID Nancy 9.dsf`'s modifier_library, NOT inline), and the base `Genesis9.dsf` has only ~14
+formulas (node-level) -- its JCMs/correctives are external pJCM files, NOT the base
+modifier_library. So the Slice-5 design read's "~300-600 JCMs in the figure modifier_library"
+was wrong: it reasoned about structure without checking the asset. **Fix (user-approved scope
+broadening to transitive external, commit 30ba43e):** emit modifier_library formulas from the
+formula-reachable external document set, reusing the morph builder's discovery walk (extracted
+as `FDsonMorphBuilder::DiscoverFormulaReachableDocuments`, `OutHandles[i]==OutDocs[i]`, figure
+excluded) + a single `AppendModifierLibraryFormulas` emit loop; dedup by
+`ModifierId|OutputUrl|Stage` across passes; `SourceValue` from the scene dial map. No schema
+change (VersionName stays 1.5.0, unreleased). **Re-import confirmed:** `formulas=2032
+(morphval=7 erc-center=1012 erc-end=1011 other=2) bound=2024 rigpoints=138`. The bulk is **ERC
+rigging-follow** (proportion/shape morphs driving bone `center_point`/`end_point` -- exactly the
+triage's "ERC rigging-follow deltas"), `bound=2024` to imported `UMorphTarget`s, 138 bone rig
+points; morphval=7 = the HID Nancy 9 control tree; other=2 = the FACS eye `?rotation/y`.
+**Volume note:** the 2032 is dominated by generic Genesis-9 figure-proportion ERC (present for
+any G9 character) -- faithful and consumer-filterable (by `bFromSceneModifier`/`OutputTarget`/
+`bound`), not interpreted away by the importer (P1/P3). **Process lesson:** verify DSON
+structural assumptions against the actual `.dsf` on disk, not abstractly; merge-then-measure
+caught it (a design read that reasons without the asset can be confidently wrong).
+**Recipe-emission workstream COMPLETE & runtime-confirmed.**
