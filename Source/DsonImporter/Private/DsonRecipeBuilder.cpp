@@ -8,6 +8,10 @@
 #include "DsonLoadedDocument.h"
 #include "DsonParserFunctions.h"
 
+#include "Animation/MorphTarget.h"
+#include "Engine/SkeletalMesh.h"
+#include "Misc/Paths.h"
+
 static FString S(const char* Raw) { return DsonImportUtils::FromUtf8(Raw); }
 
 // Reads all 14 compositing fields for one per-image layer (image_library family).
@@ -56,27 +60,120 @@ static FDsonLieLayer ReadChannelLayer(uint64_t H, int32 MatIdx, int32 ChanIdx, i
 }
 
 // Builds a map from morphId -> sanitized UE morph-target name for every morph in DsonHandle.
-// Used to correlate DUF scene.modifier URLs to the UMorphTargets that were actually imported.
 // R4: reuses DsonImportUtils::ReadMorphObjectName (same logic the morph builder uses).
-static TMap<FString, FString> BuildMorphIdToNameMap(uint64_t FigureHandle)
+static TMap<FString, FString> BuildMorphIdToNameMap(uint64_t DsonHandle)
 {
     TMap<FString, FString> IdToName;
     if (!GDsonParser.GetMorphCount || !GDsonParser.GetMorphId)
         return IdToName;
 
-    const int32 MorphCount = GDsonParser.GetMorphCount(FigureHandle);
+    const int32 MorphCount = GDsonParser.GetMorphCount(DsonHandle);
     IdToName.Reserve(MorphCount);
     for (int32 m = 0; m < MorphCount; ++m)
     {
         // R3: copy id before the next parser call
-        const FString MorphId = S(GDsonParser.GetMorphId(FigureHandle, m));
+        const FString MorphId = S(GDsonParser.GetMorphId(DsonHandle, m));
         if (MorphId.IsEmpty())
             continue;
-        const FString MorphName = DsonImportUtils::ReadMorphObjectName(FigureHandle, m);
+        const FString MorphName = DsonImportUtils::ReadMorphObjectName(DsonHandle, m);
         if (!MorphName.IsEmpty())
             IdToName.Add(MorphId, MorphName);
     }
     return IdToName;
+}
+
+// Appends FDsonLieSurface entries from one DUF document (body or companion MAT-preset).
+// R4: single loop used for both body and companion figures — do not inline a second copy.
+// CompanionSlot: empty for body surfaces; companion slot path for companion-figure surfaces.
+// R3: Doc must remain valid for the duration of this call (caller holds the FDsonLoadedDocument).
+static void AppendLieSurfaces(
+    uint64_t H,
+    DsonDocumentHandle Doc,
+    const TMap<FString, TSoftObjectPtr<UTexture2D>>& PreBakedComposites,
+    const FString& CompanionSlot,
+    TArray<FDsonLieSurface>& OutSurfaces)
+{
+    const int32 SceneMatCount = GDsonParser.GetSceneMaterialCount
+        ? GDsonParser.GetSceneMaterialCount(H) : 0;
+
+    for (int32 mi = 0; mi < SceneMatCount; ++mi)
+    {
+        const int32 GroupCount = GDsonParser.GetSceneMaterialGroupCount
+            ? GDsonParser.GetSceneMaterialGroupCount(H, mi) : 0;
+        // R3: copy group name before next parser call
+        const FString GroupName = (GroupCount > 0 && GDsonParser.GetSceneMaterialGroupName)
+            ? S(GDsonParser.GetSceneMaterialGroupName(H, mi, 0))
+            : FString();
+
+        const int32 ChanCount = GDsonParser.GetSceneMaterialChannelCount
+            ? GDsonParser.GetSceneMaterialChannelCount(H, mi) : 0;
+
+        for (int32 ci = 0; ci < ChanCount; ++ci)
+        {
+            // R3: copy channel id before next parser call
+            const FString ChannelId = S(GDsonParser.GetSceneMaterialChannelId
+                ? GDsonParser.GetSceneMaterialChannelId(H, mi, ci) : nullptr);
+
+            // Bounds-check LayerCount before reading Opacity (sentinel 0.0 / ScaleX 1.0 hazard)
+            const int32 InlineCount = GDsonParser.GetSceneMaterialChannelLayerCount
+                ? GDsonParser.GetSceneMaterialChannelLayerCount(H, mi, ci) : 0;
+
+            if (InlineCount > 0)
+            {
+                FDsonLieSurface Surface;
+                Surface.MaterialGroupName   = GroupName;
+                Surface.ChannelId           = ChannelId;
+                Surface.SourceCompanionSlot = CompanionSlot;
+                Surface.Layers.Reserve(InlineCount);
+                for (int32 li = 0; li < InlineCount; ++li)
+                    Surface.Layers.Add(ReadChannelLayer(H, mi, ci, li));
+                // Inline channel layers are not composited by the importer — no pre-bake marker.
+                OutSurfaces.Add(MoveTemp(Surface));
+                continue;
+            }
+
+            // No inline layers — check for #fragment image URL (Nancy head diffuse/SSS case)
+            // R3: copy image URL before next parser call
+            const FString ImageUrl = S(GDsonParser.GetSceneMaterialChannelImageUrl
+                ? GDsonParser.GetSceneMaterialChannelImageUrl(H, mi, ci) : nullptr);
+            if (!ImageUrl.StartsWith(TEXT("#")))
+                continue;
+
+            // R4: shared helper resolves #fragment -> image_library index
+            const int32 ImageIndex = DsonImportUtils::FindImageLibraryIndex(Doc, ImageUrl);
+            if (ImageIndex == INDEX_NONE)
+            {
+                UE_LOG(LogDsonImporter, Warning,
+                    TEXT("[recipe] '%s' ch '%s': image_library entry not found (ref='%s')"),
+                    *GroupName, *ChannelId, *ImageUrl);
+                continue;
+            }
+
+            const int32 ImgLayerCount = GDsonParser.GetImageLayerCount
+                ? GDsonParser.GetImageLayerCount(Doc, ImageIndex) : 0;
+            if (ImgLayerCount == 0)
+                continue;
+
+            FDsonLieSurface Surface;
+            Surface.MaterialGroupName   = GroupName;
+            Surface.ChannelId           = ChannelId;
+            Surface.SourceCompanionSlot = CompanionSlot;
+            Surface.Layers.Reserve(ImgLayerCount);
+            for (int32 li = 0; li < ImgLayerCount; ++li)
+                Surface.Layers.Add(ReadImageLayer(Doc, ImageIndex, li));
+
+            // R4: do not re-derive the bake decision — record what actually happened (plumbed set).
+            // The image id is the URL-decoded #fragment (same key CompositeImageLayers used).
+            const FString ImageId = FDsonContentRoots::UrlDecode(ImageUrl.Mid(1));
+            if (const TSoftObjectPtr<UTexture2D>* Baked = PreBakedComposites.Find(ImageId))
+            {
+                Surface.bImporterPreBaked = true;
+                Surface.BakedComposite    = *Baked;
+            }
+
+            OutSurfaces.Add(MoveTemp(Surface));
+        }
+    }
 }
 
 void FDsonRecipeBuilder::Build(const FDsonImportResult& Result)
@@ -124,95 +221,33 @@ void FDsonRecipeBuilder::Build(const FDsonImportResult& Result)
         Recipe->CompanionSlots.Add(MoveTemp(Entry));
     }
 
-    // --- Per-surface LIE recipe ---
-    // For each scene material channel: if it has inline LIE layers, use the per-channel
-    // accessors. If it has 0 inline layers but a #fragment image URL, resolve to
-    // image_library and use the per-image accessors (the Nancy head diffuse/SSS case).
-    const int32 SceneMatCount = GDsonParser.GetSceneMaterialCount
-        ? GDsonParser.GetSceneMaterialCount(H) : 0;
+    // --- Per-surface LIE recipe (body figure + companion figures) ---
+    // R4: AppendLieSurfaces handles both; SourceCompanionSlot distinguishes origin.
+    AppendLieSurfaces(H, Doc, Result.PreBakedComposites, TEXT(""), Recipe->LieSurfaces);
 
-    for (int32 mi = 0; mi < SceneMatCount; ++mi)
+    for (const FDsonCompanionSource& Companion : Settings.CompanionFigures)
     {
-        const int32 GroupCount = GDsonParser.GetSceneMaterialGroupCount
-            ? GDsonParser.GetSceneMaterialGroupCount(H, mi) : 0;
-        // R3: copy group name before next parser call
-        const FString GroupName = (GroupCount > 0 && GDsonParser.GetSceneMaterialGroupName)
-            ? S(GDsonParser.GetSceneMaterialGroupName(H, mi, 0))
-            : FString();
-
-        const int32 ChanCount = GDsonParser.GetSceneMaterialChannelCount
-            ? GDsonParser.GetSceneMaterialChannelCount(H, mi) : 0;
-
-        for (int32 ci = 0; ci < ChanCount; ++ci)
+        if (Companion.MatPresetPath.IsEmpty())
+            continue;
+        // R3: RAII via FDsonLoadedDocument; Doc stays valid for the AppendLieSurfaces call.
+        FDsonLoadedDocument CompanionDoc;
+        if (!CompanionDoc.LoadFromFileAsWarning(Companion.MatPresetPath, TEXT("[recipe-LIE-companion]")))
         {
-            // R3: copy channel id before next parser call
-            const FString ChannelId = S(GDsonParser.GetSceneMaterialChannelId
-                ? GDsonParser.GetSceneMaterialChannelId(H, mi, ci) : nullptr);
-
-            // Bounds-check LayerCount before reading Opacity (sentinel 0.0 / ScaleX 1.0 hazard)
-            const int32 InlineCount = GDsonParser.GetSceneMaterialChannelLayerCount
-                ? GDsonParser.GetSceneMaterialChannelLayerCount(H, mi, ci) : 0;
-
-            if (InlineCount > 0)
-            {
-                FDsonLieSurface Surface;
-                Surface.MaterialGroupName = GroupName;
-                Surface.ChannelId         = ChannelId;
-                Surface.Layers.Reserve(InlineCount);
-                for (int32 li = 0; li < InlineCount; ++li)
-                    Surface.Layers.Add(ReadChannelLayer(H, mi, ci, li));
-                // Inline channel layers are not composited by the importer — no pre-bake marker.
-                Recipe->LieSurfaces.Add(MoveTemp(Surface));
-                continue;
-            }
-
-            // No inline layers — check for #fragment image URL (Nancy head diffuse/SSS case)
-            // R3: copy image URL before next parser call
-            const FString ImageUrl = S(GDsonParser.GetSceneMaterialChannelImageUrl
-                ? GDsonParser.GetSceneMaterialChannelImageUrl(H, mi, ci) : nullptr);
-            if (!ImageUrl.StartsWith(TEXT("#")))
-                continue;
-
-            // R4: shared helper resolves #fragment -> image_library index
-            const int32 ImageIndex = DsonImportUtils::FindImageLibraryIndex(Doc, ImageUrl);
-            if (ImageIndex == INDEX_NONE)
-            {
-                UE_LOG(LogDsonImporter, Warning,
-                    TEXT("[recipe] '%s' ch '%s': image_library entry not found (ref='%s')"),
-                    *GroupName, *ChannelId, *ImageUrl);
-                continue;
-            }
-
-            const int32 ImgLayerCount = GDsonParser.GetImageLayerCount
-                ? GDsonParser.GetImageLayerCount(Doc, ImageIndex) : 0;
-            if (ImgLayerCount == 0)
-                continue;
-
-            FDsonLieSurface Surface;
-            Surface.MaterialGroupName = GroupName;
-            Surface.ChannelId         = ChannelId;
-            Surface.Layers.Reserve(ImgLayerCount);
-            for (int32 li = 0; li < ImgLayerCount; ++li)
-                Surface.Layers.Add(ReadImageLayer(Doc, ImageIndex, li));
-
-            // R4: do not re-derive the bake decision — record what actually happened (plumbed set).
-            // The image id is the URL-decoded #fragment (same key CompositeImageLayers used).
-            const FString ImageId = FDsonContentRoots::UrlDecode(ImageUrl.Mid(1));
-            if (const TSoftObjectPtr<UTexture2D>* Baked = Result.PreBakedComposites.Find(ImageId))
-            {
-                Surface.bImporterPreBaked = true;
-                Surface.BakedComposite    = *Baked;
-            }
-
-            Recipe->LieSurfaces.Add(MoveTemp(Surface));
+            UE_LOG(LogDsonImporter, Warning,
+                TEXT("[recipe] '%s': companion '%s' MAT-preset could not be loaded; companion LIE surfaces skipped"),
+                *Settings.CharacterName, *Companion.Slot);
+            continue;
         }
+        AppendLieSurfaces(
+            CompanionDoc.GetHandle64(), CompanionDoc.GetHandle(),
+            Result.PreBakedComposites, Companion.Slot, Recipe->LieSurfaces);
     }
 
     // --- Dial weights ---
-    // Enumerate scene.modifiers from the DUF (primary source of dialed values).
-    // Correlate each to an imported morph target by matching the URL fragment (modifier id)
-    // against morphs in the base figure DSF. External-morph-DSF modifiers are skipped
-    // with a warning (permissive, R7) — the diagnostic counts them as uncorrelated.
+    // Enumerate scene.modifiers from the DUF. For each URL: URL-decode the fragment id,
+    // resolve the referenced DSF, build morphId->name from it (cached by path), and emit
+    // a bound FDsonDialWeight only if the name is in the imported UMorphTarget set (so
+    // HD morphs and control morphs with no UMorphTarget produce no dangling binding).
     int32 DiagTotalModifiers = 0;
     int32 DiagNonDefault     = 0;
     int32 DiagCorrelated     = 0;
@@ -223,88 +258,117 @@ void FDsonRecipeBuilder::Build(const FDsonImportResult& Result)
         GDsonParser.GetSceneModifierUrl   &&
         GDsonParser.GetSceneModifierChannelValue;
 
-    if (bHaveDialAccessors && !Settings.ResolvedFigureDsfPath.IsEmpty())
+    if (bHaveDialAccessors)
     {
-        // Open figure DSF to build morphId -> UE name map (R3: RAII via FDsonLoadedDocument).
-        FDsonLoadedDocument FigureDocument;
-        if (!FigureDocument.LoadFromFileAsWarning(Settings.ResolvedFigureDsfPath, TEXT("[recipe-dials]")))
+        // R1: UE 5.4 GetMorphTargets() returns const TArray<TObjectPtr<UMorphTarget>>&
+        TSet<FString> ImportedTargetNames;
+        if (Result.Mesh)
         {
-            UE_LOG(LogDsonImporter, Warning,
-                TEXT("[recipe] '%s': could not open figure DSF for dial-weight correlation; dial weights skipped"),
-                *Settings.CharacterName);
+            for (const TObjectPtr<UMorphTarget>& MT : Result.Mesh->GetMorphTargets())
+                if (MT)
+                    ImportedTargetNames.Add(MT->GetFName().ToString());
         }
-        else
+
+        const TArray<FString> ContentRoots = FDsonContentRoots::Detect();
+        // Cache: normalized path -> morphId->name; avoids reopening the same DSF per modifier entry.
+        TMap<FString, TMap<FString, FString>> PathToMorphIdMap;
+
+        DiagTotalModifiers = GDsonParser.GetSceneModifierCount(H);
+        for (int32 si = 0; si < DiagTotalModifiers; ++si)
         {
-            const TMap<FString, FString> MorphIdToName =
-                BuildMorphIdToNameMap(FigureDocument.GetHandle64());
+            // R3: copy URL before next parser call
+            const FString Url = S(GDsonParser.GetSceneModifierUrl(H, si));
 
-            DiagTotalModifiers = GDsonParser.GetSceneModifierCount(H);
-            for (int32 si = 0; si < DiagTotalModifiers; ++si)
+            const float Value = static_cast<float>(
+                GDsonParser.GetSceneModifierChannelValue(H, si));
+            const float Min = static_cast<float>(
+                GDsonParser.GetSceneModifierChannelMin
+                    ? GDsonParser.GetSceneModifierChannelMin(H, si) : 0.0);
+            const float Max = static_cast<float>(
+                GDsonParser.GetSceneModifierChannelMax
+                    ? GDsonParser.GetSceneModifierChannelMax(H, si) : 1.0);
+            const bool bClamped =
+                GDsonParser.GetSceneModifierChannelClamped
+                    ? GDsonParser.GetSceneModifierChannelClamped(H, si) : false;
+
+            if (FMath::Abs(Value) > KINDA_SMALL_NUMBER)
+                ++DiagNonDefault;
+
+            // Extract and URL-decode the fragment id (1a: R4: FDsonContentRoots::UrlDecode)
+            int32 HashIdx = INDEX_NONE;
+            if (!Url.FindChar(TEXT('#'), HashIdx) || HashIdx + 1 >= Url.Len())
             {
-                // R3: copy URL before next parser call
-                const FString Url = S(GDsonParser.GetSceneModifierUrl(H, si));
+                ++DiagUncorrelated;
+                continue;
+            }
+            const FString ModifierId = FDsonContentRoots::UrlDecode(Url.Mid(HashIdx + 1));
 
-                const float Value = static_cast<float>(
-                    GDsonParser.GetSceneModifierChannelValue(H, si));
-                const float Min = static_cast<float>(
-                    GDsonParser.GetSceneModifierChannelMin
-                        ? GDsonParser.GetSceneModifierChannelMin(H, si) : 0.0);
-                const float Max = static_cast<float>(
-                    GDsonParser.GetSceneModifierChannelMax
-                        ? GDsonParser.GetSceneModifierChannelMax(H, si) : 1.0);
-                const bool bClamped =
-                    GDsonParser.GetSceneModifierChannelClamped
-                        ? GDsonParser.GetSceneModifierChannelClamped(H, si) : false;
+            // Resolve the referenced DSF from the modifier URL.
+            // R4: ResolveUrl strips fragment and decodes the path internally.
+            const FString ResolvedPath = FDsonContentRoots::ResolveUrl(Url, ContentRoots);
+            if (ResolvedPath.IsEmpty())
+            {
+                ++DiagUncorrelated;
+                continue;
+            }
 
-                if (FMath::Abs(Value) > KINDA_SMALL_NUMBER)
-                    ++DiagNonDefault;
+            // Normalize path key for case-insensitive cache lookup (Windows FS).
+            FString PathKey = ResolvedPath;
+            FPaths::NormalizeFilename(PathKey);
+            PathKey.ToLowerInline();
 
-                // Extract modifier id from URL fragment (the part after '#').
-                // e.g. "/data/.../morph.dsf#ctrlFull_Nancy" -> "ctrlFull_Nancy"
-                int32 HashIdx = INDEX_NONE;
-                if (!Url.FindChar(TEXT('#'), HashIdx) || HashIdx + 1 >= Url.Len())
-                {
-                    ++DiagUncorrelated;
-                    continue;
-                }
-                const FString ModifierId = Url.Mid(HashIdx + 1);
+            if (!PathToMorphIdMap.Contains(PathKey))
+            {
+                // R3: FDsonLoadedDocument RAII; lives only long enough to build the map.
+                FDsonLoadedDocument TempDoc;
+                if (TempDoc.LoadFromFileAsWarning(ResolvedPath, TEXT("[recipe-dials]")))
+                    PathToMorphIdMap.Add(PathKey, BuildMorphIdToNameMap(TempDoc.GetHandle64()));
+                else
+                    PathToMorphIdMap.Add(PathKey, TMap<FString, FString>());
+            }
 
-                const FString* MorphName = MorphIdToName.Find(ModifierId);
-                if (!MorphName)
-                {
-                    ++DiagUncorrelated;
-                    if (Settings.bDumpMaterialDiagnostics)
-                    {
-                        UE_LOG(LogDsonImporter, Log,
-                            TEXT("[recipe-shape] dial uncorrelated: url='%s' val=%.4f"),
-                            *Url, Value);
-                    }
-                    continue;
-                }
-
-                ++DiagCorrelated;
-
-                FDsonDialWeight DW;
-                DW.BoundMorphTargetName = *MorphName;
-                DW.SourceUrl            = Url;
-                DW.Value                = Value;
-                DW.Min                  = Min;
-                DW.Max                  = Max;
-                DW.bClamped             = bClamped;
-
+            const FString* MorphName = PathToMorphIdMap[PathKey].Find(ModifierId);
+            if (!MorphName || MorphName->IsEmpty())
+            {
+                ++DiagUncorrelated;
                 if (Settings.bDumpMaterialDiagnostics)
                 {
                     UE_LOG(LogDsonImporter, Log,
-                        TEXT("[recipe-shape] dial: morph='%s' id='%s' val=%.4f min=%.4f max=%.4f clamped=%d"),
-                        *DW.BoundMorphTargetName, *ModifierId, DW.Value, DW.Min, DW.Max,
-                        static_cast<int32>(DW.bClamped));
+                        TEXT("[recipe-shape] dial uncorrelated: url='%s' val=%.4f"),
+                        *Url, Value);
                 }
-
-                Recipe->DialWeights.Add(MoveTemp(DW));
+                continue;
             }
+
+            // Validate against actually-imported UMorphTargets (HD/control morphs stay uncorrelated)
+            if (!ImportedTargetNames.Contains(*MorphName))
+            {
+                ++DiagUncorrelated;
+                continue;
+            }
+
+            ++DiagCorrelated;
+
+            FDsonDialWeight DW;
+            DW.BoundMorphTargetName = *MorphName;
+            DW.SourceUrl            = Url;
+            DW.Value                = Value;
+            DW.Min                  = Min;
+            DW.Max                  = Max;
+            DW.bClamped             = bClamped;
+
+            if (Settings.bDumpMaterialDiagnostics)
+            {
+                UE_LOG(LogDsonImporter, Log,
+                    TEXT("[recipe-shape] dial: morph='%s' id='%s' val=%.4f min=%.4f max=%.4f clamped=%d"),
+                    *DW.BoundMorphTargetName, *ModifierId, DW.Value, DW.Min, DW.Max,
+                    static_cast<int32>(DW.bClamped));
+            }
+
+            Recipe->DialWeights.Add(MoveTemp(DW));
         }
     }
-    else if (!bHaveDialAccessors)
+    else
     {
         UE_LOG(LogDsonImporter, Verbose,
             TEXT("[recipe] '%s': scene-modifier channel accessors unavailable; dial weights skipped"),

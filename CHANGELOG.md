@@ -8,6 +8,23 @@ change (`+` added · `~` changed · `-` removed/deprecated · `!` fixed). Scheme
 baseline, and the per-change gate: [`Docs/Versioning.md`](Docs/Versioning.md) and
 [`Docs/CodeReviewRules.md`](Docs/CodeReviewRules.md) R12.
 
+## 1.3.0 — 2026-06-11 · MINOR
+
++ **`FDsonLieSurface.SourceCompanionSlot`** — new field on every LIE surface. Empty for body
+  surfaces; set to the companion's `PostLoadAddons` slot path for surfaces originating from a
+  companion figure (e.g. `.../Face/Eyes`). Makes the recipe self-describing about which mesh
+  each surface belongs to without requiring a separate lookup.
++ **Companion LIE surfaces** — the recipe LIE walk now covers every companion figure's
+  MAT-preset DUF in addition to the body DUF. Eyes companion baked composites (`Eye Color`,
+  `Eye Translucency`) are now emitted and the `bImporterPreBaked` / `BakedComposite` marker
+  fires correctly for them. A companion DUF that fails to load warns and is skipped (R7).
+~ **Dial-weight join broadened to external morph DSFs** — the fragment id is now URL-decoded
+  before lookup (`HID%20Nancy%209` → `HID Nancy 9`), and each modifier URL's referenced DSF
+  is resolved and opened directly (cached by path) instead of searching only the figure DSF.
+  Results are validated against the actually-imported `UMorphTarget` set so HD morphs and
+  control morphs with no mesh target produce no dangling bindings. Expected on Nancy: ≥1
+  correlated (character morph ± FACS); `*_HD3` and `SkinBinding` stay uncorrelated by nature.
+
 ## 1.2.0 — 2026-06-11 · MINOR
 
 + **`FDsonDialWeight`** — new array `UDsonAssetRecipe::DialWeights`. One entry per

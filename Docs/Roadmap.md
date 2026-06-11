@@ -239,7 +239,7 @@ check path-reconstructing consumers; rationale → `DecisionLog.md`.
   fallback", remove or correct them. Search `Source/DsonImporter/` for
   `Genesis 3` / `G3` references.
 
-## Authoring-metadata recipe emission (P2) — Slices 1–2 landed (v1.2.0)
+## Authoring-metadata recipe emission (P2) — Slices 1–3 landed (v1.3.0)
 
 `UDsonAssetRecipe` emitted beside each import. Landed:
 
@@ -247,9 +247,9 @@ check path-reconstructing consumers; rationale → `DecisionLog.md`.
 |---|---|---|
 | 1 | v1.1.0 · 2026-06-10 | Manifest (source id, skeleton/mesh refs), companion slot tags, per-surface LIE recipe (raw layers + compositing metadata) |
 | 2 | v1.2.0 · 2026-06-11 | Dial weights (`DialWeights[]` — raw channel value + range, bound UE morph-target name), pre-baked LIE marker (`bImporterPreBaked` + `BakedComposite`) |
+| 3 | v1.3.0 · 2026-06-11 | Dial-weight join broadened to external morph DSFs (URL-decode + per-URL DSF resolve, validated against imported `UMorphTarget` set); companion LIE surfaces emitted + baked-eye marker fires; `FDsonLieSurface.SourceCompanionSlot` |
 
-Remaining: ERC/JCM deltas; **dial-weight join** broadened to external morph DSFs (figure-DSF-only today — pending Nancy `[recipe-shape]` numbers; see `DecisionLog.md`). Deferred (P4): HD, preset/variant sets.
-Per-item triage and slicing history → `DecisionLog.md`.
+Remaining: ERC/JCM deltas. Deferred (P4): HD, preset/variant sets. Per-item triage → `DecisionLog.md`.
 
 ## Next up
 

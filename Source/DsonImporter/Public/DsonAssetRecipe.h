@@ -44,6 +44,7 @@ struct DSONIMPORTER_API FDsonLieSurface
 
     UPROPERTY() FString              MaterialGroupName;  // first polygon group name (surface key)
     UPROPERTY() FString              ChannelId;          // DAZ channel id, e.g. "Diffuse Color"
+    UPROPERTY() FString              SourceCompanionSlot; // empty for body surfaces; companion slot path for companion-figure surfaces
     UPROPERTY() TArray<FDsonLieLayer> Layers;
     // Set when the importer alpha-composited a >=2-layer stack into one UTexture2D at import;
     // BakedComposite points at the saved composite. A downstream consumer must NOT re-composite

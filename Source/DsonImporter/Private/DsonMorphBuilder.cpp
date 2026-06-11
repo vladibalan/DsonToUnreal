@@ -9,7 +9,6 @@
 #include "MeshDescription.h"
 #include "SkeletalMeshAttributes.h"
 #include "Misc/Paths.h"
-#include "ObjectTools.h"
 
 namespace
 {
