@@ -151,10 +151,10 @@ step, never as a finished result:
 The **LIE (layered-image) composition recipe** — the ordered layer stack with
 per-layer blend ops, the worked Nancy-9 example, what the importer does with it today,
 and the `#fragment` diagnostic — lives in `Docs/Reference.md` → "LIE (layered-image)
-composition" (read it before chasing any `#fragment` reference). Bringing the recipe
-across faithfully is blocked on an additive parser exposure of the per-layer
-compositing metadata the parser currently drops — taken when a concrete need lands
-(`Docs/Principles.md` P4), not yet.
+composition" (read it before chasing any `#fragment` reference). The recipe itself is
+carried across faithfully — raw, uncomposed per-layer compositing metadata emitted by
+the recipe-emission slices above (parser exposure shipped in DsonParser 1.4.0). Only
+*executing* it (compositing a finished Diffuse) is the downstream authoring step.
 
 ### Parked — revisit if content needs it
 

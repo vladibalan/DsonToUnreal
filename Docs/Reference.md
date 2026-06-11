@@ -157,18 +157,19 @@ operations, not any single file.
   as the Diffuse map → the surface renders *base skin*, not the composited look.
 - Imports the **non-base layers as standalone ingredient `UTexture2D`s**
   (`T_…_lie_<idx>[_label]`) so they exist for later composition.
-- **Drops the recipe**: the parser's per-layer model keeps only `url` + `label`;
-  the blend instructions (operation/transparency/color/invert/transforms/active)
-  are discarded at parse time.
+- **Preserves the recipe** (since DsonParser 1.4.0): the parser's per-layer model
+  now exposes the blend instructions (operation/transparency/color/invert/
+  transforms/active), and the importer records them — raw and uncomposed — in the
+  per-surface LIE recipe on `UDsonAssetRecipe` (see `Docs/Roadmap.md` recipe-emission).
+  Earlier builds dropped them at parse time; that gap is closed.
 
 **Composition is out of importer scope.** Executing this recipe — compositing the
 ingredient layers per their blend ops / transparency / order into a faithful Diffuse,
 then baking out and rebinding the MIC — is *interpretation*, not translation, so the
-importer does not do it (`Docs/Principles.md` P1). The recipe must still be brought
-across **faithfully** (P2); closing the gap left by today's dropped recipe (above) is
-an additive parser exposure of the per-layer compositing metadata
-(operation/transparency/color/invert/transforms/active) — taken when a concrete need
-lands (`Docs/Principles.md` P4), not yet.
+importer does not do it (`Docs/Principles.md` P1). It carries the recipe across
+**faithfully** instead (P2, raw on `UDsonAssetRecipe`), leaving execution to a
+downstream authoring step; the originals stay untouched (P5) so the composite stays
+reproducible.
 
 **Diagnostic shortcut (the time-saver).** A channel `image` beginning with `#`
 is a LIE recipe id, *never* a file path. The importer gets the **base** from the
