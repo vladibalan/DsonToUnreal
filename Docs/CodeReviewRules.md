@@ -213,12 +213,12 @@ and name the tier the content belongs in.
 ### R11 — Keep the in-repo settings mirror in sync with the active global settings
 The settings that actually run are the **user-global** `~/.claude/settings.json`;
 this repo's `.claude/settings.json` is an unused mirror (added dirs don't load their
-own `.claude`) kept for review and version history. The two must stay
-**content-equivalent**: change one — a Director task, settings being config — and
-make the same change to the other in the same edit. The only allowed divergence is
-hook paths: the mirror uses repo-relative paths (`.claude/hooks/...`) for
-portability, the global file absolute. A drifted mirror is stale-orientation-class
-drift (R8).
+own `.claude`) kept for review and version history. The mirror must stay
+**content-equivalent to this plugin's own entries** in the global file. Change one
+(a Director task, settings being config) and make the same change to the other in the
+same edit. Two allowed divergences: the shared global also carries sibling plugins'
+hooks (e.g. DsonArtisan) the mirror omits by design; and the mirror uses repo-relative
+paths (`.claude/hooks/...`), the global absolute. A drifted mirror is stale-orientation-class drift (R8).
 
 ### R12 — Version the consumer surface; announce the change with it
 A co-built downstream plugin consumes this one. Its **consumer surface**
@@ -259,7 +259,7 @@ Full scheme, baseline, and what is deliberately not ported from DsonParser →
 - [ ] R10: doc content sits in the tier that owns it; nothing another doc owns is
       restated; no hot-path doc pushed past its soft line budget without relocating;
       forward-looking docs name no specific downstream consumer.
-- [ ] R11: in-repo `.claude/settings.json` mirrors the active global
-      `~/.claude/settings.json` (content-equivalent; only hook paths differ).
+- [ ] R11: in-repo `.claude/settings.json` mirrors this plugin's entries in the
+      active global `~/.claude/settings.json` (sibling-plugin hooks + path form aside).
 - [ ] R12: consumer-surface change (public API or emitted-output shape) bumps
       `VersionName` + `Version`, adds a `CHANGELOG.md` entry, and tags the release `vX.Y.Z`.
