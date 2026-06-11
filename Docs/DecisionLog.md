@@ -1136,3 +1136,24 @@ Director-built (DsonHostEditor up to date, exit 0).
 key-0 `image`→`image_library` path; `ImageId = UrlDecode(value.Mid(1))` already matches
 `PreBakedComposites`) so the eye LIE is emitted as raw layers and `bImporterPreBaked` fires. Dials
 accepted as-is. **Remaining after that: ERC/JCM deltas** (folds in the control dials; no parser FR).
+
+**Update (2026-06-11) — Slice 4 landed (v1.4.0): anim-bound LIE emission.** Fixes the Slice-3 root
+cause (eye LIE invisible because it is `scene.animations` key-0-bound, not a channel `#fragment`):
+`AppendLieSurfaces` now scans key-0 `Leaf=="image"` entries per scene material, reconciles matId
+(`UrlDecode` + `StripUniquifyingSuffix`, mirroring `ApplySceneAnimationOverrides`), resolves
+`#fragment` → `image_library`, emits raw layers, and sets the pre-baked marker
+(`UrlDecode(value.Mid(1))` matches `PreBakedComposites`). `ParseAnimationUrl` +
+`StripUniquifyingSuffix` extracted to `DsonImportUtils.h` (shared inline, R4); `DsonMaterialBuilder`
+call sites updated (pure move). Per-`mi` `ChannelId` dedup; a both-paths collision logs a warning
+(Director-requested). Additive/permissive (R7); no parser FR. Director-built (up to date, exit 0).
+**Runtime confirmation (Nancy `[recipe-shape] LIE baked ≥ 2`) pending an editor import** — not yet
+verified, so the Roadmap marks the marker "wired, runtime-pending" rather than asserting it fires
+(the same over-claim corrected on Slice 3). **Remaining recipe work: ERC/JCM deltas only.**
+
+**Process note (handoff).** The pre-code design-read gate worked, but the Implementer surfaced the
+design read in its **chat output** — the task-file pinned only the *final* report to the feedback-file
+and left the design-read channel unspecified, forcing the user to copy/paste a wall of console text
+(defeats the file-based handoff). Fix tracked in the Roadmap Cleanup backlog → tighten
+`Docs/AgentWorkflow.md` so a `Feedback requested: YES` design read is written to
+`.handoff/feedback-<id>.md` (`Status: design-review`) and reviewed from disk. Standing preference
+recorded for interim sessions.

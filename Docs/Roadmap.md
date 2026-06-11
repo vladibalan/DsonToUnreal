@@ -233,11 +233,12 @@ check path-reconstructing consumers; rationale → `DecisionLog.md`.
   repo + DLL rebuild/copy into `Source/ThirdParty/DsonParser/Libs/Win64/`), after
   confirming no references remain.
 - **Audit source comments / log strings for stale G3 fallback phrasing.** The
-  earlier Roadmap claim that G3 fell back to `M_DazDefault` was incorrect (G3
-  uses IrayUber → `M_DazIrayUber`, verified Victoria 7 HD, 2026-06-06). If any
-  file's comments or log messages still claim "Genesis 3 → default" / "G3
-  fallback", remove or correct them. Search `Source/DsonImporter/` for
-  `Genesis 3` / `G3` references.
+  earlier Roadmap claim that G3 fell back to `M_DazDefault` was incorrect (G3 uses
+  IrayUber → `M_DazIrayUber`, verified Victoria 7 HD, 2026-06-06). Remove/correct any
+  "Genesis 3 → default" / "G3 fallback" claims; search `Source/DsonImporter/` for
+  `Genesis 3` / `G3`.
+- **Pre-code design reads go by file, not chat** — when `Feedback requested: YES`, the Implementer
+  writes the design read to `.handoff/feedback-<id>.md` (`Status: design-review`), reviewed from disk; fix `Docs/AgentWorkflow.md` (template + `Feedback requested` line).
 
 ## Authoring-metadata recipe emission (P2) — Slices 1–4 landed (v1.4.0)
 
@@ -246,7 +247,7 @@ check path-reconstructing consumers; rationale → `DecisionLog.md`.
 | 1 | v1.1.0 · 2026-06-10 | Manifest (source id, skeleton/mesh refs), companion slot tags, per-surface LIE recipe (raw layers + compositing metadata) |
 | 2 | v1.2.0 · 2026-06-11 | Dial weights (`DialWeights[]` — raw channel value + range, bound UE morph-target name), pre-baked LIE marker (`bImporterPreBaked` + `BakedComposite`) |
 | 3 | v1.3.0 · 2026-06-11 | Dial-weight join broadened to external morph DSFs (URL-decode + per-URL resolve, validated vs imported `UMorphTarget` set) — binds **direct** morph dials; control/formula dials (e.g. `HID Nancy 9`) → ERC/JCM. Companion MAT-preset walk + `FDsonLieSurface.SourceCompanionSlot`. |
-| 4 | v1.4.0 · 2026-06-11 | Anim-bound (`scene.animations` key-0 `image`) LIE surfaces emitted — eye LIE on G9 Eyes companion now in recipe. Pre-baked marker fires for both eye composites. `ParseAnimationUrl`/`StripUniquifyingSuffix` extracted to `DsonImportUtils.h` (R4). |
+| 4 | v1.4.0 · 2026-06-11 | Anim-bound (`scene.animations` key-0 `image`) LIE surfaces emitted — eye LIE on G9 Eyes companion now in recipe; pre-baked marker **wired** for the eye composites (build-verified; runtime `baked≥2` pending Nancy confirm). `ParseAnimationUrl`/`StripUniquifyingSuffix` extracted to `DsonImportUtils.h` (R4). |
 
 Remaining: **ERC/JCM** deltas only. Deferred (P4): HD, preset/variant sets. Per-item triage → `DecisionLog.md`.
 
