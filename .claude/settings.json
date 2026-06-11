@@ -33,6 +33,18 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \".claude/hooks/dson-version-tag-guard.ps1\"",
+            "timeout": 15,
+            "statusMessage": "Checking DsonToUnreal release tags (Versioning R12)..."
+          }
+        ]
+      }
     ]
   }
 }

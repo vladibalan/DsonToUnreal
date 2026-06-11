@@ -233,10 +233,10 @@ the same change:
 - **Bump** `VersionName` in `DsonToUnreal.uplugin` (the SemVer source of truth; also
   increment the integer `Version`).
 - **Add a `CHANGELOG.md` entry** (root, newest first) under a heading leading with the new
-  `VersionName` (`X.Y.Z — date · CLASS`), one sigil-prefixed line per change (`+` `~` `-` `!`).
+  `VersionName` (`X.Y.Z — date · CLASS`), one sigil-prefixed line per change; **tag** the release commit `vX.Y.Z`.
 Full scheme, baseline, and what is deliberately not ported from DsonParser →
-[`Versioning.md`](Versioning.md). Reviewer action: a consumer-surface change with no
-`VersionName` bump + `CHANGELOG.md` entry is stale-orientation-class drift (R8).
+[`Versioning.md`](Versioning.md). Reviewer action: a surface change with no `VersionName` bump,
+`CHANGELOG.md` entry, or `vX.Y.Z` tag is stale drift (R8); guard: `dson-version-tag-guard.ps1`.
 
 ## Quick checklist (state results after each change)
 
@@ -262,4 +262,4 @@ Full scheme, baseline, and what is deliberately not ported from DsonParser →
 - [ ] R11: in-repo `.claude/settings.json` mirrors the active global
       `~/.claude/settings.json` (content-equivalent; only hook paths differ).
 - [ ] R12: consumer-surface change (public API or emitted-output shape) bumps
-      `VersionName` + integer `Version` and adds a `CHANGELOG.md` entry.
+      `VersionName` + `Version`, adds a `CHANGELOG.md` entry, and tags the release `vX.Y.Z`.
