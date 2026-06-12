@@ -95,14 +95,14 @@ relocate or split instead.
 - Scene material instance creation and shader/channel mapping: `Source/DsonImporter/Private/DsonMaterialBuilder.*`
 - Texture import, bump-to-normal baking, package naming, texture cache: `Source/DsonImporter/Private/DsonTextureImporter.*`
 - Verbose material channel dumps: `Source/DsonImporter/Private/DsonMaterialDiagnostic.*`
-- Parser C API function pointers: `Source/DsonImporter/Private/DsonParserFunctions.h`
-- Compile-time parser ABI drift check (no runtime code): `Source/DsonImporter/Private/DsonParserAbiCheck.cpp`
+- Parser C API function pointers + compile-time ABI drift check: `Source/DsonImporter/Private/DsonParserFunctions.h`, `DsonParserAbiCheck.cpp`
 - Requesting a parser feature (new DSON data the parser doesn't expose yet): `Docs/AgentWorkflow.md` ("Requesting parser features")
 - Settings/result structs passed between import stages: `Source/DsonImporter/Private/DsonImportTypes.h`
 - Parser document-handle RAII (only place `Create`/`Load`/`Destroy` runs; R3): `Source/DsonImporter/Private/DsonLoadedDocument.*`
 - Package creation, asset saving, import-folder paths: `Source/DsonImporter/Private/DsonAssetUtils.*`
 - Recipe asset type (UDsonAssetRecipe + USTRUCTs, consumer-facing): `Source/DsonImporter/Public/DsonAssetRecipe.h`
 - Recipe emission (manifest + companion slots + LIE layers): `Source/DsonImporter/Private/DsonRecipeBuilder.*`
+- Library catalog (enumerate/classify/thumbnail/incremental cache; consumer-facing): `Source/DsonImporter/Public/DsonCatalog.h` + `Private/DsonCatalog.*`; entry via `FDsonImporterModule::BeginCatalogEnumerate`/`GetCatalogThumbnail`
 - Shared URL/id/UTF-8/coordinate-flip leaf helpers (see `Docs/CodeReviewRules.md` R4): `Source/DsonImporter/Private/DsonImportUtils.h`
 - Third-party parser import library and DLL packaging: `Source/ThirdParty/DsonParser/`
 - Updating the vendored parser bundle (header/version/CHANGELOG/DLL) from a local DsonParser repo: `Tools/Sync-Parser.ps1` (see `Docs/Tooling.md`)

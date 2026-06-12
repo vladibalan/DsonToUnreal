@@ -1,7 +1,7 @@
 {
     "FileVersion": 3,
-    "Version": 6,
-    "VersionName": "1.5.0",
+    "Version": 7,
+    "VersionName": "1.6.0",
     "FriendlyName": "DsonToUnreal",
     "Description": "Imports DAZ Studio Genesis 9 characters from DSON/DSF files into Unreal Engine 5",
     "Category": "Import",

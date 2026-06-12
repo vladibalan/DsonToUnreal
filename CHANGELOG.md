@@ -8,6 +8,23 @@ change (`+` added · `~` changed · `-` removed/deprecated · `!` fixed). Scheme
 baseline, and the per-change gate: [`Docs/Versioning.md`](Docs/Versioning.md) and
 [`Docs/CodeReviewRules.md`](Docs/CodeReviewRules.md) R12.
 
+## 1.6.0 — 2026-06-12 · MINOR
+
++ **Library catalog API** — new `FDsonImporterModule` entry points for a downstream
+  browse-and-pick consumer over the installed DAZ library, read from declared data only
+  (no folder inference): `BeginCatalogEnumerate(roots, progress)` →
+  `TFuture<FDsonCatalogResult>` (async supplied-roots walk, faithful per-asset
+  classification, per-root tolerance, incremental on-disk cache), `GetCatalogThumbnail(root, id)`
+  (companion preview bytes, lazy LRU), and `InvalidateCatalog()`.
++ **`Public/DsonCatalog.h`** — new public types: `FDsonCatalogEntry`
+  (id/rootId/relativePath/label/type/generation/dependsOn/browsable; `id` is the
+  root-relative path == `relativePath`, combined with a root it round-trips to
+  `ImportDazAsset`), `EDsonCatalogAssetType`, `FDsonCatalogRoot`, `FDsonCatalogResult` +
+  per-root `EDsonCatalogRootStatus` (Ok/Missing/Error/Offline). `EGenesisGeneration`
+  relocated here (re-exported from the import path; no consumer change).
++ Built against **DsonParser 1.6.0** (per-library-item `presentation.type`/`label` + geograft
+  signal for classification; thread-safe distinct-handle contract for the background walk).
+
 ## 1.5.0 — 2026-06-11 · MINOR
 
 + **`UDsonAssetRecipe::Formulas`** — new `TArray<FDsonFormula>` carrying raw, uncomposed DAZ formula

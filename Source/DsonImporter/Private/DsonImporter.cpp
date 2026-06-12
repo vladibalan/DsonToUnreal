@@ -4,9 +4,12 @@
 #include "Interfaces/IMainFrameModule.h"
 #include "Misc/Paths.h"
 #include "HAL/PlatformProcess.h"
+#include "Async/Async.h"            // Async(EAsyncExecution::ThreadPool, ...)
+#include "Async/Future.h"           // TFuture, TPromise
 #include "ToolMenus.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Widgets/SWindow.h"
+#include <atomic>
 
 #include "DsonParserFunctions.h"
 #include "DsonParserVersion.h"  // compile-time DSONPARSER_VERSION_*
@@ -16,6 +19,7 @@
 #include "DsonValidator.h"
 #include "DsonImportPipeline.h"
 #include "DsonImportTypes.h"
+#include "DsonCatalogImpl.h"    // FDsonCatalog
 
 /*
  * Intent:
@@ -36,6 +40,17 @@ FDsonParserAPI GDsonParser;
 namespace
 {
     void* GDsonParserDllHandle = nullptr;
+
+    // Long-lived catalog instance; lazy-init on first BeginCatalogEnumerate call.
+    TUniquePtr<FDsonCatalog> GCatalogInstance;
+
+    // Walk re-entrancy guard: exchange(true) returns the old value; if old==true, reject.
+    // Cleared inside the walk lambda after DoEnumerate returns (success or aborted).
+    std::atomic<bool> GWalkInProgress{false};
+
+    // Tracks the in-flight walk lambda so ShutdownModule can wait for it.
+    // Default-constructed TFuture<void> is invalid (IsValid()==false).
+    TFuture<void> GWalkFuture;
 
     // Idempotent: no-op if already bound in this image; returns false on load/ABI failure.
     bool EnsureDsonParserLoaded()
@@ -197,6 +212,21 @@ void FDsonImporterModule::ShutdownModule()
         ToolMenus->RemoveSection("MainFrame.MainMenu.File", "DsonImporter");
     }
 
+    // Signal any in-flight walk to stop, then wait for it to finish before releasing
+    // the catalog and the DLL. This prevents the walk from calling into DsonParser.dll
+    // after it has been freed (use-after-free / call-into-unloaded-DLL).
+    if (GCatalogInstance)
+        GCatalogInstance->RequestAbort();
+
+    if (GWalkFuture.IsValid())
+    {
+        GWalkFuture.Wait();
+        // GWalkFuture stays in fulfilled state; IsValid() remains true but Get()/Wait()
+        // are idempotent on a fulfilled TFuture — harmless.
+    }
+
+    GCatalogInstance.Reset();
+
     if (GDsonParserDllHandle != nullptr)
     {
         FPlatformProcess::FreeDllHandle(GDsonParserDllHandle);
@@ -239,6 +269,10 @@ FDsonImportReport FDsonImporterModule::ImportDazAsset(const FDsonImportRequest& 
         UE_LOG(LogDsonImporter, Error, TEXT("ImportDazAsset: %s"), *Report.DiagnosticSummary);
         return Report;
     }
+
+    // DsonParser 1.6.0: distinct document handles share no mutable state; GetLastError is
+    // thread_local. A catalog walk (separate handle, worker thread) is safe concurrent with
+    // a foreground import. No busy guard needed.
 
     FString Path = FPaths::ConvertRelativePathToFull(Request.SourceAssetPath);
     FPaths::NormalizeFilename(Path);
@@ -312,7 +346,7 @@ FDsonImportReport FDsonImporterModule::ImportDazAsset(const FDsonImportRequest& 
 
     if (Report.bSucceeded)
     {
-        UE_LOG(LogDsonImporter, Log,  TEXT("ImportDazAsset: %s"), *Report.DiagnosticSummary);
+        UE_LOG(LogDsonImporter, Log, TEXT("ImportDazAsset: %s"), *Report.DiagnosticSummary);
     }
     else
     {
@@ -320,6 +354,64 @@ FDsonImportReport FDsonImporterModule::ImportDazAsset(const FDsonImportRequest& 
     }
 
     return Report;
+}
+
+TFuture<FDsonCatalogResult> FDsonImporterModule::BeginCatalogEnumerate(
+    TArray<FDsonCatalogRoot> Roots,
+    TFunction<void(int32, int32)> ProgressCallback)
+{
+    if (!GCatalogInstance)
+        GCatalogInstance = MakeUnique<FDsonCatalog>();
+
+    // Serialize to one walk at a time: reject a second concurrent call rather than queuing.
+    // Rationale: queuing would require a separate root list + callback, and the caller
+    // always has the latest root list ready to supply on retry.
+    if (GWalkInProgress.exchange(true))
+    {
+        const FString Msg = TEXT("Catalog walk already in progress — retry after it completes");
+        UE_LOG(LogDsonImporter, Warning, TEXT("BeginCatalogEnumerate: %s"), *Msg);
+        TPromise<FDsonCatalogResult> Promise;
+        FDsonCatalogResult Err;
+        Err.bCompleted   = false;
+        Err.ErrorMessage = Msg;
+        Promise.SetValue(MoveTemp(Err));
+        return Promise.GetFuture();
+    }
+
+    FDsonCatalog* CatalogPtr = GCatalogInstance.Get();
+
+    // Create the result promise here so DoEnumerate's outcome reaches the caller's TFuture
+    // while GWalkFuture (TFuture<void>) tracks lambda completion for shutdown.
+    TPromise<FDsonCatalogResult> ResultPromise;
+    TFuture<FDsonCatalogResult>  CallerFuture = ResultPromise.GetFuture();
+
+    GWalkFuture = Async(EAsyncExecution::ThreadPool,
+        [CatalogPtr,
+         Roots             = MoveTemp(Roots),
+         ProgressCallback  = MoveTemp(ProgressCallback),
+         ResultPromise     = MoveTemp(ResultPromise)]() mutable
+        {
+            FDsonCatalogResult Result = CatalogPtr->DoEnumerate(Roots, ProgressCallback);
+            ResultPromise.SetValue(MoveTemp(Result));
+            GWalkInProgress.store(false, std::memory_order_release);
+        });
+
+    return CallerFuture;
+}
+
+void FDsonImporterModule::InvalidateCatalog()
+{
+    if (!GCatalogInstance)
+        GCatalogInstance = MakeUnique<FDsonCatalog>();
+    GCatalogInstance->Invalidate();
+}
+
+TOptional<TArray<uint8>> FDsonImporterModule::GetCatalogThumbnail(
+    const FString& RootAbsPath, const FString& Id)
+{
+    if (!GCatalogInstance)
+        GCatalogInstance = MakeUnique<FDsonCatalog>();
+    return GCatalogInstance->GetThumbnail(RootAbsPath, Id);
 }
 
 #undef LOCTEXT_NAMESPACE

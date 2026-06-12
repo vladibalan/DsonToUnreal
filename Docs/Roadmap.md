@@ -256,5 +256,5 @@ With Phase 6 v2, asset folder structure, and composed dialed-shape baking all cl
 importer covers its mandate for the supported figures. Beyond the planned recipe-emission
 workstream above, remaining work is reactive — the **Cleanup backlog**, new figures/shaders as
 content needs them (shader-gated), and just-in-time additive parser exposures
-(`Docs/Principles.md` P4) — one pending: a parser-blocked read-only **library catalog**
-(consumer request; `content_type`/geograft parser FR 2026-06-12; design → `DecisionLog.md`).
+(`Docs/Principles.md` P4). The read-only **library catalog** (consumer request) shipped **1.6.0**
+(enumerate + classify + thumbnails + incremental cache; rationale → `DecisionLog.md`).

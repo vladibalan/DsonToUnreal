@@ -11,6 +11,40 @@ Entry sigils: `+` added · `~` changed · `-` removed/deprecated · `!` fixed.
 
 Nothing yet — new C-ABI changes land here, then move under a version heading on release.
 
+## 1.6.0 — 2026-06-12 · MINOR (additive)
+
+Threading contract. DsonParser is now safe for concurrent use across threads on **distinct**
+document handles: all parsed data, lazy caches, and returned scratch strings live on the handle
+(DsonContext), so two threads reading two handles share no mutable state. The sole former
+exception — the process-global last-error slot behind DsonParser_GetLastError() — is now a
+per-thread (function-local thread_local) slot, so concurrent DsonDocument_Create/LoadFrom* calls
+no longer race on it and each thread's GetLastError() reflects its own last call. No symbol,
+signature, or single-threaded behavior changed; the header now states the contract. Same-handle
+concurrent use remains the caller's responsibility (lazy caches mutate on first read).
+! DsonParser_GetLastError -> per-thread (thread_local) storage; was process-global - fixes a data race under concurrent loads, no API/signature change
+
+## 1.5.0 — 2026-06-12 · MINOR (additive)
+
+Declared asset-catalog metadata, for an Importer building a faithful catalog of installed
+`.duf`/`.dsf` assets from declared data only (no folder inference). `presentation.{type,label}`
+is exposed **per library item** — the parser does not pick a single "asset" content type or
+select a defining item; the consumer maps `presentation.type` (the DAZ "Content Type") and
+chooses. Node items carry it for figures/clothing/hair/props ("Follower", "Wardrobe/…"),
+modifier items for shapes ("Modifier/Shape"); a preset with no presentation reports `""`
+(→ the consumer's "unknown"). The geograft signal is a **populated** graft: an empty
+`"graft": {}` (carried by base figures and by Genesis 9 Eyes/Eyelashes) is NOT a graft —
+only a graft with `vertex_pairs` is. Faithful single-file exposure (R6.4): no classification,
+no document-level resolution, no cross-section merge. Adding the three keys to their
+`knownKeys` sets also clears them from the unknown-key audit noise. Verified against
+TestFiles (`test.dsf` modifier = "Modifier/Shape"; `Genesis9.json` base geom is_graft=false,
+node[0]="Actor") and an external geograft (`Genesis9FemaleGenitalia.dsf` → is_graft=true,
+84 vertex_pairs; node[0]="Follower").
++ DsonDocument_GetNodePresentationType → node_library item presentation.type (DAZ "Content Type"; "" = none/invalid)
++ DsonDocument_GetNodePresentationLabel → node_library item presentation.label ("" = none/invalid)
++ DsonDocument_GetModifierPresentationType → modifier_library item presentation.type ("" = none/invalid)
++ DsonDocument_GetModifierPresentationLabel → modifier_library item presentation.label ("" = none/invalid)
++ DsonDocument_GetGeometryIsGraft → true iff the geometry declares a populated graft (vertex_pairs present); false for empty/absent graft
+
 ## 1.4.0 — 2026-06-10 · MINOR (additive)
 
 Per-layer LIE compositing metadata. DAZ Layered Image (LIE) `map` elements carry the

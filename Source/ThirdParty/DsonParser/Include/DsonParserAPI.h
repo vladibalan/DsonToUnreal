@@ -10,8 +10,14 @@
 #include "DsonParserVersion.h"
 
 // Public C ABI orientation:
-// v1.4.0 — runtime: DsonParser_GetVersion(); compile-time: DSONPARSER_VERSION_*.
+// v1.6.0 — runtime: DsonParser_GetVersion(); compile-time: DSONPARSER_VERSION_*.
 // Release history: CHANGELOG.md; SemVer/C-ABI policy: docs/versioning.md.
+// What's new in 1.6.0: documented threading contract - distinct handles are safe
+//   for concurrent cross-thread use; DsonParser_GetLastError() is now per-thread
+//   (thread_local), no longer a process-global slot.
+// What's new in 1.5.0: DsonDocument_Get{Node,Modifier}Presentation{Type,Label} +
+//   DsonDocument_GetGeometryIsGraft - declared asset-catalog metadata (content type,
+//   display label, geograft signal), exposed faithfully per library item.
 // What's new in 1.4.0: DsonDocument_GetImageLayer*/...SceneMaterialChannelLayer* per-layer LIE compositing (blend op, opacity, active, invert, color, transform).
 // What's new in 1.3.0: DsonDocument_GetImageLayer* — image_library per-layer LIE map stack (texture path + label) reachable by image index.
 // What's new in 1.2.0: DsonDocument_GetSceneAnimation* — scene.animations keyframe channels exposed faithfully (per R6.4, never applied onto scene.materials).
@@ -24,6 +30,19 @@
 // "empty" value: count functions and numeric getters return 0 (count functions
 // never return -1), bool getters return false, string getters return "", and the
 // value/index accessors that have no element to report return -1.
+//
+// Threading / concurrency:
+// - Distinct handles are independent. Each DsonDocumentHandle owns all of its
+//   parsed data, its lazy query caches, and the scratch strings its accessors
+//   return, so two threads operating on two different handles share no mutable
+//   state and need no locking - including concurrent DsonDocument_Create /
+//   LoadFrom* and any mix of read accessors.
+// - DsonParser_GetLastError() is per-thread: it reports the error (or "") from the
+//   calling thread's own most recent DsonDocument_Create/LoadFrom*. Read it on the
+//   same thread that performed the load.
+// - A single handle is NOT safe for concurrent use: its lazy caches and scratch
+//   return strings are built/overwritten on read. Serialize calls on one handle,
+//   or give each thread its own handle.
 //
 // Index conventions:
 // - Node/geometry/material/modifier indexes address the corresponding library
@@ -79,6 +98,11 @@ DSONPARSER_API int DsonDocument_GetUVSetCount(DsonDocumentHandle handle);
 DSONPARSER_API const char* DsonDocument_GetNodeId(DsonDocumentHandle handle, int index);
 DSONPARSER_API const char* DsonDocument_GetNodeName(DsonDocumentHandle handle, int index);
 DSONPARSER_API const char* DsonDocument_GetNodeType(DsonDocumentHandle handle, int index);
+// presentation.type (DAZ "Content Type", e.g. "Follower") / presentation.label for this node_library item; "" when absent or index invalid.
+// @since 1.5.0
+DSONPARSER_API const char* DsonDocument_GetNodePresentationType(DsonDocumentHandle handle, int index);
+// @since 1.5.0
+DSONPARSER_API const char* DsonDocument_GetNodePresentationLabel(DsonDocumentHandle handle, int index);
 // Node center_point (joint origin) components
 DSONPARSER_API double DsonDocument_GetNodeCenterPointX(DsonDocumentHandle handle, int index);
 DSONPARSER_API double DsonDocument_GetNodeCenterPointY(DsonDocumentHandle handle, int index);
@@ -130,6 +154,9 @@ DSONPARSER_API const char* DsonDocument_GetGeometryName(DsonDocumentHandle handl
 DSONPARSER_API int DsonDocument_GetGeometryVertexCount(DsonDocumentHandle handle, int index);
 DSONPARSER_API int DsonDocument_GetGeometryPolygonCount(DsonDocumentHandle handle, int index);
 DSONPARSER_API const char* DsonDocument_GetGeometryDefaultUVSetId(DsonDocumentHandle handle, int geomIndex);
+// true iff the geometry declares a populated graft (vertex_pairs present); false for empty/absent graft. Bool family -> false on invalid handle/index (R1).
+// @since 1.5.0
+DSONPARSER_API bool DsonDocument_GetGeometryIsGraft(DsonDocumentHandle handle, int index);
 
 // ---- A. Geometry: vertex positions ----
 DSONPARSER_API int    DsonDocument_GetVertexCount(DsonDocumentHandle handle, int geomIndex);
@@ -165,6 +192,11 @@ DSONPARSER_API const char* DsonDocument_GetSceneMaterialGroupName(DsonDocumentHa
 DSONPARSER_API const char* DsonDocument_GetModifierId(DsonDocumentHandle handle, int index);
 DSONPARSER_API const char* DsonDocument_GetModifierName(DsonDocumentHandle handle, int index);
 DSONPARSER_API const char* DsonDocument_GetModifierType(DsonDocumentHandle handle, int index);
+// presentation.type (DAZ "Content Type", e.g. "Modifier/Shape") / presentation.label for this modifier_library item; "" when absent or index invalid.
+// @since 1.5.0
+DSONPARSER_API const char* DsonDocument_GetModifierPresentationType(DsonDocumentHandle handle, int index);
+// @since 1.5.0
+DSONPARSER_API const char* DsonDocument_GetModifierPresentationLabel(DsonDocumentHandle handle, int index);
 DSONPARSER_API double      DsonDocument_GetModifierChannelValue(DsonDocumentHandle handle, int modifierIndex);
 DSONPARSER_API double      DsonDocument_GetModifierChannelMin(DsonDocumentHandle handle, int modifierIndex);
 DSONPARSER_API double      DsonDocument_GetModifierChannelMax(DsonDocumentHandle handle, int modifierIndex);

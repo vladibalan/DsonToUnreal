@@ -60,21 +60,24 @@ public:
         const FDsonValidationResult& Validation,
         bool bDumpMaterialDiagnostics);
 
-private:
     // Maps parser asset_info.type strings onto the plugin's import categories.
+    // Public so the catalog can classify assets without calling Validate() (R4 — reuse, no double-open).
     static EDsonAssetType ParseAssetType(const char* TypeStr);
 
-    // Infers Genesis generation from DAZ asset IDs; used for user feedback and future routing.
+    // Infers Genesis generation from DAZ asset IDs.
+    // Public so the catalog can call it directly on an already-open document handle (R4).
     static EGenesisGeneration DetectGeneration(const char* AssetId);
 
     // Reads parser-reported references for the chosen asset type and resolves each URL
     // through the DAZ content roots. OutDependencies preserves raw URL plus disk result.
+    // Public so the catalog can call it on its own FDsonLoadedDocument without opening extras (R4).
     static void ResolveDependencies(
         void* DocHandle,
         EDsonAssetType AssetType,
         const TArray<FString>& ContentRoots,
         TArray<FDsonDependency>& OutDependencies);
 
+private:
     // Discovers companion figures from scene.extra PostLoadAddons (G9 character presets).
     // Requires DsonParser >= 1.1.0 exports; exits silently when exports are absent.
     // Null-guards all 5 addon exports before use; skips any slot that fails to resolve.

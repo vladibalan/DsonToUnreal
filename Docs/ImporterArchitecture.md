@@ -18,6 +18,7 @@ The plugin is an Unreal Editor module:
   (module lifecycle + the programmatic `ImportDazAsset` entry point)
 - Public programmatic-import types: `Source/DsonImporter/Public/DsonImportRequest.h`
 - Public persisted recipe asset type: `Source/DsonImporter/Public/DsonAssetRecipe.h`
+- Public library-catalog types: `Source/DsonImporter/Public/DsonCatalog.h`
 - Implementation code: `Source/DsonImporter/Private/`
 - Bundled parser API: `Source/ThirdParty/DsonParser/`
 - Master material assets: `Content/Materials/`
@@ -135,21 +136,18 @@ shares the path→settings assembly (`FDsonValidator::ToImportSettings`) with th
 `DsonParserFunctions.h`
 
 - Function pointer typedefs and `FDsonParserAPI`; includes the optional `DsonParser_GetVersion` accessor used by `DsonImporter.cpp`'s startup ABI-compatibility check.
-- Keep this synchronized with exports provided by the bundled parser DLL, including morph-target accessors and scene-modifier URLs used to discover external morph files.
-  Formula-output accessors are optional and extend morph file discovery only; they
-  are not used to evaluate or compose formula-driven dial values.
+- Keep synchronized with the bundled DLL's exports: morph-target + scene-modifier URLs discover external morph files (formula-output accessors extend that discovery only — never evaluated).
 - Optional scene material channel layer accessors expose LIE layer count, texture
   path, and label; the importer uses them only for standalone non-base layer
   texture import.
 - Optional PostLoadAddon accessors (`GetScenePostLoadAddon{Count,Slot,AssetName,AssetFile,MatPreset}`) expose G9 companion-figure declarations from scene.extra; used by `DsonValidator.*` companion discovery.
 - Optional `image_library` accessors — `GetImageCount`/`GetImageId`, the per-image LIE layer stack `GetImageLayer{Count,TexturePath,Label}`, and canvas dims `GetImageMapWidth`/`GetImageMapHeight` (`map_size`) — let `DsonMaterialBuilder.*`/`DsonTextureImporter.*` resolve an animation-bound `#fragment` eye-albedo LIE and composite its layers at native size on the `map_size` canvas.
+- Optional catalog accessors `Get{Node,Modifier}Presentation{Type,Label}` + `GetGeometryIsGraft` (DsonParser >= 1.5.0) back `DsonCatalog.*` classification (declared content type, label, geograft signal).
 
 `DsonParserAbiCheck.cpp`
 
-- Build-time tripwire only: emits one `static_assert` per `DSON_PARSER_API_LIST`
-  row asserting the bound signature is ABI-compatible with the vendored
-  `DsonParserAPI.h` prototype. No runtime code, no linkage. Compiles to nothing
-  if the vendored header is absent (`__has_include` guard).
+- Build-time tripwire only: one `static_assert` per `DSON_PARSER_API_LIST` row asserts ABI-compat
+  of the bound signature vs the vendored `DsonParserAPI.h` prototype; no runtime code/linkage, compiles to nothing without the header (`__has_include`).
 
 `DsonImportPipeline.*`
 
@@ -159,12 +157,14 @@ shares the path→settings assembly (`FDsonValidator::ToImportSettings`) with th
 
 `DsonImportTypes.h`
 
-- Inter-stage types: `EGenesisGeneration` (moved here from `DsonValidator.h` to break circular include), `FDsonCompanionSource` (resolved companion-figure record, Slice A+), `FDsonImportSettings`, `FDsonImportResult` (carries `Skeleton`, `Mesh`, and `CompanionMeshes` TArray from Slice B+).
+- Inter-stage types: `FDsonCompanionSource` (resolved companion-figure record, Slice A+), `FDsonImportSettings`, `FDsonImportResult` (carries `Skeleton`, `Mesh`, `CompanionMeshes` from Slice B+). `EGenesisGeneration` now lives in `Public/DsonCatalog.h`, re-exported here via `#include`.
 
 `DsonAssetRecipe.h` (Public)
 - `UDsonAssetRecipe` UCLASS + companion/LIE USTRUCTs; consumer-facing recipe asset (R12); passive data container; module's first UHT-reflected type.
 `DsonRecipeBuilder.*`
 - Emits `<Name>_Recipe` under `CharacterRoot` after each import: manifest, companion slot tags, per-surface LIE recipe. Permissive (R7) — never aborts import.
+`DsonCatalog.*` (Public `DsonCatalog.h` + Private `DsonCatalogImpl.h`/`DsonCatalog.cpp`)
+- `FDsonCatalog`: read-only library survey (P3) — async supplied-roots enumerate, one parser open/asset, faithful `presentation.type`+graft classification, per-root tolerance, incremental MTime/Size disk cache + lazy thumbnail LRU. Entry on `FDsonImporterModule`: `BeginCatalogEnumerate`/`GetCatalogThumbnail`/`InvalidateCatalog`.
 
 `DsonImportRequest.h`
 

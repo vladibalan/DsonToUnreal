@@ -197,6 +197,16 @@ typedef void* DsonDocumentHandle;
     X(0, const char*, GetScenePostLoadAddonAssetFile, DsonDocument_GetScenePostLoadAddonAssetFile, (DsonDocumentHandle, int)) \
     X(0, const char*, GetScenePostLoadAddonMatPreset,  DsonDocument_GetScenePostLoadAddonMatPreset,  (DsonDocumentHandle, int)) \
     \
+    /* Catalog classification: presentation type/label per node/modifier library item,          */ \
+    /* graft signal per geometry library item (DsonParser >= 1.5.0; all optional).              */ \
+    /* Params follow the node/modifier/geometry library family (uint64_t handle, int32_t index) */ \
+    /* matching the existing GetNodeId/GetModifierId/GetGeometryCount rows (Delta C, R2).       */ \
+    X(0, const char*, GetNodePresentationType,      DsonDocument_GetNodePresentationType,      (uint64_t, int32_t)) \
+    X(0, const char*, GetNodePresentationLabel,     DsonDocument_GetNodePresentationLabel,     (uint64_t, int32_t)) \
+    X(0, const char*, GetModifierPresentationType,  DsonDocument_GetModifierPresentationType,  (uint64_t, int32_t)) \
+    X(0, const char*, GetModifierPresentationLabel, DsonDocument_GetModifierPresentationLabel, (uint64_t, int32_t)) \
+    X(0, bool,        GetGeometryIsGraft,           DsonDocument_GetGeometryIsGraft,           (uint64_t, int32_t)) \
+    \
     /* Scene animations: scene.animations keyframe channels (DsonParser >= 1.2.0; optional). Each entry */ \
     /* carries the verbatim DSON property url pointer + the first key's typed value; the parser does NOT */ \
     /* apply these onto scene.materials (faithful passthrough) — the consumer reads both and decides.    */ \

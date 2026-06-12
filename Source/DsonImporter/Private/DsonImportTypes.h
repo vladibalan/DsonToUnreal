@@ -1,23 +1,13 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "DsonCatalog.h"   // EGenesisGeneration (moved to the public catalog header so it is
+                           // accessible to catalog consumers without pulling in private types)
 #include "UObject/SoftObjectPtr.h"
 
 class USkeletalMesh;
 class USkeleton;
 class UTexture2D;
-
-// Moved here from DsonValidator.h so DsonValidator.h can include DsonImportTypes.h
-// without a circular dependency (DsonImportTypes.h -> DsonValidator.h -> ...).
-// EGenesisGeneration is an inter-stage value carried in FDsonImportSettings, so it
-// belongs alongside the other inter-stage types.
-enum class EGenesisGeneration : uint8
-{
-    Unknown,
-    Genesis3,
-    Genesis8,
-    Genesis9
-};
 
 // One resolved companion figure produced by DiscoverCompanionFigures (Slice A).
 // GeometryDsfUrl stores the resolved absolute disk path to the companion geometry DSF
