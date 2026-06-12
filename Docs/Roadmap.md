@@ -25,7 +25,7 @@ Load-bearing invariants (coordinate flip, winding, scale) are owned by
 `CodeReviewRules.md` R4 / the `DazPointToUe` helper (and restated in
 `Docs/Reference.md`) — referenced here, never restated, so they cannot drift.
 
-_Last updated: 2026-06-11._
+_Last updated: 2026-06-12._
 
 ## Phase status
 
@@ -256,4 +256,5 @@ With Phase 6 v2, asset folder structure, and composed dialed-shape baking all cl
 importer covers its mandate for the supported figures. Beyond the planned recipe-emission
 workstream above, remaining work is reactive — the **Cleanup backlog**, new figures/shaders as
 content needs them (shader-gated), and just-in-time additive parser exposures
-(`Docs/Principles.md` P4).
+(`Docs/Principles.md` P4) — one pending: a parser-blocked read-only **library catalog**
+(consumer request; `content_type`/geograft parser FR 2026-06-12; design → `DecisionLog.md`).

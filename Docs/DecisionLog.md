@@ -27,6 +27,7 @@ Contents (newest decisions appended):
 - Asset import folder structure — per-character `Characters/<char>/` + shared deduped `Library/Textures/`; fixes same-generation multi-DUF collision (2026-06-10)
 - Consumer versioning contract — lean SemVer (`.uplugin` VersionName + git tag + `CHANGELOG.md`), baseline 1.0.0, no runtime accessor; R12 gate (2026-06-10)
 - Authoring-metadata recipe emission (UDsonAssetRecipe) — intake, per-item parser-reachability triage, one parser FR (per-layer LIE compositing metadata) (2026-06-10)
+- Library catalog — intake, charter widening (read-only survey, P1), block-on-parser sequencing + parser FR (`content_type`/geograft) (2026-06-12)
 
 ## IrayUber bump-map seam — root cause & fix decision (2026-06-06)
 
@@ -1224,3 +1225,70 @@ any G9 character) -- faithful and consumer-filterable (by `bFromSceneModifier`/`
 structural assumptions against the actual `.dsf` on disk, not abstractly; merge-then-measure
 caught it (a design read that reasons without the asset can be confidently wrong).
 **Recipe-emission workstream COMPLETE & runtime-confirmed.**
+
+## Library catalog — intake, charter widening (read-only survey), block-on-parser sequencing (2026-06-12)
+
+**Request.** DsonArtisan (the downstream authoring consumer) asked the Importer for a
+**DAZ library catalog API** — sibling to the recipe-emission request that became
+`UDsonAssetRecipe`. It needs an in-editor browse-and-pick over the installed library:
+(1) **enumerate** assets under consumer-supplied resolved roots (the consumer owns
+content-dir config / remap / priority; the Importer does **not** read the DAZ registry for
+this) into lightweight per-asset records — no image bytes — async + progress + cached;
+(2) **thumbnail on demand** — one asset's companion `.png`/`.tip.png` as bytes/handle,
+lazy; (3) **refresh** — full/incremental re-scan. Per-asset record: `id` (round-trips to
+`ImportDazAsset`, stable across re-scan), `rootId`, `relativePath` (the consumer's dedup
+key), `label`, `type` (faithful declared/structural, never folder-inferred; `other/unknown`
+required), `generation`, `dependsOn` (in id-space), browsable vs dependencyOnly. Same
+faithfulness contract as the recipe: report every instance (one per root), don't dedup/order
+— the consumer resolves duplicates by its own priority.
+
+**Importer work, right channel.** The catalog requires reading DAZ source (structure,
+`asset_info.type`, `content_type`, deps); the consumer by design never reads the DAZ tree.
+The cross-repo feature-request channel (consumer → user → Importer Director) is the
+sanctioned path, same as the recipe.
+
+**Charter decision — accept, with a P1 widening.** A library survey is a *new verb*:
+`Principles.md` P1 scoped "discoverable" to an *import's* reference graph, "not the wider
+content library" (see "Importer discovery boundary", 2026-06-09). A read-only survey that
+*lists and describes* installed assets without importing does not contradict that bound — it
+widens **discovery**, not **import**, and selects / dedups / buckets / composes nothing
+(those stay downstream, P3). Added a P1 note ("Survey vs. import — a read-only widening of
+discovery, not of import") sanctioning it as translation, not interpretation.
+
+**Feasibility (verified against the tree).** Phase-1 structural fields (`id` / `rootId` /
+`relativePath` / `label`) are a filesystem walk of the supplied roots — no parser dependency
+(`FDsonContentRoots` already resolves/decodes URLs; registry discovery is bypassed since the
+consumer supplies roots). Thumbnails are a companion-file read — no parser. `generation`
+reuses `FDsonValidator::DetectGeneration`; `dependsOn` reuses `ResolveDependencies`
+(re-expressed in id-space); coarse `type` reuses `asset_info.type` via
+`DsonDocument_GetAssetType`. **Gap:** the *fine* `type` split (clothing/hair/accessory,
+pose/expression/animation, prop) rides on declared **`content_type`**, and geograft on the
+geometry **`graft`** block — neither exposed by the parser today (grepped the vendored
+`DsonParserAPI.h`: only `GetAssetId` / `GetAssetType`). Both are "datum in the open file,
+exposed nowhere" → a **warranted additive parser FR** (P4), not derivable Importer-side.
+
+**Sequencing decision — block on parser first (user, 2026-06-12).** Rather than ship coarse
+classification now and refine later, classification ships as **one complete pass** after the
+parser exposes `content_type` + a geograft signal (+ optional `presentation.label` for a
+faithful display label). Trade-off the user accepted: a cleaner single delivery at the cost
+of coupling the consumer's critical path to a cross-repo round-trip. Structural Phase 1 is
+parser-independent and *could* parallelize; held to the single-delivery default unless the
+consumer needs the early browse unblock.
+
+**Outbound parser FR (what, not how — raised to a DsonParser Director 2026-06-12).** Expose,
+faithfully and single-file: (1) declared `content_type` taxonomy string; (2) a geograft
+signal (presence of a geometry `graft` block); (3) optional document-level
+`presentation.label`. No classification/interpretation in the parser — the Importer maps.
+Additive ⇒ MINOR on the parser SemVer; adopt via vendored-bundle re-sync +
+`DSON_PARSER_API_LIST` bind (R2).
+
+**Accepted catalog shape (design-of-record; detail finalized in the build task-file).**
+Consumer-blind `FDsonCatalog*` surface (not a consumer-named type, P3): an async enumerate
+over supplied roots → `TArray<FDsonCatalogEntry>` (the record above, Phase-2 classification
+fields present-but-unknown until the parser lands), a progress delegate, a serialized cache
+keyed by root with mtime/size incremental refresh, per-root status so a bad/offline root
+surfaces rather than failing the whole catalog, and a lazy thumbnail resolver. `id` =
+root-relative canonical ref the consumer resolves to an absolute `SourceAssetPath` via its
+chosen root at pick-time (it owns the roots); `ImportDazAsset` unchanged. New public API ⇒
+MINOR + `CHANGELOG` + tag (R12) when it ships. **Status:** accepted, parser-blocked; build
+when the parser lands.

@@ -28,6 +28,15 @@ UE-native data out, with no authoring decisions baked in.
   baking them is *interpretation*, and interpretation is **out of scope** — it belongs
   to whatever authoring step later consumes the import.
 
+**Survey vs. import — a read-only widening of discovery, not of import.** The
+reference-graph bound above scopes what an *import* brings; it does not preclude a
+separate **read-only survey** of the installed library that reports faithful, pickable
+facts (what an asset declares/structurally *is* — type, generation, dependencies,
+preview) **without importing**. The survey enumerates and describes; it **selects,
+dedups, buckets, and composes nothing** — those, and all presentation, stay with the
+downstream authoring layer (P3). It bakes and decides nothing, so it is translation, not
+interpretation: it widens *discovery*, never *import*.
+
 ## P2 — Authoring metadata with no UE-asset form is still brought across, faithfully
 
 Not everything in a DAZ source maps to a UE asset. Authoring metadata that has no
