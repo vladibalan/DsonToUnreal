@@ -155,6 +155,35 @@ Reference spec for the four `UMaterial` master assets that back the DsonToUnreal
 
 ---
 
+## M_DazCutout
+
+**Shading model:** Default Lit
+**Blend mode:** Masked _(Opacity Mask Clip Value `0.333`)_
+**Purpose:** Thin alpha-cutout surfaces driven by a DAZ **Cutout Opacity** map — G9 eyelashes (`Eyelashes Lower`/`Upper`) and any future cutout surface. Kept separate from the Opaque skin masters so masked-blend cost is paid only where a cutout map is actually present.
+
+| Group | Parameter | Type | Default |
+|---|---|---|---|
+| Diffuse | `DiffuseColor` | Vector3 | (1, 1, 1) |
+| Diffuse | `DiffuseMap` | Texture2D | engine white |
+| Diffuse | `UseDiffuseMap` | Scalar | 0 |
+| Normal | `NormalStrength` | Scalar | 1 |
+| Normal | `NormalMap` | Texture2D | engine default normal |
+| Normal | `UseNormalMap` | Scalar | 0 |
+| Cutout | `CutoutOpacity` | Scalar | 1 |
+| Cutout | `CutoutOpacityMap` | Texture2D | engine white |
+| Cutout | `UseCutoutOpacityMap` | Scalar | 0 |
+| Surface | `Roughness` | Scalar | 0.5 |
+
+**Wiring notes:**
+- **Opacity Mask** = `CutoutOpacity` × (`UseCutoutOpacityMap` ? **average(`CutoutOpacityMap`.rgb)** : 1) → the **Opacity Mask** output pin. Average-of-RGB (not `.r`) honors the DAZ channel's `grayscale_mode: "average"`; the builder imports the map **linear / sRGB off**. DAZ eyelashes drive this from `Genesis9_Eyelashes01_C.jpg` — a grayscale lash silhouette, i.e. the cutout itself, *not* a colour map.
+- **Base Color** = lerp(`DiffuseColor`, `DiffuseMap`, `UseDiffuseMap`). Eyelashes carry a flat dark `DiffuseColor` value and **no** diffuse map (`UseDiffuseMap` = 0), so without the cutout the quad reads as solid dark — the symptom this master fixes.
+- **Normal** = standard `NormalMap` path scaled by `NormalStrength`; `UseNormalMap` raised to 1 when a normal map is present.
+- `Roughness` is a plain scalar (lashes are near-matte); v1 leaves DAZ glossy/specular channels unmapped for this master — add only if a cutout surface visibly needs it.
+- **Routing:** the builder parents a scene material here when its `Cutout Opacity` channel carries an `image_file`, overriding the Iray/PBRSkin shader-kind default — the same surface-driven master override already used for `M_DazEyeMoisture` wet-eye surfaces.
+- Masked (alpha-test) is the faithful, performant match for a DAZ hard Cutout Opacity; Translucent is deliberately avoided (sort cost / order artifacts on overlapping lash cards).
+
+---
+
 ## M_DazDefault
 
 **Shading model:** Default Lit
