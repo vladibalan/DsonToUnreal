@@ -28,6 +28,7 @@ Contents (newest decisions appended):
 - Consumer versioning contract — lean SemVer (`.uplugin` VersionName + git tag + `CHANGELOG.md`), baseline 1.0.0, no runtime accessor; R12 gate (2026-06-10)
 - Authoring-metadata recipe emission (UDsonAssetRecipe) — intake, per-item parser-reachability triage, one parser FR (per-layer LIE compositing metadata) (2026-06-10)
 - Library catalog — intake, charter widening (read-only survey, P1), block-on-parser sequencing + parser FR (`content_type`/geograft) (2026-06-12)
+- G9 eyelash companion parent-surface wiring — corrected root cause (texture in MAT preset, not base-load); PATCH v1.6.1 (2026-06-12)
 
 ## IrayUber bump-map seam — root cause & fix decision (2026-06-06)
 
@@ -1292,3 +1293,39 @@ root-relative canonical ref the consumer resolves to an absolute `SourceAssetPat
 chosen root at pick-time (it owns the roots); `ImportDazAsset` unchanged. New public API ⇒
 MINOR + `CHANGELOG` + tag (R12) when it ships. **Status:** accepted, parser-blocked; build
 when the parser lands.
+
+## G9 eyelash companion — parent-surface material wiring; corrected root cause (2026-06-12)
+
+**Request.** DsonArtisan (downstream consumer) reported the G9 eyelash companion importing as
+`M_DazDefault` whenever a scene uses the stock `Genesis 9 Eyelashes MAT.duf` preset (e.g. HID
+Nancy 9); characters shipping a bespoke leaf-named eyelash preset (Laura G9) imported correctly.
+Cross-repo feature-request channel (consumer → user → Importer Director), same as recipe/catalog.
+
+**Corrected root cause (ground-truthed against the DAZ files; the report's was wrong).** The
+report attributed the fix to emitting the graft's **base-load** preset materials on the real
+surfaces. That is wrong: both base-load twins (`…/Script Loads/Genesis 9 Eyelashes.duf`,
+`…/Base Anatomy/Genesis 9 Eyelashes.duf`) are **color-only grey** (`image:null`, zero `.jpg`),
+so consuming them would yield grey lashes. The textured eyelash material
+(`Genesis9_Eyelashes01_C.jpg`/`_NM.jpg`) lives **only** in the MAT preset (image_library +
+`scene.animations` key-0), bound to `groups:["Eyelashes"]` — a legacy **parent**-surface name
+that is not one of the geometry's two real leaf surfaces (`Eyelashes Lower`/`Upper`). The
+importer already built that MIC correctly and textured (`ApplySceneAnimationOverrides` runs on
+the companion path too); it was only **mis-keyed**. The defect is pure surface keying, not a
+missing material — so no base-load consumption, no new texture work, no parser change.
+
+**Fix.** Companion-scoped, opt-in parent-surface fallback in mesh wiring
+(`DsonMeshBuilder::AddMeshMaterialSlot`, `bAllowParentSurfaceFallback`, passed true only from
+`BuildCompanion`): on an exact-`groups` miss, bind the MIC whose key is the longest word-boundary
+parent prefix of the section surface; exact matches still win; the body path is byte-for-byte
+unchanged (default false). Logged distinctly (`[wire] … (parent-surface "…")`).
+
+**Faithfulness (P1).** Because the source binds to a surface absent from the geometry, there is no
+1:1 emit; the parent→child map is the **minimal** interpretation reproducing DAZ's parent-group
+surface cascade — strictly more faithful to the rendered result than grey or default. Durable
+gotcha → [`Reference.md`](Reference.md) ("Legacy parent-surface MAT bind").
+
+**Versioning.** Internal builder bug fix, consumer surface (public API + `/Game/DazImports/…`
+layout) unchanged ⇒ **PATCH v1.6.1** (`Versioning.md`). The originating Implementer self-audit read
+R12 as "no version action"; corrected at integration — PATCH is distinct from No-bump (the latter
+covers only inert comment/whitespace/doc edits). `VersionName`/`Version` bumped, `CHANGELOG.md` `!`
+entry added, release tagged `v1.6.1`.

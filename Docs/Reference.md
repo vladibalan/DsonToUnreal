@@ -259,3 +259,16 @@ consumes key 0 in `DsonMaterialBuilder::ApplySceneAnimationOverrides` (2026-06-0
 channel→param mapping. **matId gotcha:** the url `<matId>` is percent-encoded and can differ from
 `GetSceneMaterialId` (eyes: url `EyeMoisture%20Left` vs id `EyeMoisture Left-1`; Mouth/Teeth match
 verbatim). Status → [`DecisionLog.md`](DecisionLog.md).
+
+**Legacy parent-surface MAT bind (verified from `Genesis 9 Eyelashes MAT.duf`, 2026-06-12).** A
+companion MAT preset can bind its material to a **parent-surface** name that is *not* one of the
+geometry's real `polygon_material_groups` leaf surfaces — the stock G9 eyelash MAT binds
+`groups:["Eyelashes"]`, but `Genesis9Eyelashes.dsf` has only `Eyelashes Lower`/`Eyelashes Upper`.
+DAZ cascades the parent material to its leaf surfaces; the importer reproduces this in **companion
+wiring only** (`DsonMeshBuilder::AddMeshMaterialSlot`, opt-in `bAllowParentSurfaceFallback`): on an
+exact-match miss, bind the MIC whose `groups` key is the longest word-boundary parent prefix of the
+section surface. Exact matches still win; body wiring is unchanged. The eyelash texture
+(`Genesis9_Eyelashes01_C.jpg`/`_NM.jpg`) lives in the **MAT preset** (image_library + `scene.animations`
+key-0 above), **not** the companion base-load preset (`Genesis 9 Eyelashes.duf`, color-only
+grey/textureless) — do **not** "fix" untextured lashes by consuming the base-load. Why →
+[`DecisionLog.md`](DecisionLog.md).

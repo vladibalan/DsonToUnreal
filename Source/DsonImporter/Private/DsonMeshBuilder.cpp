@@ -172,16 +172,52 @@ namespace
         const TMap<FString, UMaterialInstanceConstant*>& MaterialsByGroup,
         UMaterial* DefaultMaterial,
         const FString& GroupName,
-        int32 SlotIdx)
+        int32 SlotIdx,
+        bool bAllowParentSurfaceFallback = false)
     {
         FSkeletalMaterial Mat;
         Mat.ImportedMaterialSlotName = FName(*GroupName);
 
         UMaterialInterface* Assigned = nullptr;
         bool bFallback = false;
+        FString ParentKey;
         if (UMaterialInstanceConstant* const* Found = MaterialsByGroup.Find(GroupName))
         {
             Assigned = *Found;
+        }
+        if (!Assigned && bAllowParentSurfaceFallback)
+        {
+            // DAZ MAT presets sometimes bind to a legacy parent-surface name (e.g.
+            // "Eyelashes") that is not one of the geometry's real leaf surfaces
+            // ("Eyelashes Lower", "Eyelashes Upper"). Find the longest key K where
+            // GroupName starts with K + " " (word-boundary prefix, case-sensitive).
+            // Two equal-length distinct matches → ambiguous → fall through to default.
+            UMaterialInstanceConstant* BestMIC = nullptr;
+            int32 BestLen = -1;
+            bool bAmbiguous = false;
+            for (const auto& Pair : MaterialsByGroup)
+            {
+                const FString& Key = Pair.Key;
+                if (GroupName.StartsWith(Key + TEXT(" "), ESearchCase::CaseSensitive))
+                {
+                    const int32 KeyLen = Key.Len();
+                    if (KeyLen > BestLen)
+                    {
+                        BestLen    = KeyLen;
+                        BestMIC    = Pair.Value;
+                        ParentKey  = Key;
+                        bAmbiguous = false;
+                    }
+                    else if (KeyLen == BestLen && Key != ParentKey)
+                    {
+                        bAmbiguous = true;
+                    }
+                }
+            }
+            if (!bAmbiguous && BestMIC)
+            {
+                Assigned = BestMIC;
+            }
         }
         if (!Assigned)
         {
@@ -199,6 +235,12 @@ namespace
                 TEXT("[wire] section %d -> %s -> M_DazDefault (no MIC for group \"%s\")"),
                 SlotIdx, *GroupName, *GroupName);
         }
+        else if (!ParentKey.IsEmpty())
+        {
+            UE_LOG(LogDsonImporter, Log,
+                TEXT("[wire] section %d -> \"%s\" -> %s (parent-surface \"%s\")"),
+                SlotIdx, *GroupName, *Assigned->GetName(), *ParentKey);
+        }
         else
         {
             UE_LOG(LogDsonImporter, Log,
@@ -211,17 +253,18 @@ namespace
         USkeletalMesh* Mesh,
         const TArray<FString>& MaterialGroupNames,
         const TMap<FString, UMaterialInstanceConstant*>& MaterialsByGroup,
-        UMaterial* DefaultMaterial)
+        UMaterial* DefaultMaterial,
+        bool bAllowParentSurfaceFallback = false)
     {
         if (MaterialGroupNames.Num() == 0)
         {
-            AddMeshMaterialSlot(Mesh, MaterialsByGroup, DefaultMaterial, FString(TEXT("DefaultMaterial")), 0);
+            AddMeshMaterialSlot(Mesh, MaterialsByGroup, DefaultMaterial, FString(TEXT("DefaultMaterial")), 0, bAllowParentSurfaceFallback);
             return;
         }
 
         for (int32 m = 0; m < MaterialGroupNames.Num(); ++m)
         {
-            AddMeshMaterialSlot(Mesh, MaterialsByGroup, DefaultMaterial, MaterialGroupNames[m], m);
+            AddMeshMaterialSlot(Mesh, MaterialsByGroup, DefaultMaterial, MaterialGroupNames[m], m, bAllowParentSurfaceFallback);
         }
     }
 
@@ -814,7 +857,7 @@ USkeletalMesh* FDsonMeshBuilder::BuildCompanion(
         return nullptr;
     USkeletalMesh* Mesh = AssetContext.Mesh;
 
-    PopulateMeshMaterialSlots(Mesh, MaterialGroupNames, MaterialsByGroup, DefaultMaterial);
+    PopulateMeshMaterialSlots(Mesh, MaterialGroupNames, MaterialsByGroup, DefaultMaterial, /*bAllowParentSurfaceFallback=*/true);
 
     FSkeletalMeshLODModel& LODModel = PrepareSkeletalMeshLod0(Mesh);
 

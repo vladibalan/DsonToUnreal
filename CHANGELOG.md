@@ -8,6 +8,15 @@ change (`+` added · `~` changed · `-` removed/deprecated · `!` fixed). Scheme
 baseline, and the per-change gate: [`Docs/Versioning.md`](Docs/Versioning.md) and
 [`Docs/CodeReviewRules.md`](Docs/CodeReviewRules.md) R12.
 
+## 1.6.1 — 2026-06-12 · PATCH
+
+! **Companion parent-surface material wiring** — a companion MAT preset that binds to a
+  legacy parent-surface name (e.g. `Eyelashes`) absent from the geometry's real leaf surfaces
+  (`Eyelashes Lower`/`Eyelashes Upper`) now resolves to those child surfaces instead of falling
+  to `M_DazDefault` — fixes the stock G9 eyelash companion importing untextured on characters
+  without a bespoke leaf-named eyelash preset (e.g. HID Nancy 9). Internal builder fix; public
+  API and `/Game/DazImports/...` layout unchanged.
+
 ## 1.6.0 — 2026-06-12 · MINOR
 
 + **Library catalog API** — new `FDsonImporterModule` entry points for a downstream
