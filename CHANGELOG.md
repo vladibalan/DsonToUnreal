@@ -8,6 +8,13 @@ change (`+` added · `~` changed · `-` removed/deprecated · `!` fixed). Scheme
 baseline, and the per-change gate: [`Docs/Versioning.md`](Docs/Versioning.md) and
 [`Docs/CodeReviewRules.md`](Docs/CodeReviewRules.md) R12.
 
+## 1.6.2 — 2026-06-12 · PATCH
+
+! **Eyelash cutout opacity** — G9 eyelash surfaces now import their DAZ `Cutout Opacity` map and
+  render as transparent lash strands instead of solid dark cards. Cutout surfaces route to a new
+  `M_DazCutout` master (Masked, two-sided); the grayscale cutout map imports linear. Internal
+  builder + master-asset fix; public API and `/Game/DazImports/...` layout unchanged.
+
 ## 1.6.1 — 2026-06-12 · PATCH
 
 ! **Companion parent-surface material wiring** — a companion MAT preset that binds to a

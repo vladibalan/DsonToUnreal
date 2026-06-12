@@ -32,6 +32,7 @@ static const TCHAR* kIrayUberMasterPath    = TEXT("/DsonToUnreal/Materials/M_Daz
 static const TCHAR* kPBRSkinMasterPath     = TEXT("/DsonToUnreal/Materials/M_DazPBRSkin");
 static const TCHAR* kDefaultMasterPath     = TEXT("/DsonToUnreal/Materials/M_DazDefault");
 static const TCHAR* kEyeMoistureMasterPath = TEXT("/DsonToUnreal/Materials/M_DazEyeMoisture");
+static const TCHAR* kCutoutMasterPath      = TEXT("/DsonToUnreal/Materials/M_DazCutout");
 static constexpr float kSkinSubsurfaceWeight = 0.85f;
 static constexpr float kSssTintStrength = 0.4f;
 static constexpr float kSssMeanFreePathDistance = 2.6f;
@@ -94,6 +95,7 @@ enum class EDsonSurfaceClass : uint8
 {
     Skin,
     EyeMoisture,
+    Cutout,
     NonSkin,
     Unknown,
 };
@@ -189,6 +191,26 @@ static const TMap<FString, FDazParamBinding>& GetEyeMoistureMapping()
     return Map;
 }
 
+static const TMap<FString, FDazParamBinding>& GetCutoutMapping()
+{
+    // DAZ channel id -> Unreal master parameter binding for M_DazCutout surfaces (eyelashes).
+    // Channels arrive via scene.animations key-0 overrides, not inline scene_material channels.
+    // Normal Map: bSRGB=false (linear data map). CutoutOpacity: bSRGB=false (grayscale mask, linear).
+    // Parameter names define the M_DazCutout contract (MaterialMastersV1.md).
+    static const TMap<FString, FDazParamBinding> Map = []()
+    {
+        TMap<FString, FDazParamBinding> M;
+        M.Add(TEXT("diffuse"),
+            { FName(TEXT("DiffuseColor")), NAME_None,                          FName(TEXT("DiffuseMap")),          FName(TEXT("UseDiffuseMap")),          true  });
+        M.Add(TEXT("Normal Map"),
+            { NAME_None,                   FName(TEXT("NormalStrength")),      FName(TEXT("NormalMap")),           FName(TEXT("UseNormalMap")),           false });
+        M.Add(TEXT("Cutout Opacity"),
+            { NAME_None,                   FName(TEXT("CutoutOpacity")),       FName(TEXT("CutoutOpacityMap")),    FName(TEXT("UseCutoutOpacityMap")),    false });
+        return M;
+    }();
+    return Map;
+}
+
 static const TMap<FString, FDazParamBinding>* GetMappingForShader(EDazShaderKind Kind)
 {
     switch (Kind)
@@ -236,6 +258,16 @@ static const TSet<FString>& GetEyeMoistureSurfaceGroups()
     return Groups;
 }
 
+static const TSet<FString>& GetCutoutSurfaceGroups()
+{
+    static const TSet<FString> Groups = {
+        TEXT("Eyelashes"),
+        TEXT("Eyelashes Lower"),
+        TEXT("Eyelashes Upper"),
+    };
+    return Groups;
+}
+
 static const TSet<FString>& GetNonSkinSurfaceGroups()
 {
     static const TSet<FString> Groups = {
@@ -249,9 +281,6 @@ static const TSet<FString>& GetNonSkinSurfaceGroups()
         TEXT("Pupils"),
         TEXT("Irises"),
         TEXT("Sclera"),
-        TEXT("Eyelashes"),
-        TEXT("Eyelashes Lower"),
-        TEXT("Eyelashes Upper"),
         TEXT("Fingernails"),
         TEXT("Toenails"),
     };
@@ -264,6 +293,8 @@ static EDsonSurfaceClass ClassifySurfaceGroup(const FString& GroupName)
         return EDsonSurfaceClass::Skin;
     if (GetEyeMoistureSurfaceGroups().Contains(GroupName))
         return EDsonSurfaceClass::EyeMoisture;
+    if (GetCutoutSurfaceGroups().Contains(GroupName))
+        return EDsonSurfaceClass::Cutout;
     if (GetNonSkinSurfaceGroups().Contains(GroupName))
         return EDsonSurfaceClass::NonSkin;
     return EDsonSurfaceClass::Unknown;
@@ -1126,6 +1157,7 @@ UMaterialInstanceConstant* FDsonMaterialBuilder::BuildSceneMaterial(
     ReadFirstSceneMaterialGroupName(H, SceneMatIdx, GroupName);
     const EDsonSurfaceClass SurfaceClass = ClassifySurfaceGroup(GroupName);
     const bool bIsEyeMoisture = (SurfaceClass == EDsonSurfaceClass::EyeMoisture);
+    const bool bIsCutout = (SurfaceClass == EDsonSurfaceClass::Cutout);
 
     UMaterial* Master = nullptr;
     const TMap<FString, FDazParamBinding>* Mapping = nullptr;
@@ -1146,6 +1178,31 @@ UMaterialInstanceConstant* FDsonMaterialBuilder::BuildSceneMaterial(
             return nullptr;
         }
         Mapping = &GetEyeMoistureMapping();
+        Src = ResolveChannelSource(H, SceneMatIdx, Metadata.Url);
+    }
+    else if (bIsCutout)
+    {
+        // Cutout surfaces (eyelashes) route to M_DazCutout. Channels arrive via scene.animations
+        // key-0 overrides; ResolveChannelSource handles a bare #fragment url if present.
+        // Permissive fallback (R7): if M_DazCutout is not yet authored, use M_DazDefault so
+        // the import does not abort — eyelashes will render flat but the asset still imports.
+        Master = LoadAndCacheMaster(CachedCutoutMaster, kCutoutMasterPath);
+        if (Master)
+        {
+            Mapping = &GetCutoutMapping();
+        }
+        else
+        {
+            UE_LOG(LogDsonImporter, Warning,
+                TEXT("DsonMaterialBuilder: M_DazCutout not found for '%s' - falling back to M_DazDefault"),
+                *Metadata.MatId);
+            Master = LoadAndCacheMaster(CachedDefaultMaster, kDefaultMasterPath);
+            if (!Master)
+            {
+                RecordFailure();
+                return nullptr;
+            }
+        }
         Src = ResolveChannelSource(H, SceneMatIdx, Metadata.Url);
     }
     else
@@ -1181,8 +1238,9 @@ UMaterialInstanceConstant* FDsonMaterialBuilder::BuildSceneMaterial(
     {
         ApplyMappedMaterialChannels(H, Src, *Mapping, MIC, TextureImporter);
     }
-    // IrayUber normal/bump pass: standard path only (eye-moisture is pure parametric).
-    if (!bIsEyeMoisture && Kind == EDazShaderKind::IrayUber)
+    // IrayUber normal/bump pass: standard path only. Eye-moisture is pure parametric;
+    // cutout normals arrive via scene.animations and are handled by GetCutoutMapping().
+    if (!bIsEyeMoisture && !bIsCutout && Kind == EDazShaderKind::IrayUber)
     {
         ApplyIrayUberNormalChannels(H, SceneMatIdx, MIC, TextureImporter);
     }
@@ -1193,7 +1251,7 @@ UMaterialInstanceConstant* FDsonMaterialBuilder::BuildSceneMaterial(
         ApplySceneAnimationOverrides(H, Metadata.MatId, *Mapping, MIC, TextureImporter);
     }
     ImportStandaloneChannelTextures(H, SceneMatIdx, TextureImporter);
-    if (!bIsEyeMoisture)
+    if (!bIsEyeMoisture && !bIsCutout)
     {
         ApplySubsurfaceProfileSettings(H, SceneMatIdx, Kind, MIC);
     }

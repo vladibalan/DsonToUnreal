@@ -272,3 +272,14 @@ section surface. Exact matches still win; body wiring is unchanged. The eyelash 
 key-0 above), **not** the companion base-load preset (`Genesis 9 Eyelashes.duf`, color-only
 grey/textureless) — do **not** "fix" untextured lashes by consuming the base-load. Why →
 [`DecisionLog.md`](DecisionLog.md).
+
+**Eyelash cutout opacity (verified Nancy + Laura, 2026-06-12).** DAZ eyelashes are **alpha cutouts**,
+not opaque geometry: transparency is a `Cutout Opacity` channel whose `image_file` (e.g.
+`Genesis9_Eyelashes01_C.jpg`) is a grayscale lash silhouette — the diffuse is a flat dark colour value
+with **no** map, so without the cutout the quad renders solid near-black. Cutout surfaces
+(`Eyelashes`/`Eyelashes Lower`/`Eyelashes Upper` → `EDsonSurfaceClass::Cutout`) route to the
+**`M_DazCutout`** master (Masked, clip 0.333, two-sided) via `GetCutoutMapping()`; the cutout map
+imports **linear (sRGB off)** and drives Opacity Mask. The `Cutout Opacity` value + image arrive via
+`scene.animations` key-0 (above), so the mapping row is what lets it land — and the IrayUber
+bump→normal pass + SSS are gated off for cutout. Don't route eyelashes to the Opaque IrayUber master.
+Why → [`DecisionLog.md`](DecisionLog.md).

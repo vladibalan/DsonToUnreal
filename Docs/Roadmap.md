@@ -180,7 +180,7 @@ skeleton** (not merged) — rationale in [`DecisionLog.md`](DecisionLog.md). Wor
 4. **Slice C — ✅ done** (2026-06-08): `BuildAllSceneMaterials` on each addon's MAT preset;
    MICs keyed by group name wired to companion sections via updated `BuildCompanion`; R7
    fallback to `M_DazDefault` per section. `EyeMoisture` `#fragment` channels resolve empty
-   (expected — slice #3 owns the master); companion wiring now resolves legacy parent-surface MAT keys to child leaf surfaces — stock G9 eyelash preset no longer falls to `M_DazDefault`.
+   (expected — slice #3 owns the master); companion wiring now resolves legacy parent-surface MAT keys to child leaf surfaces — stock G9 eyelash preset no longer falls to `M_DazDefault`. **Eyelash cutout-opacity (2026-06-12):** `Eyelashes`/`Lower`/`Upper` now route to `M_DazCutout` (Masked); cutout mask + normal import linear.
 
 **Deferred:** fiber eyebrows (`G9EyebrowFibers`) → groom; some characters (Nancy) have no
 brow mesh. **Unblocks** slice #3 on G9 (`EyeMoisture Left/Right` live only in the Eyes companion).

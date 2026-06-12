@@ -29,6 +29,7 @@ Contents (newest decisions appended):
 - Authoring-metadata recipe emission (UDsonAssetRecipe) — intake, per-item parser-reachability triage, one parser FR (per-layer LIE compositing metadata) (2026-06-10)
 - Library catalog — intake, charter widening (read-only survey, P1), block-on-parser sequencing + parser FR (`content_type`/geograft) (2026-06-12)
 - G9 eyelash companion parent-surface wiring — corrected root cause (texture in MAT preset, not base-load); PATCH v1.6.1 (2026-06-12)
+- G9 eyelash cutout opacity — dedicated M_DazCutout master (Masked, two-sided); transparency map import; PATCH v1.6.2 (2026-06-12)
 
 ## IrayUber bump-map seam — root cause & fix decision (2026-06-06)
 
@@ -1329,3 +1330,31 @@ layout) unchanged ⇒ **PATCH v1.6.1** (`Versioning.md`). The originating Implem
 R12 as "no version action"; corrected at integration — PATCH is distinct from No-bump (the latter
 covers only inert comment/whitespace/doc edits). `VersionName`/`Version` bumped, `CHANGELOG.md` `!`
 entry added, release tagged `v1.6.1`.
+
+## G9 eyelash cutout opacity — dedicated M_DazCutout master (2026-06-12)
+
+**Symptom.** After the parent-surface wiring fix (v1.6.1) routed the eyelash material correctly,
+eyelashes imported as solid near-black cards on both Nancy (stock preset) and Laura (bespoke) — the
+DAZ transparency was missing.
+
+**Root cause (ground-truthed).** DAZ eyelashes are alpha cutouts: a `Cutout Opacity` channel (value 1
++ `Genesis9_Eyelashes01_C.jpg`, a grayscale lash silhouette) drives transparency, and the diffuse is a
+flat dark colour value with no map. The importer dropped the cutout entirely — the IrayUber channel
+mapping had no `Cutout Opacity` row, and `M_DazIrayUber` is Opaque with no opacity input — so the quad
+rendered as the flat dark diffuse.
+
+**Fix (two halves, shipped together as v1.6.2).**
+- *Importer*: new `EDsonSurfaceClass::Cutout` (Eyelashes/Lower/Upper, moved out of NonSkin) routes to a
+  new `M_DazCutout` master with `GetCutoutMapping()` (diffuse, Normal Map, Cutout Opacity); the cutout
+  map imports linear (sRGB off); SSS + the IrayUber bump→normal pass are gated off; permissive
+  `M_DazDefault` fallback if the master is absent (R7).
+- *Master* (hand-authored, verified via copied-node text dump): `M_DazCutout` — Masked (clip 0.333),
+  two-sided, Default Lit; `Opacity Mask = CutoutOpacity × lerp(1, CutoutOpacityMap, UseCutoutOpacityMap)`.
+  The text-dump check caught an **inverted opacity lerp** (mask resolved to opaque at the importer's
+  Use=1) and a wrong average constant before they shipped — a reminder that matching parameter names is
+  necessary but not sufficient; verify the wiring direction, not just the names.
+
+**Faithfulness / perf (P1, runtime).** A dedicated cutout master keeps masked-blend cost only where a
+cutout map exists; the IrayUber/PBRSkin skin masters stay Opaque. Durable gotcha →
+[`Reference.md`](Reference.md) ("Eyelash cutout opacity"). Runtime-verified by the user (Nancy + Laura
+match DAZ Studio).
