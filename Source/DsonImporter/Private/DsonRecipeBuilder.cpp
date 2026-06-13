@@ -531,8 +531,10 @@ void FDsonRecipeBuilder::Build(const FDsonImportResult& Result)
         DiagTotalModifiers = GDsonParser.GetSceneModifierCount(H);
         for (int32 si = 0; si < DiagTotalModifiers; ++si)
         {
-            // R3: copy URL before next parser call
+            // R3: copy strings before the next parser call
             const FString Url = FromUtf8(GDsonParser.GetSceneModifierUrl(H, si));
+            const FString SceneInstanceId = GDsonParser.GetSceneModifierId
+                ? FromUtf8(GDsonParser.GetSceneModifierId(H, si)) : FString();
 
             const float Value = static_cast<float>(
                 GDsonParser.GetSceneModifierChannelValue(H, si));
@@ -549,11 +551,31 @@ void FDsonRecipeBuilder::Build(const FDsonImportResult& Result)
             if (FMath::Abs(Value) > KINDA_SMALL_NUMBER)
                 ++DiagNonDefault;
 
-            // Extract and URL-decode the fragment id (1a: R4: FDsonContentRoots::UrlDecode)
+            // R4: shared emit path for modifiers that do not bind to a UMorphTarget.
+            auto EmitControllerDial = [&]()
+            {
+                FDsonControllerDial CD;
+                CD.SceneInstanceId = SceneInstanceId;
+                CD.SourceUrl       = Url;
+                CD.Value           = Value;
+                CD.Min             = Min;
+                CD.Max             = Max;
+                CD.bClamped        = bClamped;
+                if (Settings.bDumpMaterialDiagnostics)
+                {
+                    UE_LOG(LogDsonImporter, Log,
+                        TEXT("[recipe-shape] controller dial: id='%s' url='%s' val=%.4f min=%.4f max=%.4f clamped=%d"),
+                        *SceneInstanceId, *Url, Value, Min, Max, static_cast<int32>(bClamped));
+                }
+                Recipe->ControllerDials.Add(MoveTemp(CD));
+            };
+
+            // Extract and URL-decode the fragment id (R4: FDsonContentRoots::UrlDecode)
             int32 HashIdx = INDEX_NONE;
             if (!Url.FindChar(TEXT('#'), HashIdx) || HashIdx + 1 >= Url.Len())
             {
                 ++DiagUncorrelated;
+                EmitControllerDial();
                 continue;
             }
             const FString ModifierId = FDsonContentRoots::UrlDecode(Url.Mid(HashIdx + 1));
@@ -565,6 +587,7 @@ void FDsonRecipeBuilder::Build(const FDsonImportResult& Result)
             if (ResolvedPath.IsEmpty())
             {
                 ++DiagUncorrelated;
+                EmitControllerDial();
                 continue;
             }
 
@@ -587,12 +610,7 @@ void FDsonRecipeBuilder::Build(const FDsonImportResult& Result)
             if (!MorphName || MorphName->IsEmpty())
             {
                 ++DiagUncorrelated;
-                if (Settings.bDumpMaterialDiagnostics)
-                {
-                    UE_LOG(LogDsonImporter, Log,
-                        TEXT("[recipe-shape] dial uncorrelated: url='%s' val=%.4f"),
-                        *Url, Value);
-                }
+                EmitControllerDial();
                 continue;
             }
 
@@ -600,6 +618,7 @@ void FDsonRecipeBuilder::Build(const FDsonImportResult& Result)
             if (!ImportedTargetNames.Contains(*MorphName))
             {
                 ++DiagUncorrelated;
+                EmitControllerDial();
                 continue;
             }
 
@@ -608,6 +627,7 @@ void FDsonRecipeBuilder::Build(const FDsonImportResult& Result)
             FDsonDialWeight DW;
             DW.BoundMorphTargetName = *MorphName;
             DW.SourceUrl            = Url;
+            DW.SceneInstanceId      = SceneInstanceId;
             DW.Value                = Value;
             DW.Min                  = Min;
             DW.Max                  = Max;
@@ -853,18 +873,18 @@ void FDsonRecipeBuilder::Build(const FDsonImportResult& Result)
     }
 
     UE_LOG(LogDsonImporter, Log,
-        TEXT("[recipe-shape] '%s': modifiers=%d non-default=%d correlated=%d uncorrelated=%d | LIE baked=%d raw=%d | companions=%d | formulas=%d (morphval=%d erc-center=%d erc-end=%d other=%d) bound=%d rigpoints=%d"),
+        TEXT("[recipe-shape] '%s': modifiers=%d non-default=%d correlated=%d uncorrelated=%d controllerdials=%d | LIE baked=%d raw=%d | companions=%d | formulas=%d (morphval=%d erc-center=%d erc-end=%d other=%d) bound=%d rigpoints=%d"),
         *Settings.CharacterName,
-        DiagTotalModifiers, DiagNonDefault, DiagCorrelated, DiagUncorrelated,
+        DiagTotalModifiers, DiagNonDefault, DiagCorrelated, DiagUncorrelated, Recipe->ControllerDials.Num(),
         DiagBaked, DiagRaw,
         Recipe->CompanionSlots.Num(),
         Recipe->Formulas.Num(), DiagFMorphVal, DiagFErcCenter, DiagFErcEnd, DiagFOther,
         DiagFBound, Recipe->RigPoints.Num());
 
     UE_LOG(LogDsonImporter, Log,
-        TEXT("[recipe] '%s': %d dial weight(s), %d formula(s), %d rigpoint(s), %d companion slot(s), %d LIE surface(s)"),
+        TEXT("[recipe] '%s': %d dial weight(s), %d controller dial(s), %d formula(s), %d rigpoint(s), %d companion slot(s), %d LIE surface(s)"),
         *Settings.CharacterName,
-        Recipe->DialWeights.Num(), Recipe->Formulas.Num(), Recipe->RigPoints.Num(),
+        Recipe->DialWeights.Num(), Recipe->ControllerDials.Num(), Recipe->Formulas.Num(), Recipe->RigPoints.Num(),
         Recipe->CompanionSlots.Num(), Recipe->LieSurfaces.Num());
 
     if (!FDsonAssetUtils::SaveAssetPackage(Package, Recipe, PackagePath, TEXT("[recipe]")))

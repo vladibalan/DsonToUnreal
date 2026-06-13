@@ -56,6 +56,8 @@ struct DSONIMPORTER_API FDsonLieSurface
 // Dialed weight for one imported morph target: the raw channel value (and range) the
 // DAZ scene carries for this modifier, plus the bound UE morph-target name so a
 // downstream step can re-apply the dial to the already-imported UMorphTarget.
+// SourceUrl is the asset URL (e.g. ".../morph.dsf#ModifierId"); SceneInstanceId is the
+// scene-rooted id (scene.modifiers[i].id verbatim) used by formula push operands.
 // Values are raw (P1/P3) — no formula expansion, no composed dialed shape.
 USTRUCT()
 struct DSONIMPORTER_API FDsonDialWeight
@@ -64,10 +66,28 @@ struct DSONIMPORTER_API FDsonDialWeight
 
     UPROPERTY() FString BoundMorphTargetName;  // ObjectTools::SanitizeObjectName(MorphName??Label) — matches actual UMorphTarget
     UPROPERTY() FString SourceUrl;             // scene.modifiers URL (e.g. ".../morph.dsf#ModifierId")
+    UPROPERTY() FString SceneInstanceId;       // scene.modifiers[i].id verbatim (carries any DAZ uniquifying suffix)
     UPROPERTY() float   Value    = 0.0f;       // raw dialed channel value from scene.modifiers
     UPROPERTY() float   Min      = 0.0f;       // channel minimum
     UPROPERTY() float   Max      = 1.0f;       // channel maximum
     UPROPERTY() bool    bClamped = false;       // whether channel is clamped to [Min, Max]
+};
+
+// Dialed value for a scene modifier whose channel value is not bound to an
+// imported UMorphTarget -- typically controller / formula-driver modifiers
+// (HID/FACS/character controls). Raw scene.modifiers entry data; correlation
+// to formula push URLs is consumer responsibility.
+USTRUCT()
+struct DSONIMPORTER_API FDsonControllerDial
+{
+    GENERATED_BODY()
+
+    UPROPERTY() FString SceneInstanceId;  // scene.modifiers[i].id verbatim
+    UPROPERTY() FString SourceUrl;        // raw scene.modifiers[i].url (asset URL)
+    UPROPERTY() float   Value    = 0.0f;
+    UPROPERTY() float   Min      = 0.0f;
+    UPROPERTY() float   Max      = 1.0f;
+    UPROPERTY() bool    bClamped = false;
 };
 
 // Which DAZ output channel a formula targets; derived mechanically from the output URL
@@ -167,8 +187,13 @@ public:
     UPROPERTY() TArray<FDsonLieSurface>          LieSurfaces;
 
     // Per-morph dial weights from scene.modifiers (raw, uncomposed; correlated to
-    // imported UMorphTargets by bound name; uncorrelated modifiers are omitted)
+    // imported UMorphTargets by bound name)
     UPROPERTY() TArray<FDsonDialWeight>           DialWeights;
+
+    // scene.modifiers entries that did not bind to an imported UMorphTarget
+    // (controller / HID / FACS / character-control dials). Together with DialWeights
+    // covers every scene.modifiers[] entry the importer saw.
+    UPROPERTY() TArray<FDsonControllerDial>       ControllerDials;
 
     // Raw DAZ formula records from three sources: scene.modifiers inline formulas
     // (bFromSceneModifier=true), external modifier DSFs reached via the scene.modifiers

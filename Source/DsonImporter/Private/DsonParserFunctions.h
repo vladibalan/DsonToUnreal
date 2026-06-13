@@ -107,6 +107,7 @@ typedef void* DsonDocumentHandle;
     /* Scene modifiers (external morph-file discovery: each url points at a morph .dsf) */ \
     X(0, int32_t,     GetSceneModifierCount,          DsonDocument_GetSceneModifierCount,          (uint64_t)) \
     X(0, const char*, GetSceneModifierUrl,            DsonDocument_GetSceneModifierUrl,            (uint64_t, int32_t)) \
+    X(0, const char*, GetSceneModifierId,             DsonDocument_GetSceneModifierId,             (uint64_t, int32_t)) \
     X(0, double,      GetSceneModifierChannelValue,   DsonDocument_GetSceneModifierChannelValue,   (uint64_t, int32_t)) \
     X(0, double,      GetSceneModifierChannelMin,     DsonDocument_GetSceneModifierChannelMin,     (uint64_t, int32_t)) \
     X(0, double,      GetSceneModifierChannelMax,     DsonDocument_GetSceneModifierChannelMax,     (uint64_t, int32_t)) \

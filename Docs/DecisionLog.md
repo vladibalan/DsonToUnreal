@@ -1386,3 +1386,23 @@ the proof the binding matches.
 **Plugin version impact: none.** The removed exports were never part of the consumer surface (public
 API / emitted-output shape); an internal parser-ABI binding edit is PATCH-class, so no `VersionName`
 bump, CHANGELOG entry, or tag (`Versioning.md` / R12).
+
+## 2026-06-13 -- Recipe slice 6: controller-dial values
+
+**Consumer ask.** A downstream consumer's formula evaluator seeds its driver inputs from raw
+scene.modifier dial values keyed by `scene.modifiers[i].id` — the verbatim id, including any DAZ
+uniquifying suffix — which maps to formula `push` URL leaf tokens (e.g.
+`Genesis9:#HID%20Nancy%209?value` strips to `HID Nancy 9`).
+
+**Why `DialWeights[]` alone was insufficient.** The existing morph-correlation filter drops every
+entry that (a) lacks a `#` in its URL, (b) references an unresolvable DSF, (c) has no
+`modifier_library` morph entry, or (d) has no matching imported `UMorphTarget`. Controller, HID,
+FACS, and character-control modifiers fail at (c) or (d) — they are formula drivers, not delta-bearing
+morphs. These are exactly the primary driver inputs the formula evaluator needs.
+
+**Decision.** Additive parallel carrier `ControllerDials[]` (`FDsonControllerDial`) captures every
+scene.modifier entry that fails morph correlation; `FDsonDialWeight` gains `SceneInstanceId` so the
+correlated path also carries the verbatim id. Together the two arrays cover every `scene.modifiers[]`
+entry. No formula evaluation; raw data only (P1/P2). The parser export
+`DsonDocument_GetSceneModifierId` was pre-existing (DsonParser ≥ 2.0.0 ABI); no parser bump needed.
+**MINOR** (additive field + new TArray on the public recipe surface) → v1.7.0.

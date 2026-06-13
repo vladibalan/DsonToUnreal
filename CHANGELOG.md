@@ -8,6 +8,17 @@ change (`+` added · `~` changed · `-` removed/deprecated · `!` fixed). Scheme
 baseline, and the per-change gate: [`Docs/Versioning.md`](Docs/Versioning.md) and
 [`Docs/CodeReviewRules.md`](Docs/CodeReviewRules.md) R12.
 
+## 1.7.0 — 2026-06-13 · MINOR
+
++ **`UDsonAssetRecipe::ControllerDials`** — new `TArray<FDsonControllerDial>` carrying scene.modifier
+  entries that did not bind to an imported UMorphTarget (controller / HID / FACS / character-control
+  dials). Each entry carries `SceneInstanceId` (verbatim `scene.modifiers[i].id`, including any DAZ
+  uniquifying suffix — matches formula `push` URL leaf tokens), `SourceUrl`, and the raw channel
+  value / min / max / clamped. Together with `DialWeights` covers every `scene.modifiers[]` entry
+  the importer saw.
++ **`FDsonDialWeight.SceneInstanceId`** — new field on the correlated-morph struct carrying the
+  same verbatim `scene.modifiers[i].id` for parity with `ControllerDials`.
+
 ## 1.6.2 — 2026-06-12 · PATCH
 
 ! **Eyelash cutout opacity** — G9 eyelash surfaces now import their DAZ `Cutout Opacity` map and
