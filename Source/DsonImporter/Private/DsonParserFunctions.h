@@ -71,8 +71,6 @@ typedef void* DsonDocumentHandle;
     X(0, int32_t,     GetUVCount,                   DsonDocument_GetUVCount,                   (uint64_t, int32_t)) \
     X(0, double,      GetUVU,                       DsonDocument_GetUVU,                       (uint64_t, int32_t, int32_t)) \
     X(0, double,      GetUVV,                       DsonDocument_GetUVV,                       (uint64_t, int32_t, int32_t)) \
-    X(0, int32_t,     GetUVPolygonVertexIndexCount, DsonDocument_GetUVPolygonVertexIndexCount, (uint64_t, int32_t)) \
-    X(0, int32_t,     GetUVPolygonVertexIndex,      DsonDocument_GetUVPolygonVertexIndex,      (uint64_t, int32_t, int32_t)) \
     X(0, int,         GetUVSetVertexCount,          DsonDocument_GetUVSetVertexCount,          (uint64_t, int32_t)) \
     X(0, int,         GetUVOverrideCount,           DsonDocument_GetUVOverrideCount,           (uint64_t, int32_t)) \
     X(0, int,         GetUVOverrideFace,            DsonDocument_GetUVOverrideFace,            (uint64_t, int32_t, int32_t)) \

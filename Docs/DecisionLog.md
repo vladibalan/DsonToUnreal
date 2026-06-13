@@ -30,6 +30,7 @@ Contents (newest decisions appended):
 - Library catalog — intake, charter widening (read-only survey, P1), block-on-parser sequencing + parser FR (`content_type`/geograft) (2026-06-12)
 - G9 eyelash companion parent-surface wiring — corrected root cause (texture in MAT preset, not base-load); PATCH v1.6.1 (2026-06-12)
 - G9 eyelash cutout opacity — dedicated M_DazCutout master (Masked, two-sided); transparency map import; PATCH v1.6.2 (2026-06-12)
+- DsonParser 2.0.0 uptake — dead UV-accessor removal (GetUVPolygonVertexIndex*); cross-repo protocol correction (request-through-user, not plugin-authored); plugin impact PATCH-class / no bump (2026-06-13)
 
 ## IrayUber bump-map seam — root cause & fix decision (2026-06-06)
 
@@ -1358,3 +1359,30 @@ rendered as the flat dark diffuse.
 cutout map exists; the IrayUber/PBRSkin skin masters stay Opaque. Durable gotcha →
 [`Reference.md`](Reference.md) ("Eyelash cutout opacity"). Runtime-verified by the user (Nancy + Laura
 match DAZ Studio).
+
+## DsonParser 2.0.0 uptake — dead UV-accessor removal + cross-repo protocol correction (2026-06-13)
+
+**What.** Closed the Roadmap cleanup-backlog item "remove dead `GetUVPolygonVertexIndex*` parser
+APIs." The two exports (`DsonDocument_GetUVPolygonVertexIndex{,Count}`) were dead since the sparse-UV
+migration — they read the legacy flat-int `polygon_vertex_indices`, empty for every real DSF; live
+UV-index data comes from the `GetUVOverride*` family (unchanged). Nothing in the plugin called them;
+they existed only as two X-macro binding rows in `DsonParserFunctions.h`.
+
+**Why a 2.0.0.** By the parser's own policy a removed export is a breaking ABI change = MAJOR, so this
+is DsonParser's first major (1.6.0 → 2.0.0). Weighed against deferring/batching (spend the first major
+on real weight); the user chose to do it now. The plugin's load-time gate keys on the parser MAJOR, so
+uptake required a coordinated re-vendor + rebuild against major 2.
+
+**Cross-repo flow — and a protocol correction.** The parser-side removal is DsonParser-repo work owned
+by the **Parser Director**, reached via a *what/why request routed through the user* (`AgentWorkflow.md`
+→ "Requesting parser features"), never by the plugin Director authoring parser artifacts. The first
+pass violated this — the plugin-side Director directly edited the parser CHANGELOG and wrote a parser
+task-file; it was reverted and reissued as a request. The Parser Director then shipped 2.0.0 (its own
+CHANGELOG, version bump, and the internal `UVSet::polygon_vertex_indices` field cleanup). Plugin side:
+re-vendored the 4-file bundle via `Tools/Sync-Parser.ps1`, dropped the two X-macro rows, and verified a
+clean `DsonHostEditor` build — `DsonParserAbiCheck.cpp` compiling against the slimmed 2.0.0 header is
+the proof the binding matches.
+
+**Plugin version impact: none.** The removed exports were never part of the consumer surface (public
+API / emitted-output shape); an internal parser-ABI binding edit is PATCH-class, so no `VersionName`
+bump, CHANGELOG entry, or tag (`Versioning.md` / R12).

@@ -10,8 +10,12 @@
 #include "DsonParserVersion.h"
 
 // Public C ABI orientation:
-// v1.6.0 — runtime: DsonParser_GetVersion(); compile-time: DSONPARSER_VERSION_*.
+// v2.0.0 — runtime: DsonParser_GetVersion(); compile-time: DSONPARSER_VERSION_*.
 // Release history: CHANGELOG.md; SemVer/C-ABI policy: docs/versioning.md.
+// What's new in 2.0.0 (BREAKING): removed DsonDocument_GetUVPolygonVertexIndexCount
+//   and DsonDocument_GetUVPolygonVertexIndex - the dead legacy flat-int UV path,
+//   empty for every real DAZ DSF since the sparse migration. UV index data comes
+//   from the unchanged GetUVOverride* sparse family.
 // What's new in 1.6.0: documented threading contract - distinct handles are safe
 //   for concurrent cross-thread use; DsonParser_GetLastError() is now per-thread
 //   (thread_local), no longer a process-global slot.
@@ -335,11 +339,6 @@ DSONPARSER_API int DsonDocument_GetUVOverrideCount(DsonDocumentHandle handle, in
 DSONPARSER_API int DsonDocument_GetUVOverrideFace(DsonDocumentHandle handle, int uvSetIndex, int overrideIndex);
 DSONPARSER_API int DsonDocument_GetUVOverrideCorner(DsonDocumentHandle handle, int uvSetIndex, int overrideIndex);
 DSONPARSER_API int DsonDocument_GetUVOverrideUVIndex(DsonDocumentHandle handle, int uvSetIndex, int overrideIndex);
-
-// Returns 0 for the sparse triplet format used by DAZ uv_set DSFs (the common case).
-// Use the GetUVOverride* family above for sparse data.
-DSONPARSER_API int         DsonDocument_GetUVPolygonVertexIndexCount(DsonDocumentHandle handle, int uvSetIndex);
-DSONPARSER_API int         DsonDocument_GetUVPolygonVertexIndex(DsonDocumentHandle handle, int uvSetIndex, int index);
 
 // ---- E. Materials (library materials by index) ----
 //

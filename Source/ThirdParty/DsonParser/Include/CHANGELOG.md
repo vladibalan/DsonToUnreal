@@ -11,6 +11,21 @@ Entry sigils: `+` added · `~` changed · `-` removed/deprecated · `!` fixed.
 
 Nothing yet — new C-ABI changes land here, then move under a version heading on release.
 
+## 2.0.0 — 2026-06-13 · MAJOR (breaking)
+
+Removed two dead UV accessors that surfaced the legacy flat-int "polygon vertex index"
+representation. Real DAZ uv_set DSFs encode `polygon_vertex_indices` as sparse
+`[face, corner, uv_index]` triplets, which the parser models as UV overrides; the flat-int
+path has been empty since that migration, so these two functions returned nothing for any
+real asset. No known consumer binds them — UV index data is read through the GetUVOverride*
+family, which is **unchanged**. The internal `UVSet::polygon_vertex_indices` field and its
+parse branch are removed with them; the sparse triplet path (uv_overrides) is intact.
+Migration: a caller wanting per-corner UV indices uses DsonDocument_GetUVSetVertexCount +
+the GetUVOverride{Count,Face,Corner,UVIndex} family (seed identity uv_index = vertex_index,
+then apply the sparse overrides) — exactly what the importer already does.
+- DsonDocument_GetUVPolygonVertexIndexCount — removed (dead legacy flat-int count; use the GetUVOverride* sparse family)
+- DsonDocument_GetUVPolygonVertexIndex — removed (dead legacy flat-int accessor; use the GetUVOverride* sparse family)
+
 ## 1.6.0 — 2026-06-12 · MINOR (additive)
 
 Threading contract. DsonParser is now safe for concurrent use across threads on **distinct**

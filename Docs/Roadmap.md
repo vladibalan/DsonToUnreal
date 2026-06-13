@@ -193,10 +193,6 @@ check path-reconstructing consumers; rationale → `DecisionLog.md`.
 
 ## Cleanup backlog
 
-- **Remove dead `GetUVPolygonVertexIndex*` parser APIs** — dead since the
-  sparse-format migration (return 0 for sparse DSFs). Parser-side change (parser
-  repo + DLL rebuild/copy into `Source/ThirdParty/DsonParser/Libs/Win64/`), after
-  confirming no references remain.
 - **Audit source comments / log strings for stale G3 fallback phrasing.** The
   earlier Roadmap claim that G3 fell back to `M_DazDefault` was incorrect (G3 uses
   IrayUber → `M_DazIrayUber`, verified Victoria 7 HD, 2026-06-06). Remove/correct any
