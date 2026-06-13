@@ -218,8 +218,9 @@ check path-reconstructing consumers; rationale → `DecisionLog.md`.
 ## Next up
 
 With Phase 6 v2, asset folder structure, and composed dialed-shape baking all closed, the
-importer covers its mandate for the supported figures. Beyond the planned recipe-emission
-workstream above, remaining work is reactive — the **Cleanup backlog**, new figures/shaders as
-content needs them (shader-gated), and just-in-time additive parser exposures
-(`Docs/Principles.md` P4). The read-only **library catalog** (consumer request) shipped **1.6.0**
+importer covers its mandate for the supported figures. Beyond the now-complete recipe-emission
+workstream above, the importer is in a **reactive/maintenance** posture — remaining work is the
+**Cleanup backlog**, plus new shaders/figures and parser exposures taken **as content needs
+them, never speculatively** (parser axis → `Docs/Principles.md` P4; shader→master support
+follows the shader-gating model in *Figure / generation support* above). The read-only **library catalog** (consumer request) shipped **1.6.0**
 (enumerate + classify + thumbnails + incremental cache; rationale → `DecisionLog.md`).
