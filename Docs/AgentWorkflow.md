@@ -224,13 +224,13 @@ Report: write your results to .handoff/feedback-<id>.md using the feedback templ
         in Docs/AgentWorkflow.md. On any block — build failure, ambiguity, needed
         assumption, rule conflict — halt and report it there rather than guessing.
 
-Feedback requested: <yes/no — if yes, what to assess before/instead of coding>
+Feedback requested: <no | yes — if yes, the listed questions are a design read written to `.handoff/feedback-<id>.md` as `Status: design-review` (no source edits) before coding; the Director reviews before you implement>
 ```
 
 ## Feedback-file template (Implementer → Director)
 
 ```
-Status: smooth | blocked
+Status: smooth | blocked | design-review   (design-review: the pre-code design read for a `Feedback requested: yes` task — no source edits; see the task-file's `Feedback requested` line)
 
 Files changed: <paths, one per line>
 

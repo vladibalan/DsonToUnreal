@@ -202,8 +202,6 @@ check path-reconstructing consumers; rationale → `DecisionLog.md`.
   IrayUber → `M_DazIrayUber`, verified Victoria 7 HD, 2026-06-06). Remove/correct any
   "Genesis 3 → default" / "G3 fallback" claims; search `Source/DsonImporter/` for
   `Genesis 3` / `G3`.
-- **Pre-code design reads go by file, not chat** — when `Feedback requested: YES`, the Implementer
-  writes the design read to `.handoff/feedback-<id>.md` (`Status: design-review`), reviewed from disk; fix `Docs/AgentWorkflow.md` (template + `Feedback requested` line).
 
 ## Authoring-metadata recipe emission (P2) — Slices 1–5 complete (v1.5.0)
 
