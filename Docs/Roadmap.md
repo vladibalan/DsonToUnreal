@@ -217,7 +217,7 @@ check path-reconstructing consumers; rationale → `DecisionLog.md`.
 
 ## Known latent issues (not blocking)
 
-- `SavePackage` return value not checked (hardening).
+- **`SavePackage` result *is* checked** — `FDsonAssetUtils::SaveAssetPackage` logs an Error and returns a bool, and most callers propagate failure; residual: the recipe save (`DsonRecipeBuilder`) and companion body-skeleton re-save (`DsonSkeletonBuilder`) discard the bool (logged, not silent).
 - `IsValid()` does not include the UV function pointers — consistent with the
   permissive-parser convention (they are optional exports).
 - **Benign `could not resolve '#…'` warning on LIE characters** (e.g. G9 Nancy):
