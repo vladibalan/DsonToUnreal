@@ -191,7 +191,7 @@ check path-reconstructing consumers; rationale → `DecisionLog.md`.
   texture still resolves and imports; cosmetic only. Cleanup: have the texture
   importer skip `#`-prefixed refs before resolving.
 
-## Authoring-metadata recipe emission (P2) — Slices 1–5 complete (v1.5.0)
+## Authoring-metadata recipe emission (P2) — Slices 1–6 complete (v1.7.0)
 
 | Slice | Shipped | Contents |
 |---|---|---|
