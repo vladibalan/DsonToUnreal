@@ -38,7 +38,7 @@ _Last updated: 2026-06-13._
 | 6 | Materials — per-section MIC wiring, 3 masters, texture import | ✅ Done (v1) |
 | 6.x | UV-set import (seams) | ✅ Done — verified G8.1 + Laura, zero fallbacks |
 | 6.y | Material polish (IrayUber washy fix; multi-UDIM resolved as not-needed) | ✅ Done |
-| 6 v2 | Materials v2 — faithful makeup + LIE import, SSS Profile, eye-moisture | ✅ Done — slices #1 + #2 (2026-06-07) + #3 eye-moisture (G9 Nancy 2026-06-09; cornea-refraction iris-lensing found post-ship, fixed 2026-06-10) |
+| 6 v2 | Materials v2 — faithful makeup + LIE import, SSS Profile, eye-moisture | ✅ Done — slices #1–#3; see *Phase 6 v2* below |
 | 7 | Morph targets (`UMorphTarget` per morph) | ✅ Done — delta-bearing morphs, including formula-reachable `?value` leaf files, via MeshDescription morph attributes |
 | 8 | Save to Content Browser (`/Game/DazImports/`) | ✅ Implemented per-phase, working |
 
