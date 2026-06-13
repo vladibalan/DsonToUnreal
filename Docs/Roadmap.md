@@ -191,14 +191,6 @@ check path-reconstructing consumers; rationale → `DecisionLog.md`.
   texture still resolves and imports; cosmetic only. Cleanup: have the texture
   importer skip `#`-prefixed refs before resolving.
 
-## Cleanup backlog
-
-- **Audit source comments / log strings for stale G3 fallback phrasing.** The
-  earlier Roadmap claim that G3 fell back to `M_DazDefault` was incorrect (G3 uses
-  IrayUber → `M_DazIrayUber`, verified Victoria 7 HD, 2026-06-06). Remove/correct any
-  "Genesis 3 → default" / "G3 fallback" claims; search `Source/DsonImporter/` for
-  `Genesis 3` / `G3`.
-
 ## Authoring-metadata recipe emission (P2) — Slices 1–5 complete (v1.5.0)
 
 | Slice | Shipped | Contents |
@@ -213,8 +205,8 @@ check path-reconstructing consumers; rationale → `DecisionLog.md`.
 
 With Phase 6 v2, asset folder structure, and composed dialed-shape baking all closed, the
 importer covers its mandate for the supported figures. Beyond the now-complete recipe-emission
-workstream above, the importer is in a **reactive/maintenance** posture — remaining work is the
-**Cleanup backlog**, plus new shaders/figures and parser exposures taken **as content needs
+workstream above, the importer is in a **reactive/maintenance** posture — remaining work is
+new shaders/figures and parser exposures taken **as content needs
 them, never speculatively** (parser axis → `Docs/Principles.md` P4; shader→master support
 follows the shader-gating model in *Figure / generation support* above). The read-only **library catalog** (consumer request) shipped **1.6.0**
 (enumerate + classify + thumbnails + incremental cache; rationale → `DecisionLog.md`).
