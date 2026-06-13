@@ -86,43 +86,17 @@ Genesis8_1Female base, G9 Laura + Nancy, G3 Victoria 7 HD. For the master
 parameter-contract format, `MaterialMastersV1.md` remains the source of record;
 its "Open follow-ups" subset is now superseded by the slice list below.
 
-Slices are sized to ship independently and are taken in order; each one updates
-this section as it lands. **All three slices shipped — #3 (eye-moisture) mechanism runtime-verified on G9 Nancy 2026-06-09; a post-ship cornea-refraction iris-lensing defect was found and fixed 2026-06-10 (Refraction Method = None).**
+**All three slices shipped** — current behavior in the table below; dated handoff & verification → `Docs/DecisionLog.md`.
 
-### Planned slices
+### Slices
 
-1. **Faithful makeup + LIE import** — ✅ Done & signed off; implemented +
-   Nancy 9-verified 2026-06-06, full acceptance regression passed 2026-06-07
-   (implementation detail, parser-ABI accessors, and session log →
-   `Docs/DecisionLog.md`). The importer imports `Makeup Base Color` textures and
-   each non-base LIE layer as standalone `UTexture2D` assets under
-   `/Game/DazImports/Library/Textures/`. **No** `Makeup *` entries added to
-   `GetPBRSkinMapping()`, **no** `Makeup *` parameters added to `M_DazPBRSkin` —
-   per-surface makeup values (Enable/Weight/Roughness Mult) are not baked into the
-   material; they remain DAZ-source authoring data the importer does not yet surface.
-   Folds in the sRGB-cache-conflict fix in `DsonTextureImporter`.
-2. **Subsurface Profile pipeline** — ✅ **Done & verified 2026-06-07** (full
-   acceptance set). Both skin masters → Subsurface Profile shading,
-   `SubsurfaceWeight`→Opacity, per-character `USubsurfaceProfile` on skin. The two
-   verification fixes (IrayUber SSS-binding; PBRSkin darkening, B1), the gated-but-
-   evaluated-node master audit (cost-when-disabled paths removed), and the "profile
-   redistributes, doesn't add light" finding →
-   [`SubsurfaceProfileV2.md`](SubsurfaceProfileV2.md) §Revision + `DecisionLog.md`.
-3. **Eye-moisture / cornea master** (`M_DazEyeMoisture`) — ✅ **Mechanism done & runtime-verified
-   on G9 Nancy 2026-06-09. A post-ship **cornea-refraction iris-lensing** defect (the shell's UE IOR
-   refraction minified the eyeball) was found and fixed 2026-06-10 via **Refraction Method = None**
-   (eyeball/geometry were always fine); see `DecisionLog.md` "eye-moisture cornea lensing".** `EyeMoisture L/R` / `Cornea` / `Tear` route to a translucent
-   `M_DazEyeMoisture` (Surface ForwardShading; Fresnel-weighted opacity). Importer:
-   `EDsonSurfaceClass::EyeMoisture` + `GetEyeMoistureSurfaceGroups()` (single source,
-   removed from NonSkin); `GetEyeMoistureMapping()`
-   (BaseColor/Specular/Roughness/RefractionIOR/Opacity); channels read from
-   `material_library` via the scene-material's bare `#fragment` (`ResolveChannelSource`
-   — no parser change); key-0 matId reconciliation (UrlDecode + strip `-<n>` suffix).
-   Master spec → `MaterialMastersV1.md`; resolution detail → `DecisionLog.md` "Slice #3
-   heads-up". **Note:** the now-transparent shell exposed the **untextured G9 eyeball**
-   (`Eye L/R`, PBRSkin) — a separate issue, since fixed by baking the anim-bound eye
-   LIE to one albedo at import (runtime-verified G9 Nancy 2026-06-09); see
-   `DecisionLog.md` "G9 untextured eyeball".
+| # | Live importer behavior | Detail |
+|---|---|---|
+| 1 | `Makeup Base Color` + each non-base LIE layer imported as standalone `UTexture2D` under `Library/Textures/`; **no** `Makeup *` baked into `M_DazPBRSkin` — per-surface makeup values stay DAZ-source authoring data, not surfaced. | "Materials v2 slice #1" |
+| 2 | Both skin masters → Subsurface Profile shading; `SubsurfaceWeight`→Opacity; per-character `USubsurfaceProfile`. | "Materials v2 slice #2" + `SubsurfaceProfileV2.md` |
+| 3 | `EyeMoisture L/R`/`Cornea`/`Tear` → translucent `M_DazEyeMoisture` with **Refraction Method = None** (the post-ship iris-lensing fix); the G9 eyeball LIE is baked to one albedo at import. | "eye-moisture cornea lensing" + "G9 untextured eyeball" |
+
+Master parameter specs → `MaterialMastersV1.md`.
 
 ### Dropped from v2 — runtime cost > visual-fidelity gain
 
@@ -153,7 +127,7 @@ per-layer blend ops, the worked Nancy-9 example, what the importer does with it 
 and the `#fragment` diagnostic — lives in `Docs/Reference.md` → "LIE (layered-image)
 composition" (read it before chasing any `#fragment` reference). The recipe itself is
 carried across faithfully — raw, uncomposed per-layer compositing metadata emitted by
-the recipe-emission slices above (parser exposure shipped in DsonParser 1.4.0). Only
+the recipe-emission slices below (parser exposure shipped in DsonParser 1.4.0). Only
 *executing* it (compositing a finished Diffuse) is the downstream authoring step.
 
 ### Parked — revisit if content needs it
@@ -165,25 +139,17 @@ the recipe-emission slices above (parser exposure shipped in DsonParser 1.4.0). 
   Current content does not need it (DAZ ships each skin zone as its own 0–1
   section).
 
-## Genesis 9 companion figures (eyes / mouth / eyelashes / tear) — importer work in progress
+## Genesis 9 companion figures (eyes / mouth / eyelashes / tear) — ✅ Done
 
 G9 declares eyes, mouth (teeth), eyelashes, and tear as separate conforming figures in the
-preset's `scene.extra → PostLoadAddons`, **not** `scene.nodes`, so only the body imports
-today — chain + per-figure data in [`Reference.md`](Reference.md) → "Genesis 9 companion
-figures". **Packaging: separate `USkeletalMesh` per companion, leader-posed to the body
-skeleton** (not merged) — rationale in [`DecisionLog.md`](DecisionLog.md). Work, in order:
+preset's `scene.extra → PostLoadAddons` (**not** `scene.nodes`) — discovery chain + rigging in
+[`Reference.md`](Reference.md) → "Genesis 9 companion figures". Each imports as its **own
+`USkeletalMesh`** sharing the body `USkeleton`, leader-posed (not merged); packaging rationale +
+slice A/B/C handoff → [`DecisionLog.md`](DecisionLog.md). Materials come from each addon's MAT
+preset (R7 fallback `M_DazDefault`); `Eyelashes`/`Lower`/`Upper` route to `M_DazCutout` (Masked).
+Parser ABI: DsonParser 1.1.0 `DsonDocument_GetScenePostLoadAddon{Count,Slot,AssetName,AssetFile,MatPreset}`.
 
-1. **Parser ABI** — ✅ done (DsonParser 1.1.0): `DsonDocument_GetScenePostLoadAddon{Count,Slot,AssetName,AssetFile,MatPreset}`, paths only.
-2. **Slice A — ✅ done** (2026-06-08): 5 PostLoadAddon exports bound (optional); each `AssetFile` resolved → loader .duf → geometry DSF + node id into `FDsonCompanionSource` list; logged. No meshes built.
-3. **Slice B — ✅ done** (2026-06-08): each companion geometry DSF imported as its own
-   `USkeletalMesh` via `FDsonMeshBuilder::BuildCompanion`, bound to body `USkeleton` by bone name; `FDsonImportResult.CompanionMeshes`; UV-set DSF resolved and applied like body (was zero-UV, single-texel — fix 2026-06-08). No materials (Slice C).
-4. **Slice C — ✅ done** (2026-06-08): `BuildAllSceneMaterials` on each addon's MAT preset;
-   MICs keyed by group name wired to companion sections via updated `BuildCompanion`; R7
-   fallback to `M_DazDefault` per section. `EyeMoisture` `#fragment` channels resolve empty
-   (expected — slice #3 owns the master); companion wiring now resolves legacy parent-surface MAT keys to child leaf surfaces — stock G9 eyelash preset no longer falls to `M_DazDefault`. **Eyelash cutout-opacity (2026-06-12):** `Eyelashes`/`Lower`/`Upper` now route to `M_DazCutout` (Masked); cutout mask + normal import linear.
-
-**Deferred:** fiber eyebrows (`G9EyebrowFibers`) → groom; some characters (Nancy) have no
-brow mesh. **Unblocks** slice #3 on G9 (`EyeMoisture Left/Right` live only in the Eyes companion).
+**Deferred:** fiber eyebrows (`G9EyebrowFibers`) → groom (some characters, e.g. Nancy, have no brow mesh).
 
 ## Programmatic import entry point — ✅ Done
 
@@ -203,7 +169,7 @@ step that later consumes the import, not here.
   `Σ(leaf_deltas × evaluated_value)`, or applying a DUF's dialed expression/body shape.
   The rest-state morphs land as faithful **source** for that later step.
 
-Dial weights (raw metadata, not evaluated) landed in v1.2.0 → see recipe-emission section above.
+Dial weights (raw metadata, not evaluated) landed in v1.2.0 → see recipe-emission section below.
 Notes from the original scoping: **[`Docs/FormulaMorphsV2.md`](FormulaMorphsV2.md)**.
 
 ## Asset import folder structure — ✅ Done (2026-06-10)
