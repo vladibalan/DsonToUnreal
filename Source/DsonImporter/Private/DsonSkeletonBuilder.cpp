@@ -397,9 +397,14 @@ int32 FDsonSkeletonBuilder::MergeCompanionBonesIntoSkeleton(
     // Re-save the expanded body skeleton so downstream companion mesh builds and UE
     // asset registry see the added bones.
     UPackage* SkeletonPackage = BodySkeleton->GetPackage();
-    FDsonAssetUtils::SaveAssetPackage(
+    if (!FDsonAssetUtils::SaveAssetPackage(
         SkeletonPackage, BodySkeleton, SkeletonPackage->GetName(),
-        TEXT("DsonSkeletonBuilder[companion]"));
+        TEXT("DsonSkeletonBuilder[companion]")))
+    {
+        UE_LOG(LogDsonImporter, Error,
+            TEXT("DsonSkeletonBuilder: failed to re-save '%s' after companion bone merge -- on-disk skeleton is stale; companions imported in a later session may bind incorrect bone indices"),
+            *BodySkeleton->GetName());
+    }
 
     UE_LOG(LogDsonImporter, Log,
         TEXT("DsonSkeletonBuilder: merged %d companion bone(s) into '%s'"),

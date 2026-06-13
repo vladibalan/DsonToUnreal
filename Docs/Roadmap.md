@@ -25,7 +25,7 @@ Load-bearing invariants (coordinate flip, winding, scale) are owned by
 `CodeReviewRules.md` R4 / the `DazPointToUe` helper (and restated in
 `Docs/Reference.md`) — referenced here, never restated, so they cannot drift.
 
-_Last updated: 2026-06-12._
+_Last updated: 2026-06-13._
 
 ## Phase status
 
@@ -183,7 +183,6 @@ check path-reconstructing consumers; rationale → `DecisionLog.md`.
 
 ## Known latent issues (not blocking)
 
-- **`SavePackage` result *is* checked** — `FDsonAssetUtils::SaveAssetPackage` logs an Error and returns a bool, and most callers propagate failure; residual: the recipe save (`DsonRecipeBuilder`) and companion body-skeleton re-save (`DsonSkeletonBuilder`) discard the bool (logged, not silent).
 - `IsValid()` does not include the UV function pointers — consistent with the
   permissive-parser convention (they are optional exports).
 - **Benign `could not resolve '#…'` warning on LIE characters** (e.g. G9 Nancy):

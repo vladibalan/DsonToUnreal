@@ -867,5 +867,10 @@ void FDsonRecipeBuilder::Build(const FDsonImportResult& Result)
         Recipe->DialWeights.Num(), Recipe->Formulas.Num(), Recipe->RigPoints.Num(),
         Recipe->CompanionSlots.Num(), Recipe->LieSurfaces.Num());
 
-    FDsonAssetUtils::SaveAssetPackage(Package, Recipe, PackagePath, TEXT("[recipe]"));
+    if (!FDsonAssetUtils::SaveAssetPackage(Package, Recipe, PackagePath, TEXT("[recipe]")))
+    {
+        UE_LOG(LogDsonImporter, Error,
+            TEXT("[recipe] '%s': failed to save recipe asset at '%s' -- downstream consumers will find no recipe for this character"),
+            *Settings.CharacterName, *PackagePath);
+    }
 }
