@@ -29,6 +29,12 @@ struct FDsonImportSettings
     EGenesisGeneration Generation = EGenesisGeneration::Unknown;
     bool bDumpMaterialDiagnostics = false;
     TArray<FDsonCompanionSource> CompanionFigures;  // G9 companion figures (Slice A+)
+
+    // M1 scan cache: accepted corrective DSF paths from the first corrective-tree scan.
+    // Populated lazily by LoadFormulaReachableMorphDocuments on first call (Apply path);
+    // the second call (recipe builder) reads it and skips the ~3000-file re-scan.
+    // mutable so it can be written through the const FDsonImportSettings& that builders receive.
+    mutable TArray<FString> DiscoveredCorrectiveDsfPaths;
 };
 
 struct FDsonImportResult

@@ -94,7 +94,6 @@ FDsonImportResult FDsonImportPipeline::Run(
     const TArray<FString>& ContentRoots)
 {
     FDsonImportResult Result;
-    Result.Settings = Settings;
 
     FDsonTextureImporter Importer(ContentRoots, Settings.CharacterName);
     FDsonMaterialBuilder Builder(ContentRoots, Importer);
@@ -179,6 +178,10 @@ FDsonImportResult FDsonImportPipeline::Run(
     // R4: do not re-derive the bake decision — record what CompositeImageLayers actually did.
     for (const auto& Pair : Importer.GetPreBakedComposites())
         Result.PreBakedComposites.Add(Pair.Key, TSoftObjectPtr<UTexture2D>(Pair.Value.Get()));
+
+    // Copy Settings into Result now so DiscoveredCorrectiveDsfPaths (M1 cache) populated
+    // by FDsonMeshBuilder::Apply is captured before the recipe builder re-uses the walk.
+    Result.Settings = Settings;
 
     // Emit recipe asset after all meshes are built (R7 additive: never aborts the import)
     FDsonRecipeBuilder::Build(Result);

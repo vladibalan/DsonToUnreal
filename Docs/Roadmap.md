@@ -165,6 +165,11 @@ step that later consumes the import, not here.
 - **In scope (✅ done):** the importer follows scene / external-modifier formula outputs
   whose query property is exactly `?value`, resolves those files transitively, and
   imports every delta-bearing morph in each as its own rest-state morph target (weight 0).
+  **Joint corrective morphs (JCMs, v1.8.0):** scene-gated corrective DSFs (every
+  `mult`-stage gate control is scene-reachable OR has `channel.value > 0`) are discovered
+  from the figure's `Morphs/` subtree and land as additional inert morph targets; their
+  driving formulas appear in `UDsonAssetRecipe.Formulas[]`. Runtime driving (bone-angle →
+  weight) is the consumer's responsibility and remains out of scope.
 - **Out of scope (P1):** evaluating formulas, seeding dial values, baking
   `Σ(leaf_deltas × evaluated_value)`, or applying a DUF's dialed expression/body shape.
   The rest-state morphs land as faithful **source** for that later step.
@@ -201,10 +206,11 @@ check path-reconstructing consumers; rationale → `DecisionLog.md`.
 | 4 | v1.4.0 · 2026-06-11 | Anim-bound (`scene.animations` key-0 `image`) LIE surfaces emitted — eye LIE on G9 Eyes companion now in recipe; pre-baked marker **fires** (Nancy-verified: `baked=4` — both eyes × diffuse + Translucency; 10 LIE surfaces total). `ParseAnimationUrl`/`StripUniquifyingSuffix` extracted to `DsonImportUtils.h` (R4). |
 | 5 | v1.5.0 · 2026-06-11 | ERC/JCM formula records: `Formulas[]` (raw RPN ops, output URL, EDsonFormulaTarget tag, bound morph name) + `RigPoints[]` (base bone center/end point in raw DAZ coords). Three-source emission: (1) scene.modifiers inline, (2) external-referenced modifier DSFs (scene.modifiers reachability walk — e.g. HID Nancy 9.dsf, FACS DSFs), (3) figure modifier_library (JCM/corrective). 13 new parser exports bound. Dedup across all passes. **Runtime-confirmed on Nancy:** `formulas=2032` (morphval=7, erc=2023, other=2), `bound=2024`, `rigpoints=138` — bulk is proportion-morph ERC rigging-follow. |
 | 6 | v1.7.0 · 2026-06-13 | Controller-dial values: `ControllerDials[]` (`FDsonControllerDial`) carries scene.modifier entries not bound to an imported UMorphTarget (controller / HID / FACS / character-control dials). `SceneInstanceId` added to `FDsonDialWeight` for parity. Together with `DialWeights`, every `scene.modifiers[]` entry is now in the recipe. |
+| 7 | v1.8.0 · 2026-06-14 | Scene-gated JCM correctives: accepted corrective DSFs land as inert `UMorphTarget`s on the body mesh; driving formulas appear in `Formulas[]` (`EDsonFormulaTarget::MorphValue`, `BoundMorphTargetName` populated). Scope-A gate: every `mult`-stage control scene-reachable OR `channel.value > 0`. M1 cache: corrective-tree scan runs once (Apply path); recipe builder re-uses accepted paths. |
 
 ## Next up
 
-With Phase 6 v2, asset folder structure, and composed dialed-shape baking all closed, the
+With Phase 7 (JCM corrective morphs), asset folder structure, and composed dialed-shape baking all closed, the
 importer covers its mandate for the supported figures. Beyond the now-complete recipe-emission
 workstream above, the importer is in a **reactive/maintenance** posture — remaining work is
 new shaders/figures and parser exposures taken **as content needs

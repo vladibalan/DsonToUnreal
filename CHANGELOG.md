@@ -8,6 +8,21 @@ change (`+` added · `~` changed · `-` removed/deprecated · `!` fixed). Scheme
 baseline, and the per-change gate: [`Docs/Versioning.md`](Docs/Versioning.md) and
 [`Docs/CodeReviewRules.md`](Docs/CodeReviewRules.md) R12.
 
+## 1.8.0 — 2026-06-14 · MINOR
+
++ **Joint corrective morphs (JCMs) imported as inert morph targets** — scene-gated
+  corrective DSFs from the figure's `Morphs/` subtree are discovered and their
+  delta-bearing modifiers land as weight-0 `UMorphTarget`s on the body skeletal mesh.
+  Gate: every `mult`-stage control must be scene-reachable OR have `channel.value > 0`.
+  On Nancy: 210 scene-gated correctives accepted of 1271 candidates — body joint, FACS
+  facial, and morph-controlled correctives (the faithful self-`?value` superset) — as
+  weight-0 morph targets (body morph count 7 → 216); single ~4k-file scan in 10.2 s,
+  cached so the recipe pass adds no rescan.
++ **JCM driving formulas in recipe** — `UDsonAssetRecipe.Formulas[]` now includes each
+  accepted corrective's self-`?value` formula record (`EDsonFormulaTarget::MorphValue`,
+  `BoundMorphTargetName` populated). Runtime driving (bone-angle → weight) remains the
+  consumer's responsibility.
+
 ## 1.7.0 — 2026-06-13 · MINOR
 
 + **`UDsonAssetRecipe::ControllerDials`** — new `TArray<FDsonControllerDial>` carrying scene.modifier

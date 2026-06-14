@@ -1406,3 +1406,46 @@ correlated path also carries the verbatim id. Together the two arrays cover ever
 entry. No formula evaluation; raw data only (P1/P2). The parser export
 `DsonDocument_GetSceneModifierId` was pre-existing (DsonParser ≥ 2.0.0 ABI); no parser bump needed.
 **MINOR** (additive field + new TArray on the public recipe surface) → v1.7.0.
+
+## JCM corrective morphs — scene-gated import (2026-06-14, v1.8.0)
+
+**Request.** DsonArtisan (consumer) asked the Importer to bring the figure's JCM joint corrective
+morphs in as inert (weight-0) `UMorphTarget`s, name-resolvable against the recipe's formula morph
+outputs, so it can derive bone-angle→morph driving itself (runtime driving stays the consumer's).
+
+**Confirmed current behavior first (the request asked).** JCM geometry was NOT imported and JCM
+formulas were NOT in the recipe — the `?value` reachability walk never opens the corrective files.
+Verified on disk: JCM correctives are self-contained DSFs **auto-followed** by DAZ from the figure's
+`Morphs/` tree (not output-reachable); `Genesis9.dsf` references none. Pre-change Nancy: body morph
+`created≈7`, recipe `morphval=7` (HID control tree only).
+
+**Scope decision (user) — Scope A, scene-gated.** A read-only scan of the figure's corrective tree
+widens *discovery* (P1 survey-vs-import); the *import* stays reference-graph-bounded via a gating
+filter — no charter widening, no inert vendor/other-character correctives. Rejected Scope B (import
+every corrective in the tree): ~2× weight-0 targets, crosses P1's reference-graph import bound,
+library-state-dependent.
+
+**Design (importer-only; no parser FR).** Both `FDsonMorphBuilder::Apply` (geometry) and the recipe
+builder funnel through the shared `LoadFormulaReachableMorphDocuments`, so adding corrective files to
+its reachable set feeds geometry AND `Formulas[]` at once (DsonRecipeBuilder unchanged). Corrective
+SIGNATURE = a delta-bearing modifier whose formula output is its own `?value` (a shape morph is a
+passive target driven by an external control — verified `HID Nancy 9 Head` has 0 self-`?value`
+outputs). GATE = a corrective is in iff **every** `mult`-stage gate control is (a) scene-reachable OR
+(b) statically on (`channel.value > 0`). M1: the ~4k-file scan runs once (Apply path); accepted paths
+cached on a private `FDsonImportSettings` field for the recipe call.
+
+**Design-review caught a load-bearing error (the Slice-5 lesson again).** The Implementer's design
+read placed the base master `body_basejointcorrectives` in `Genesis9.dsf` and proposed seeding
+reachable ids from the figure DSF. Verified on disk: that master is in
+`Base Correctives/body_ctrl_basejointcorrectives.dsf` with `channel.value=1` — the figure-DSF seed
+would have silently dropped all ~157 base correctives. Director correction = the value>0 gate path
+(`GetModifierChannelValue`), which also made the figure-handle question moot. Verified gate values:
+base=1, UNBM master=0, Ivy=0, `HID Nancy 9 Body`=0-but-reachable.
+
+**Runtime result (Nancy re-import, confirmed).** Scan 4214 files in 10.2 s (<30 s; M1, no folder
+heuristic); 1271 candidates → **210 accepted** (1061 inert rejected). Body `created` 7→216; recipe
+`morphval` 7→**359**, `bound` 2024→**2847** — names resolve. No errors. **Scope-breadth (kept,
+user-confirmed):** the self-`?value` signature is the *superset* of correctives — the 210 includes
+FACS facial (`facs_cbs_*`) and morph-controlled correctives, not only body joints. Narrowing in the
+importer would be interpretive joint-classification (against P3); the consumer filters by
+driving-input downstream. **MINOR → v1.8.0.**

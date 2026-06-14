@@ -91,6 +91,7 @@ typedef void* DsonDocumentHandle;
     X(0, const char*, GetModifierFormulaOperationOp,    DsonDocument_GetModifierFormulaOperationOp,    (uint64_t, int32_t, int32_t, int32_t)) \
     X(0, double,      GetModifierFormulaOperationVal,   DsonDocument_GetModifierFormulaOperationVal,   (uint64_t, int32_t, int32_t, int32_t)) \
     X(0, const char*, GetModifierFormulaOperationUrl,   DsonDocument_GetModifierFormulaOperationUrl,   (uint64_t, int32_t, int32_t, int32_t)) \
+    X(0, double,      GetModifierChannelValue,    DsonDocument_GetModifierChannelValue,    (uint64_t, int32_t)) \
     X(0, int32_t,     GetModifierSkinVertexCount, DsonDocument_GetModifierSkinVertexCount, (uint64_t, int32_t)) \
     X(0, int32_t,     GetModifierSkinJointCount,  DsonDocument_GetModifierSkinJointCount,  (uint64_t, int32_t)) \
     \
