@@ -76,8 +76,8 @@ shares the path→settings assembly (`FDsonValidator::ToImportSettings`) with th
 - Reads figure nodes from the resolved base figure DSF.
 - Converts node transforms into UE reference skeleton bones.
 - Saves the skeleton asset.
-- `BuildParent`: creates the shared parent `USkeleton` under `FigureRoot(<FigureId>)`.
-- `MergeCompanionBonesIntoSkeleton`: merges companion-exclusive bones (e.g. tongue01–05) into body skeleton; re-saves; called by `BuildCompanion`.
+- `BuildParent`: creates the shared parent `USkeleton` under `FigureRoot(<FigureId>)`; pre-merges all companion bones from `Settings.CompanionFigures` so the skeleton is born complete and per-character `BuildCompanion` calls are no-ops (P5 preserved).
+- `MergeCompanionBonesIntoSkeleton`: merges companion-exclusive bones (e.g. tongue01–05) into body/parent skeleton; re-saves; called by `BuildCompanion` (per-character no-op after pre-merge) and by `BuildParent` (S3).
 
 `DsonMeshBuilder.*`
 
@@ -99,6 +99,7 @@ shares the path→settings assembly (`FDsonValidator::ToImportSettings`) with th
   directly by the scene or transitively through `?value` formula outputs.
 - Registers morph targets into the `MeshDescription` before `CommitMeshDescription`.
 - Converts DAZ position deltas through `DazPointToUe`; morph normals are recomputed by the engine.
+- `Apply`: optional `ExcludeMorphNameKeysLower` param (S3) pre-seeds `SeenMorphNames` from the parent's morph set so shared figure morphs are not re-emitted on the delta; default-empty on the legacy path.
 - `ApplyFigureOwned`: limits morph scope to figure DSF + `DiscoveredCorrectiveDsfPaths` (M1 cache); used by the parent mesh build path.
 
 `DsonMaterialBuilder.*`
@@ -151,7 +152,7 @@ shares the path→settings assembly (`FDsonValidator::ToImportSettings`) with th
 
 `DsonImportPipeline.*`
 
-- Top-level orchestrator: `Run` sequences material/texture build → `M_DazDefault` gate → skeleton → body mesh → companions → parent figure assets (when `FigureId` set and parent absent) → character recipe. All post-gate steps are permissive (R7).
+- Top-level orchestrator: `Run` sequences material/texture build → `M_DazDefault` gate → then branches on `FigureId`: **set** — corrective-cache warm-up (`DiscoverFormulaReachableDocuments`), parent ensure (lazy build + `BuildParentMarker`), parent `LoadObject`, H1 hard-abort if null, delta body mesh (morph exclusion set from parent); **empty** — per-character skeleton + full-morph body mesh; **both paths** — shared companion loop (bind `Result.Skeleton`) → character recipe. Parent-build failure on the FigureId-set path hard-aborts the character import (H1, R7 exception; R7 revision pending); all other post-gate steps permissive (R7).
 
 `DsonImportTypes.h`
 

@@ -27,12 +27,16 @@ public:
     // scene .duf or by transitive formula `?value` outputs. Permissive: missing
     // exports / OOB deltas are skipped, never fatal. Must be called before
     // CommitMeshDescription; NumBaseVertices is VertexIDs.Num().
+    // ExcludeMorphNameKeysLower: lowercased morph names already on the parent figure
+    // asset (S3 morph partition). Pre-seeds SeenMorphNames before the walk so those
+    // morphs are not re-emitted on the delta. Default-empty: legacy path passes nothing.
     static void Apply(
         const FDsonImportSettings& Settings,
         uint64_t FigureDsfHandle,
         FMeshDescription& MeshDesc,
         FSkeletalMeshAttributes& SkelAttribs,
-        const TArray<FVertexID>& VertexIDs);
+        const TArray<FVertexID>& VertexIDs,
+        const TSet<FString>& ExcludeMorphNameKeysLower = {});
 
     // Registers only the figure-owned morph set: morphs from FigureDsfHandle (the
     // base figure DSF's modifier_library) plus the JCM correctives cached in

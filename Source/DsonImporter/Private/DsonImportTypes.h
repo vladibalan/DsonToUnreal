@@ -36,6 +36,13 @@ struct FDsonImportSettings
     // the second call (recipe builder) reads it and skips the ~3000-file re-scan.
     // mutable so it can be written through the const FDsonImportSettings& that builders receive.
     mutable TArray<FString> DiscoveredCorrectiveDsfPaths;
+
+    // S3 morph partition: lowercased morph names already on the parent figure asset.
+    // Populated by FDsonImportPipeline::Run from ParentMesh->GetMorphTargets() before
+    // calling FDsonMeshBuilder::Build for the delta body. FDsonMorphBuilder::Apply
+    // pre-seeds SeenMorphNames from this set so shared figure morphs are not re-emitted.
+    // Empty on the legacy (FigureId-empty) path — Apply falls through with no exclusion.
+    mutable TSet<FString> DeltaMorphExclusionKeysLower;
 };
 
 struct FDsonImportResult

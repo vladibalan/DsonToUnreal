@@ -743,7 +743,8 @@ namespace
         if (bFigureOwnedMorphsOnly)
             FDsonMorphBuilder::ApplyFigureOwned(Settings, DsfHandle, *MeshDesc, SkelAttribs, VertexIDs);
         else
-            FDsonMorphBuilder::Apply(Settings, DsfHandle, *MeshDesc, SkelAttribs, VertexIDs);
+            FDsonMorphBuilder::Apply(Settings, DsfHandle, *MeshDesc, SkelAttribs, VertexIDs,
+                Settings.DeltaMorphExclusionKeysLower);
 
         if (!Mesh->CommitMeshDescription(0))
         {

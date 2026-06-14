@@ -195,6 +195,11 @@ check path-reconstructing consumers; rationale → `DecisionLog.md`.
   see `Docs/Reference.md` → "LIE (layered-image) composition". Every real
   texture still resolves and imports; cosmetic only. Cleanup: have the texture
   importer skip `#`-prefixed refs before resolving.
+- **S3 non-uniform companion set (Q2):** a later character on the same figure with
+  a companion absent from the first character's DUF would cause `BuildCompanion` to
+  attempt to mutate the now-shared parent skeleton. Does not occur for the S3
+  acceptance set (G9, uniform companion set). Flag for S3b/S4 if a non-uniform set
+  surfaces on a real asset.
 
 ## Authoring-metadata recipe emission (P2) — Slices 1–6 complete (v1.7.0)
 
@@ -208,7 +213,7 @@ check path-reconstructing consumers; rationale → `DecisionLog.md`.
 | 6 | v1.7.0 · 2026-06-13 | Controller-dial values: `ControllerDials[]` (`FDsonControllerDial`) carries scene.modifier entries not bound to an imported UMorphTarget (controller / HID / FACS / character-control dials). `SceneInstanceId` added to `FDsonDialWeight` for parity. Together with `DialWeights`, every `scene.modifiers[]` entry is now in the recipe. |
 | 7 | v1.8.0 · 2026-06-14 | Scene-gated JCM correctives: accepted corrective DSFs land as inert `UMorphTarget`s on the body mesh; driving formulas appear in `Formulas[]` (`EDsonFormulaTarget::MorphValue`, `BoundMorphTargetName` populated). Scope-A gate: every `mult`-stage control scene-reachable OR `channel.value > 0`. M1 cache: corrective-tree scan runs once (Apply path); recipe builder re-uses accepted paths. |
 
-## Layered figure import (parent / lean-delta split) — S1 + S2 done (2026-06-14)
+## Layered figure import (parent / lean-delta split) — S1 + S2 + S3 done (2026-06-14)
 
 Re-architecture of import output for scale: a base **figure** is imported once as a shared
 parent asset; each vendor **character** imports as a **lean delta** carrying only the morphs
@@ -222,14 +227,25 @@ the recipe, not as nested folders. Design + slice plan (S1–S4):
 emitted-output shape → **MAJOR** at the workstream release close-gate (R12). Building the
 figure→character tier now; character-on-character depth is extensible-later (P4).
 
+**S3 (lean delta) shipped:** character body mesh omits parent-owned morphs (name set-difference
+partition); binds the shared `<FigureId>_Skeleton` instead of emitting a per-character
+`_Skeleton`; pipeline is parent-first with an explicit corrective-cache warm-up (H5 fix);
+companion bones pre-merged into the parent skeleton at build time so subsequent per-character
+`BuildCompanion` calls are no-ops (P5 preserved). `Result.Skeleton` on the layered path now
+holds `<FigureId>_Skeleton` — the character recipe records the shared parent skeleton.
+Parent-build failure on the FigureId-set path hard-aborts the character import (H1,
+user-directed R7 exception; R7 revision pending). Companions keep per-character geometry/morphs
+but bind the shared parent skeleton (S3b companion base-geometry split is future scope).
+
 ## Next up
 
-**Active workstream:** layered figure import re-architecture (above) — S1 + S2 done;
-S3 (lean-delta character slice) is next. The prior baseline still holds: with Phase 7 (JCM corrective morphs),
-asset folder structure, and composed dialed-shape baking all closed, the
-importer covers its mandate for the supported figures. Beyond the now-complete recipe-emission
-workstream above, the importer is in a **reactive/maintenance** posture — remaining work is
-new shaders/figures and parser exposures taken **as content needs
-them, never speculatively** (parser axis → `Docs/Principles.md` P4; shader→master support
-follows the shader-gating model in *Figure / generation support* above). The read-only **library catalog** (consumer request) shipped **1.6.0**
-(enumerate + classify + thumbnails + incremental cache; rationale → `DecisionLog.md`).
+**Active workstream:** layered figure import re-architecture (above) — S1–S3 done;
+S4 (ancestry field on `UDsonAssetRecipe`) is next. The prior baseline still holds: with
+Phase 7 (JCM corrective morphs), asset folder structure, and composed dialed-shape baking
+all closed, the importer covers its mandate for the supported figures. Beyond the
+now-complete recipe-emission workstream, the importer is in a **reactive/maintenance**
+posture — remaining work is new shaders/figures and parser exposures taken **as content
+needs them, never speculatively** (parser axis → `Docs/Principles.md` P4; shader→master
+support follows the shader-gating model in *Figure / generation support* above). The
+read-only **library catalog** (consumer request) shipped **1.6.0** (enumerate + classify
++ thumbnails + incremental cache; rationale → `DecisionLog.md`).

@@ -192,8 +192,31 @@ USkeleton* FDsonSkeletonBuilder::BuildParent(const FDsonImportSettings& Settings
         return nullptr;
 
     const FString AssetName = Settings.FigureId + TEXT("_Skeleton");
-    return CreateSkeletonAsset(RefSkeleton,
+    USkeleton* ParentSkeleton = CreateSkeletonAsset(RefSkeleton,
         FDsonAssetUtils::FigureRoot(Settings.FigureId) / AssetName, AssetName);
+    if (!ParentSkeleton)
+        return nullptr;
+
+    // Pre-merge companion bones so the shared skeleton is born complete.
+    // MergeCompanionBonesIntoSkeleton returns 0 (no re-save) when all companion
+    // bones are already present, making each per-character BuildCompanion call a
+    // no-op on the shared parent (P5 preserved).
+    // Accepted limitation (Q2): a later character on the same figure with a companion
+    // absent from the first character's DUF would cause BuildCompanion to attempt
+    // mutation of the now-shared parent skeleton — does not occur for S3 acceptance
+    // set (G9, uniform companion set across characters on the same figure).
+    for (const FDsonCompanionSource& Companion : Settings.CompanionFigures)
+    {
+        if (Companion.GeometryDsfUrl.IsEmpty())
+            continue;
+        FDsonLoadedDocument CompanionDoc;
+        if (!CompanionDoc.LoadFromFileAsWarning(
+                Companion.GeometryDsfUrl, TEXT("DsonSkeletonBuilder[parent-companion]")))
+            continue;  // Permissive (R7): failed opens warned by LoadFromFileAsWarning
+        MergeCompanionBonesIntoSkeleton(CompanionDoc.GetHandle64(), ParentSkeleton);
+    }
+
+    return ParentSkeleton;
 }
 
 // ---------------------------------------------------------------------------

@@ -624,7 +624,8 @@ void FDsonMorphBuilder::Apply(
     uint64_t FigureDsfHandle,
     FMeshDescription&,
     FSkeletalMeshAttributes& SkelAttribs,
-    const TArray<FVertexID>& VertexIDs)
+    const TArray<FVertexID>& VertexIDs,
+    const TSet<FString>& ExcludeMorphNameKeysLower)
 {
     if (!GDsonParser.GetMorphCount)
     {
@@ -648,7 +649,10 @@ void FDsonMorphBuilder::Apply(
     LoadFormulaReachableMorphDocuments(
         Settings, ExternalDocuments, SourceHandles, DiscoveryStats);
 
-    TSet<FString> SeenMorphNames;
+    // Pre-seed with parent morph names (S3 partition): RegisterMorphsFromDocument
+    // skips any name already in SeenMorphNames, so figure-owned morphs on the parent
+    // are not re-emitted on the delta. Empty on the legacy path (default = {}).
+    TSet<FString> SeenMorphNames = ExcludeMorphNameKeysLower;
     FDsonMorphBuildStats Stats;
     for (const uint64_t SourceHandle : SourceHandles)
     {

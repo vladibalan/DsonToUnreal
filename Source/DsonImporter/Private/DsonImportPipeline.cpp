@@ -5,10 +5,13 @@
 #include "DsonMaterialBuilder.h"
 #include "DsonMaterialDiagnostic.h"
 #include "DsonMeshBuilder.h"
+#include "DsonMorphBuilder.h"
 #include "DsonRecipeBuilder.h"
 #include "DsonSkeletonBuilder.h"
 #include "DsonTextureImporter.h"
 
+#include "Animation/MorphTarget.h"
+#include "Engine/SkeletalMesh.h"
 #include "Materials/Material.h"
 #include "Materials/MaterialInstanceConstant.h"
 #include "Misc/Paths.h"
@@ -97,7 +100,7 @@ FDsonImportResult FDsonImportPipeline::Run(
 
     if (!Settings.FigureId.IsEmpty())
         UE_LOG(LogDsonImporter, Log,
-            TEXT("[figure] '%s': FigureId set; parent-asset gate will run after body mesh build"),
+            TEXT("[figure] '%s': FigureId set; parent-first layered import path"),
             *Settings.FigureId);
 
     FDsonTextureImporter Importer(ContentRoots, Settings.CharacterName);
@@ -126,12 +129,102 @@ FDsonImportResult FDsonImportPipeline::Run(
         return Result;
     }
 
-    Result.Skeleton = FDsonSkeletonBuilder::Build(Settings);
+    if (!Settings.FigureId.IsEmpty())
+    {
+        // === Layered import path (FigureId set): parent-first, delta body, shared skeleton ===
+
+        // H5 cache warm-up: ApplyFigureOwned (inside BuildParent) reads
+        // Settings.DiscoveredCorrectiveDsfPaths; under the parent-first order that cache
+        // is empty on first import since Apply (which fills it) would otherwise run after.
+        // DiscoverFormulaReachableDocuments calls ScanAndEnqueueCorrectives which populates
+        // the cache as a side-effect; the subsequent delta-body Apply then hits the M1 guard
+        // (DsonMorphBuilder.cpp L227) and skips the re-scan — no double scan.
+        {
+            TArray<FDsonLoadedDocument> WarmDocs;
+            TArray<uint64_t> WarmHandles;
+            FDsonMorphBuilder::DiscoverFormulaReachableDocuments(Settings, WarmDocs, WarmHandles);
+        }
+
+        // Ensure the shared parent figure asset exists (lazy build, first import only;
+        // no-overwrite: FigureImportComplete checks the completeness marker recipe).
+        if (!FDsonAssetUtils::FigureImportComplete(Settings.FigureId))
+        {
+            UE_LOG(LogDsonImporter, Log,
+                TEXT("[figure] '%s': parent absent; building now"), *Settings.FigureId);
+            USkeleton* BuiltParentSkeleton = FDsonSkeletonBuilder::BuildParent(Settings);
+            if (BuiltParentSkeleton)
+            {
+                USkeletalMesh* BuiltParentMesh = FDsonMeshBuilder::BuildParent(
+                    Settings, BuiltParentSkeleton, DefaultMaterial, UvSetAbsPath);
+                if (BuiltParentMesh)
+                    FDsonRecipeBuilder::BuildParentMarker(
+                        Settings, BuiltParentSkeleton, BuiltParentMesh);
+                else
+                    UE_LOG(LogDsonImporter, Warning,
+                        TEXT("[figure] '%s': parent build incomplete — mesh null; completeness marker not emitted"),
+                        *Settings.FigureId);
+            }
+            else
+                UE_LOG(LogDsonImporter, Warning,
+                    TEXT("[figure] '%s': parent build incomplete — skeleton null; completeness marker not emitted"),
+                    *Settings.FigureId);
+        }
+
+        // Load parent assets — uniform path for both just-built this run and pre-existing.
+        const FString ParentSkelPkg = FDsonAssetUtils::FigureRoot(Settings.FigureId) /
+            (Settings.FigureId + TEXT("_Skeleton"));
+        const FString ParentMeshPkg = FDsonAssetUtils::FigureRoot(Settings.FigureId) /
+            (Settings.FigureId + TEXT("_SkeletalMesh"));
+        USkeleton*     ParentSkeleton = LoadObject<USkeleton>(nullptr,
+            *(ParentSkelPkg + TEXT(".") + Settings.FigureId + TEXT("_Skeleton")));
+        USkeletalMesh* ParentMesh     = LoadObject<USkeletalMesh>(nullptr,
+            *(ParentMeshPkg + TEXT(".") + Settings.FigureId + TEXT("_SkeletalMesh")));
+
+        // H1: hard abort when parent is unavailable on the FigureId-set path.
+        // R7 exception (H1): user-directed hard fail; R7 revision pending.
+        if (!ParentSkeleton || !ParentMesh)
+        {
+            UE_LOG(LogDsonImporter, Error,
+                TEXT("[figure] '%s': parent assets unavailable after build/load attempt "
+                     "(skeleton=%s mesh=%s) — aborting character import"),
+                *Settings.FigureId,
+                ParentSkeleton ? TEXT("ok") : TEXT("null"),
+                ParentMesh     ? TEXT("ok") : TEXT("null"));
+            Result.bAbortedBeforeAssetBuild = true;
+            return Result;
+        }
+
+        // Collect parent morph names (lowercased) for the delta exclusion set.
+        // FDsonMorphBuilder::Apply pre-seeds SeenMorphNames from this so shared figure
+        // morphs are not re-emitted on the delta mesh (S3 morph partition rule).
+        for (const TObjectPtr<UMorphTarget>& MT : ParentMesh->GetMorphTargets())
+            Settings.DeltaMorphExclusionKeysLower.Add(MT->GetFName().ToString().ToLower());
+
+        UE_LOG(LogDsonImporter, Log,
+            TEXT("[figure] '%s': parent loaded — %d morph(s) excluded from delta"),
+            *Settings.FigureId, Settings.DeltaMorphExclusionKeysLower.Num());
+
+        // Delta body mesh: binds the shared ParentSkeleton; morphs exclude parent-owned set.
+        // No per-character _Skeleton emitted on this path (step 4).
+        Result.Skeleton = ParentSkeleton;
+        Result.Mesh = FDsonMeshBuilder::Build(
+            Settings, ParentSkeleton, MaterialsByGroup, DefaultMaterial, UvSetAbsPath);
+    }
+    else
+    {
+        // === Legacy path (FigureId empty): per-character skeleton + full morph set ===
+        Result.Skeleton = FDsonSkeletonBuilder::Build(Settings);
+        if (Result.Skeleton)
+        {
+            Result.Mesh = FDsonMeshBuilder::Build(
+                Settings, Result.Skeleton, MaterialsByGroup, DefaultMaterial, UvSetAbsPath);
+        }
+    }
+
+    // Companions bind Result.Skeleton — ParentSkeleton on the layered path,
+    // per-character skeleton on the legacy path. Shared loop; no duplication (R4).
     if (Result.Skeleton)
     {
-        Result.Mesh = FDsonMeshBuilder::Build(
-            Settings, Result.Skeleton, MaterialsByGroup, DefaultMaterial, UvSetAbsPath);
-
         for (const FDsonCompanionSource& Companion : Settings.CompanionFigures)
         {
             if (Companion.GeometryDsfUrl.IsEmpty())
@@ -179,31 +272,13 @@ FDsonImportResult FDsonImportPipeline::Run(
         }
     }
 
-    // Emit the shared parent figure assets the first time this FigureId is imported.
-    // Permissive (R7): any failure logs a warning and continues; never aborts the character import.
-    if (!Settings.FigureId.IsEmpty() && Result.Mesh && !FDsonAssetUtils::FigureImportComplete(Settings.FigureId))
-    {
-        USkeleton* ParentSkeleton = FDsonSkeletonBuilder::BuildParent(Settings);
-        USkeletalMesh* ParentMesh = nullptr;
-        if (ParentSkeleton)
-            ParentMesh = FDsonMeshBuilder::BuildParent(Settings, ParentSkeleton, DefaultMaterial, UvSetAbsPath);
-        if (ParentSkeleton && ParentMesh)
-            FDsonRecipeBuilder::BuildParentMarker(Settings, ParentSkeleton, ParentMesh);
-        else
-            UE_LOG(LogDsonImporter, Warning,
-                TEXT("[figure] '%s': parent build incomplete — skeleton=%s mesh=%s; completeness marker not emitted"),
-                *Settings.FigureId,
-                ParentSkeleton ? TEXT("ok") : TEXT("null"),
-                ParentMesh    ? TEXT("ok") : TEXT("null"));
-    }
-
     // Plumb pre-baked composites into Result so the recipe builder can set bImporterPreBaked markers.
     // R4: do not re-derive the bake decision — record what CompositeImageLayers actually did.
     for (const auto& Pair : Importer.GetPreBakedComposites())
         Result.PreBakedComposites.Add(Pair.Key, TSoftObjectPtr<UTexture2D>(Pair.Value.Get()));
 
-    // Copy Settings into Result now so DiscoveredCorrectiveDsfPaths (M1 cache) populated
-    // by FDsonMeshBuilder::Apply is captured before the recipe builder re-uses the walk.
+    // Copy Settings into Result now so DiscoveredCorrectiveDsfPaths (M1 cache) and
+    // DeltaMorphExclusionKeysLower are captured before the recipe builder re-uses them.
     Result.Settings = Settings;
 
     // Emit recipe asset after all meshes are built (R7 additive: never aborts the import)
