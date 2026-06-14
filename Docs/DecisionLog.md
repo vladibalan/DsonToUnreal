@@ -1528,3 +1528,56 @@ date" build does not re-run the compiler.
 model (S3) is functional end-to-end. The parent recipe reuses `UDsonAssetRecipe` with its
 `CharacterName` field temporarily holding the FigureId — a dedicated figure-id field is an
 S4 (ancestry) concern.
+
+## Layered figure import S3 — lean-delta body + shared skeleton (2026-06-14)
+
+**What shipped.** S3 of the layered figure import workstream (design:
+[`LayeredFigureImport.md`](LayeredFigureImport.md); merged `d18bdd8`). On the FigureId-set
+path the character body is now a **lean delta**: it omits the morphs the shared parent figure
+already owns (name set-difference partition) and binds the shared `<FigureId>_Skeleton`
+instead of emitting a per-character `_Skeleton`. `Result.Skeleton` on this path holds the
+parent skeleton, so the character recipe records the shared skeleton. Legacy path (FigureId
+empty) unchanged. Body-only this slice — companion base-geometry/morphs onto the parent is
+deferred to S3b (companions keep per-character geometry but bind the shared skeleton).
+
+**Morph partition reuses the existing dedup set.** `FDsonMorphBuilder::Apply` gained a
+default-empty `ExcludeMorphNameKeysLower` param that pre-seeds `SeenMorphNames` before the
+document walk, so figure-owned morphs already on the parent are skipped on the delta with no
+second code path (R4). `Run` collects the parent's lowercased `GetMorphTargets()` names after
+loading the parent mesh via `LoadObject` (uniform for just-built and pre-existing — the parent
+is the authority).
+
+**Pipeline is parent-first; the corrective cache is warmed explicitly (H5 fix).**
+`ApplyFigureOwned` (inside `BuildParent`) reads `Settings.DiscoveredCorrectiveDsfPaths`, which
+under S2's order was filled as a side-effect of the body `Apply` running first. Parent-first
+would starve it, so `Run` now calls `DiscoverFormulaReachableDocuments` once before
+`BuildParent` (→ `LoadFormulaReachableMorphDocuments` → `ScanAndEnqueueCorrectives` fills the
+cache); the delta-body `Apply` then hits the M1 guard and skips the re-scan (no double scan).
+The cache-warming is now explicit rather than an implicit ordering dependency. Verified at
+review that the warm-up call actually reaches `ScanAndEnqueueCorrectives` (repo as ground
+truth, not the feedback's self-report).
+
+**Companion bones pre-merged into the parent (P5).** `BuildParent` merges each companion's
+bones into the parent skeleton at build time, so the shared skeleton is born complete;
+per-character `BuildCompanion` calls then find `MissingCount==0` and early-return before the
+re-save — never mutating the shared parent. **Accepted limitation (Q2):** a later character on
+the same figure with a companion absent from the first character's DUF would make
+`BuildCompanion` attempt to mutate the shared parent; does not occur for the G9 acceptance set
+(uniform companion set). Flagged in `Roadmap.md` Known Latent Issues for S3b/S4.
+
+**H1 — parent-build failure is a HARD FAIL (sanctioned R7 exception).** When `FigureId` is set
+but the parent can't be built/resolved, `Run` aborts the character import (`Error` +
+`bAbortedBeforeAssetBuild`), mirroring the `M_DazDefault` gate, rather than the R7-default
+permissive fallback. This is a **deliberate, user-directed exception to R7** (post-gate steps
+never abort), decided 2026-06-14; **R7 itself is slated for revision** (unscheduled). Until
+then the hard fail stands — do not "correct" it back to permissive, and a compliance run must
+not flag it. In-code record: `// R7 exception (H1)` at the abort site.
+
+**Process.** Ran design-review-first (Q1–Q4 + hazards answered in the feedback-file before any
+code). The S2 build-verification lesson held: the Director reviewed the diff (not the
+"smooth" self-report), independently confirmed the H5 seam and that `Companion.GeometryDsfUrl`
+is a resolved path, and ran a confirming build before merge.
+
+**Versioning.** Internal slice on `main` — **no bump**. The MAJOR `2.0.0` + `CHANGELOG` +
+`v2.0.0` tag lands at the workstream close-gate (R12) after S4, when the model is functional
+end-to-end and a consumer can adopt the new layout + ancestry field.

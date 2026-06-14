@@ -26,6 +26,15 @@ Contents:
   (`CreateFromMeshDescription` ignores MeshDescription normal deltas); morph
   normals are engine-recomputed. That is why the parser's morph normal-delta
   exports are bound but unused.
+- **UE stores morph targets per-`USkeletalMesh` with no cross-mesh sharing** — each
+  `UMorphTarget` is serialized into exactly one `BaseSkelMesh`, so a figure's shared
+  morph set cannot be authored once and referenced from many character meshes. This is
+  why the layered figure import (S3) emits a **lean delta**: the character body mesh
+  carries only the morphs its shared parent figure does not already have (name
+  set-difference; the parent is the authority), binds the parent's shared
+  `<FigureId>_Skeleton`, and is therefore **intentionally incomplete** — composing
+  parent + delta into a finished, posable character is a downstream authoring step (P1).
+  Design + slice plan: `LayeredFigureImport.md`.
 - **A delta count of ~tens on a "character" morph means it's a control or
   corrective, not the complete dialed character.** DAZ character identity (e.g.
   Laura) is a *formula-driven control tree* with no deltas until leaf morphs in
