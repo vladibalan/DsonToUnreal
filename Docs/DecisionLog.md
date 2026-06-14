@@ -32,6 +32,7 @@ Contents (newest decisions appended):
 - G9 eyelash cutout opacity — dedicated M_DazCutout master (Masked, two-sided); transparency map import; PATCH v1.6.2 (2026-06-12)
 - DsonParser 2.0.0 uptake — dead UV-accessor removal (GetUVPolygonVertexIndex*); cross-repo protocol correction (request-through-user, not plugin-authored); plugin impact PATCH-class / no bump (2026-06-13)
 - Release tagging is a Director close-gate — the `vX.Y.Z` tag is invisible to `git diff` and the Implementer can't run git; backstop hook had self-scoped out of parser-rooted plugin sessions (2026-06-14)
+- Layered figure import S2 — parent figure emission + curated morph partition (figure DSF + accepted correctives → parent; formula-reachable → delta), grounded on a real Nancy import, not path-based (2026-06-14)
 
 ## IrayUber bump-map seam — root cause & fix decision (2026-06-06)
 
@@ -1479,3 +1480,51 @@ DsonHost ecosystem (`DsonToUnreal|DsonParser|DsonTest2|DsonHost`) so the backsto
 parser-rooted plugin sessions while staying silent for unrelated projects — verified it
 now surfaces the live v1.8.0 drift. **Doc/config only — no bump.** (v1.8.0 itself still
 needs its tag created.)
+
+## Layered figure import S2 — parent emission + curated morph partition (2026-06-14)
+
+**What shipped.** S2 of the layered figure import workstream (design:
+[`LayeredFigureImport.md`](LayeredFigureImport.md)). The first time a character on a base
+figure is imported, the importer lazily emits that figure as a shared **parent** under
+`Figures/<FigureId>/` — its own `_Skeleton`, a base mesh, and a `<FigureId>_Recipe`
+completeness marker (emitted last; what `FigureImportComplete` tests). Built from the same
+`ResolvedFigureDsfPath` the character body uses, so the parent base geometry is identical.
+Additive — `Characters/<name>/` output is unchanged this slice; trimming the character to a
+lean delta is S3. Merged `fd64213`.
+
+**Decision — morph partition is curated, not path-based.** The lazy-minimum parent's morph
+set = the figure DSF `modifier_library` + the accepted JCM correctives
+(`Settings.DiscoveredCorrectiveDsfPaths`, the v1.8.0 M1 cache, already path-confined to the
+figure's `Morphs/` subtree). Everything else reached by the scene formula walk
+(`DiscoverFormulaReachableDocuments`) is character-product → delta. Implemented as
+`FDsonMorphBuilder::ApplyFigureOwned` (figure handle + cached corrective handles, shared
+first-wins dedup with the full `Apply`; no re-scan).
+
+**Grounded on a real `HID Nancy 9` import, not abstractly.** The morph summary breaks the
+set down by source: `corrective gate: 210 accepted of 1271`; `sources=221 created=216
+corrective-files=210 direct-external=4 formula-external=6`. So 210 of 220 external source
+files (plus the figure's `modifier_library`) are the shared base set → parent; only ~10
+files are character-specific → delta — the intended split. A **path-based** rule (any morph
+whose source DSF sits under the base-figure data root → parent) was considered to also
+hoist base-G9 FACS/expression DSFs, but those are **not in the reached set** for a standard
+character import (not dialed / not `?value`-reached), so it would add machinery for no
+current gain. Path-based is **deferred to a future explicit full-parent import** (the
+design's "clean path"); the lazy-minimum stays curated (YAGNI / P4). Accepted consequence
+(per design): the minimum parent is "whatever the first character needed," so delta
+contents are import-order-dependent.
+
+**Builder seams + a review-caught deviation.** The `BuildParent` entry points on the
+skeleton and mesh builders share the existing build bodies (`BuildFigureReferenceSkeleton`,
+`CreateMeshAssetImpl`) and diverge only at the output target (`FigureRoot`/`FigureId`) — no
+public signature change (R7), no duplicated open/build logic (R4). The first Implementer
+return (a mid-session **compaction** run) self-reported "no deviations" but had copy-pasted
+~22 lines of the skeleton open+build path; the Director diff review caught it and a
+fix-loop extracted the shared helper. Reaffirmed: verify deviations against the diff (never
+the feedback's self-assessment), and force-recompile to surface warnings — a bare "up to
+date" build does not re-run the compiler.
+
+**Versioning.** Internal slice on `Base` — **no bump**; the single MAJOR `2.0.0` +
+`CHANGELOG` + `v2.0.0` tag lands at the workstream close-gate (R12) when the lean-delta
+model (S3) is functional end-to-end. The parent recipe reuses `UDsonAssetRecipe` with its
+`CharacterName` field temporarily holding the FigureId — a dedicated figure-id field is an
+S4 (ancestry) concern.

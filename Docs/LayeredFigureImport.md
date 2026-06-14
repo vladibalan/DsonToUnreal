@@ -63,6 +63,10 @@ N-level / DAG from the start; exercised at **depth-1** (figure → character) no
 - **Parent absent** (lazy create) → split by **provenance**: morphs sourced from the base
   figure's own files (its `modifier_library` + the shared corrective subtree) seed the new
   **minimum parent**; morphs from the character's own product go on the delta.
+  - *Implemented in S2* as **curated** — figure DSF `modifier_library` + accepted correctives
+    (`DiscoveredCorrectiveDsfPaths`) → parent; formula-reachable externals → delta. **Not**
+    path-based (deferred to an explicit full-parent import). Rationale + the real-Nancy
+    grounding: `DecisionLog.md` (2026-06-14).
 
 ## Skip & no-overwrite
 
