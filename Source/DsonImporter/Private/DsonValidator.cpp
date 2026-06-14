@@ -168,6 +168,10 @@ FDsonImportSettings FDsonValidator::ToImportSettings(
         }
     }
 
+    Settings.FigureId = Settings.ResolvedFigureDsfPath.IsEmpty()
+        ? FString()
+        : ObjectTools::SanitizeObjectName(FPaths::GetBaseFilename(Settings.ResolvedFigureDsfPath));
+
     return Settings;
 }
 

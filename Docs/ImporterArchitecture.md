@@ -178,7 +178,7 @@ shares the path→settings assembly (`FDsonValidator::ToImportSettings`) with th
 `DsonAssetUtils.*`
 
 - `FDsonAssetUtils`: package creation, asset saving, and import-path construction.
-  `ImportRootPath()` → `/Game/DazImports`; `CharacterRoot(name)` → `…/Characters/<name>` (per-character assets); `SharedTexturesRoot()` → `…/Library/Textures` (shared, deduped source textures).
+  `ImportRootPath()` → `/Game/DazImports`; `CharacterRoot(name)` → `…/Characters/<name>` (per-character assets); `FigureRoot(id)` → `…/Figures/<id>` (parent figure assets); `FigureImportComplete(id)` → true when `<id>_Recipe` exists (completeness-marker check; no-overwrite/skip primitive for the layered-import workstream); `SharedTexturesRoot()` → `…/Library/Textures` (shared, deduped source textures).
 
 `DsonImportUtils.h`
 

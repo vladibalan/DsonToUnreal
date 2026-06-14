@@ -16,6 +16,17 @@ FString FDsonAssetUtils::CharacterRoot(const FString& CharacterName)
     return ImportRootPath() / TEXT("Characters") / CharacterName;
 }
 
+FString FDsonAssetUtils::FigureRoot(const FString& FigureId)
+{
+    return ImportRootPath() / TEXT("Figures") / FigureId;
+}
+
+bool FDsonAssetUtils::FigureImportComplete(const FString& FigureId)
+{
+    const FString RecipePath = FigureRoot(FigureId) / (FigureId + TEXT("_Recipe"));
+    return FPackageName::DoesPackageExist(RecipePath);
+}
+
 FString FDsonAssetUtils::SharedTexturesRoot()
 {
     return ImportRootPath() / TEXT("Library") / TEXT("Textures");

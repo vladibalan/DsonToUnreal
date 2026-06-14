@@ -25,6 +25,7 @@ struct FDsonImportSettings
 {
     FString DsonFilePath;
     FString CharacterName;            // sanitized imported-DUF basename; per-character identity
+    FString FigureId;                 // sanitized base-figure DSF basename; keys Figures/<id>/ (empty if DSF unresolved)
     FString ResolvedFigureDsfPath;    // absolute path to base figure DSF
     EGenesisGeneration Generation = EGenesisGeneration::Unknown;
     bool bDumpMaterialDiagnostics = false;

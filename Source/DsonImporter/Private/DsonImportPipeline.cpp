@@ -95,6 +95,22 @@ FDsonImportResult FDsonImportPipeline::Run(
 {
     FDsonImportResult Result;
 
+    if (!Settings.FigureId.IsEmpty())
+    {
+        if (FDsonAssetUtils::FigureImportComplete(Settings.FigureId))
+        {
+            UE_LOG(LogDsonImporter, Log,
+                TEXT("[figure] '%s': parent node complete — S2 will skip"),
+                *Settings.FigureId);
+        }
+        else
+        {
+            UE_LOG(LogDsonImporter, Log,
+                TEXT("[figure] '%s': parent node absent — S2 will create"),
+                *Settings.FigureId);
+        }
+    }
+
     FDsonTextureImporter Importer(ContentRoots, Settings.CharacterName);
     FDsonMaterialBuilder Builder(ContentRoots, Importer);
     const FString MaterialOutputFolder = MakeBodyMaterialFolder(Settings.CharacterName);
