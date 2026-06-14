@@ -262,4 +262,4 @@ Full scheme, baseline, and what is deliberately not ported from DsonParser →
 - [ ] R11: in-repo `.claude/settings.json` mirrors this plugin's entries in the
       active global `~/.claude/settings.json` (sibling-plugin hooks + path form aside).
 - [ ] R12: consumer-surface change (public API or emitted-output shape) bumps
-      `VersionName` + `Version`, adds a `CHANGELOG.md` entry, and tags the release `vX.Y.Z`.
+      `VersionName` + `Version`, adds a `CHANGELOG.md` entry; Director tags `vX.Y.Z` at merge.

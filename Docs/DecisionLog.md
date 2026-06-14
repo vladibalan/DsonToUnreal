@@ -31,6 +31,7 @@ Contents (newest decisions appended):
 - G9 eyelash companion parent-surface wiring — corrected root cause (texture in MAT preset, not base-load); PATCH v1.6.1 (2026-06-12)
 - G9 eyelash cutout opacity — dedicated M_DazCutout master (Masked, two-sided); transparency map import; PATCH v1.6.2 (2026-06-12)
 - DsonParser 2.0.0 uptake — dead UV-accessor removal (GetUVPolygonVertexIndex*); cross-repo protocol correction (request-through-user, not plugin-authored); plugin impact PATCH-class / no bump (2026-06-13)
+- Release tagging is a Director close-gate — the `vX.Y.Z` tag is invisible to `git diff` and the Implementer can't run git; backstop hook had self-scoped out of parser-rooted plugin sessions (2026-06-14)
 
 ## IrayUber bump-map seam — root cause & fix decision (2026-06-06)
 
@@ -1449,3 +1450,32 @@ user-confirmed):** the self-`?value` signature is the *superset* of correctives 
 FACS facial (`facs_cbs_*`) and morph-controlled correctives, not only body joints. Narrowing in the
 importer would be interpretive joint-classification (against P3); the consumer filters by
 driving-input downstream. **MINOR → v1.8.0.**
+
+## Release tagging is a Director close-gate; tag-guard hook self-scoped out (2026-06-14)
+
+**Problem (recurring).** A new `VersionName` ships but its `vX.Y.Z` git tag is never
+created. Tags stopped at v1.7.0; v1.8.0 shipped with `VersionName`/`Version`/`CHANGELOG.md`
+all bumped but **untagged**. The same omission hit the v1.1.0–v1.5.0 burst.
+
+**Root cause.** The tag is the one release carrier that the Implementer structurally
+**cannot** create (it never runs git — a hard boundary) and that the Director's
+`git diff`-based verification **cannot see** (a tag is not a file). R12 listed "tag" in
+the R1–R12 self-audit the Implementer runs, but the Implementer can't act on it, and no
+doc put it on the Director's close checklist — so it fell in the crack. The backstop
+`dson-version-tag-guard.ps1` (a Stop hook added after the earlier miss) self-scoped on a
+cwd matching `DsonToUnreal`, but Desktop roots every plugin session at the **DsonParser**
+repo, so it silently excluded exactly the sessions that tag this plugin. v1.8.0's
+mid-session compaction then dropped any lingering "still need to tag" intent.
+
+**Decision.** Make release-carrier verification an explicit **Director close-gate**.
+Division of labor: the Implementer does the in-tree carriers (classify, bump
+`VersionName`+`Version`, `CHANGELOG.md` entry — all visible in the diff); the **Director**
+creates the `vX.Y.Z` tag at squash-merge and confirms it actively with `git tag --list`
+(never inferred from the diff) before reporting a surface-touching task done; the user
+pushes. Homes: role + flow in [`AgentWorkflow.md`](AgentWorkflow.md); who/why/mechanics in
+[`Versioning.md`](Versioning.md) ("Who does what — and the close-gate"); the R12 checklist
+names the Director as tagger at merge. Also broadened the hook's cwd self-scope to the
+DsonHost ecosystem (`DsonToUnreal|DsonParser|DsonTest2|DsonHost`) so the backstop fires in
+parser-rooted plugin sessions while staying silent for unrelated projects — verified it
+now surfaces the live v1.8.0 drift. **Doc/config only — no bump.** (v1.8.0 itself still
+needs its tag created.)

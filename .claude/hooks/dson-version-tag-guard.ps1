@@ -15,11 +15,13 @@ $raw = [Console]::In.ReadToEnd()
 if ([string]::IsNullOrWhiteSpace($raw)) { exit 0 }
 try { $payload = $raw | ConvertFrom-Json } catch { exit 0 }
 
-# Self-scope: act only when the session is working in the DsonToUnreal tree. When cwd
-# is reported and does not match, stay silent (avoids cross-repo noise); when cwd is
-# absent, fall through to surfacing rather than failing silently.
+# Self-scope: act within the DsonHost ecosystem - this plugin, the sibling DsonParser
+# repo a Desktop plugin session is actually rooted in, or the host project. Desktop
+# roots every plugin session at the DsonParser repo, so matching only 'DsonToUnreal'
+# silently excluded the very sessions that tag this plugin (v1.8.0 shipped untagged).
+# Outside the ecosystem stay silent (avoid cross-repo noise); absent cwd, surface.
 $cwd = if ($payload.cwd) { ([string]$payload.cwd) -replace '\\', '/' } else { '' }
-if ($cwd -and ($cwd -notmatch '(?i)DsonToUnreal')) { exit 0 }
+if ($cwd -and ($cwd -notmatch '(?i)DsonToUnreal|DsonParser|DsonTest2|DsonHost')) { exit 0 }
 
 # Locate the repo from THIS script (always the real plugin root, regardless of cwd):
 #   <root>/.claude/hooks/<this>.ps1  ->  <root>

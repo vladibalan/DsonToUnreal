@@ -38,8 +38,10 @@ launch the Implementer — the user launches it:
   (feasibility, trade-offs, a counter-proposal) before any code is written.
 - **After the run, verifies against the repo** — `git diff` for what changed and a
   [`CodeReviewRules.md`](CodeReviewRules.md) pass over the finished diff — then
-  **commits and squash-merges the task branch into `Base`** and reports (see
-  Reporting). The repo is ground truth; the feedback-file is advisory.
+  **commits and squash-merges the task branch into `Base`**, runs the **release
+  close-gate** (when the surface changed: create/confirm the `vX.Y.Z` tag, which
+  `git diff` cannot show, plus the version carriers — [`Versioning.md`](Versioning.md)),
+  and reports (see Reporting). The repo is ground truth; the feedback-file is advisory.
 - Answers the user's questions directly when no code change is required.
 - Keeps `Docs/Roadmap.md` and the orientation docs current **and tight** when a
   doc-only change is the whole task (R8/R9/R10).
@@ -71,12 +73,11 @@ feedback-file* — so it holds for any agent:
 
 ## Shared boundaries (both roles)
 
-- **Builds: the Implementer builds and verifies its own changes** and reports the
-  real result. **The Director defers the recompile** — it verifies via `git diff` +
-  a review pass, not its own build, and re-builds only at its discretion for a
-  build-risky change (parser-ABI / X-macro list, a `*.Build.cs`, public headers,
-  added or removed `.cpp`) or an unconvincing build claim. Never claim a build or
-  run you didn't actually do.
+- **Builds: the Implementer builds and verifies its own changes** and reports the real
+  result. **The Director defers the recompile** — verifying via `git diff` + a review
+  pass, not its own build, re-building only at its discretion for a build-risky change
+  (parser-ABI / X-macro list, a `*.Build.cs`, public headers, added/removed `.cpp`) or
+  an unconvincing build claim. Never claim a build or run you didn't actually do.
 - **Git is the Director's; the Implementer never runs it; push stays with the user.**
   Per task the Director branches `task/<id>` off `Base`, commits, and squash-merges
   back after verifying — one reviewed commit (the gate is the merge, not the commit);
@@ -121,9 +122,8 @@ All Director↔Implementer traffic for a change travels through two files:
 - **`<id>` = `YYYYMMDD-HHMMSS-<slug>`** — e.g. `task-20260608-143022-fix-normals.md`.
   It pairs a task with its feedback, needs no counter state, and sorts
   chronologically.
-  - **Timestamp** — UTC, 24-hour, minted by *running the clock* when the task-file
-    is written (never typed from memory): PowerShell
-    `(Get-Date).ToUniversalTime().ToString('yyyyMMdd-HHmmss')`.
+  - **Timestamp** — UTC 24-hour, minted by *running the clock* when the task-file is
+    written, never from memory: `(Get-Date).ToUniversalTime().ToString('yyyyMMdd-HHmmss')`.
   - **Slug** — 2–4 words naming the task, lowercase kebab-case, ASCII `[a-z0-9-]`.
   - The Director mints `<id>` **once** for `task-<id>.md` and reuses the **same**
     `<id>` for `feedback-<id>.md`.
@@ -152,7 +152,8 @@ All Director↔Implementer traffic for a change travels through two files:
 5. **User → Director:** "done, `<id>`."
 6. **Director:** reads the feedback-file (advisory), **verifies against the repo**
    (`git diff` + review pass; build per the deferral rule above), then **commits and
-   squash-merges `task/<id>` into `Base`** and **reports** two-tier.
+   squash-merges `task/<id>` into `Base`**, runs the **release close-gate** (tag
+   `vX.Y.Z` if the surface changed), and **reports** two-tier.
 7. **User:** reviews the integrated result and **pushes** — pushing stays with the user.
 8. **Director:** on task-close, archives the pair to `.handoff/history/`.
 
@@ -161,13 +162,12 @@ before it executes.**
 
 ## Verification & the review gate
 
-The Director's review pass is **not redundant** with the Implementer's self-audit:
-the self-audit is the author grading its own work mid-write; the Director pass is
-independent second-eyes on the finished diff — and different agents apply
-`CodeReviewRules.md` differently, or not at all. It is the **single uniform quality
-gate**, positioned to catch whole-change issues a single-file author misses — e.g.
-an export drifting from the parser-ABI X-macro list, or a status change that
-skipped `Docs/Roadmap.md` (R9). The Director reviews; it does not hand-fix source:
+The Director's review pass is **not redundant** with the Implementer's self-audit: the
+self-audit is the author grading its own work mid-write; the Director pass is
+independent second-eyes on the finished diff, and the **single uniform quality gate** —
+different agents apply `CodeReviewRules.md` differently, or not at all — catching
+whole-change issues a single-file author misses (a parser-ABI X-macro drift, a status
+change that skipped `Docs/Roadmap.md`, R9). The Director reviews; it does not hand-fix source:
 
 - **Determinate rule violation with an obvious fix** → the Director issues a fix
   task-file (shown to the user first), re-verifies, and **discloses the loop** in

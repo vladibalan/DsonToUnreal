@@ -78,10 +78,23 @@ Any change that touches the consumer surface must, in the same change:
    new `VersionName` (`X.Y.Z — date · CLASS`): one sigil-prefixed line per change
    (`+` added · `~` changed · `-` removed/deprecated · `!` fixed). Lean — no empty
    scaffolding.
-4. **Tag** the release commit `vX.Y.Z` (the Director; the user pushes — pushing stays
-   with the user per [`AgentWorkflow.md`](AgentWorkflow.md)).
+4. **Tag** the release commit `vX.Y.Z` — the **Director**, at squash-merge (the
+   Implementer never runs git); the user then pushes the tag per
+   [`AgentWorkflow.md`](AgentWorkflow.md).
 
 Enforced as **R12** in [`CodeReviewRules.md`](CodeReviewRules.md).
+
+### Who does what — and the close-gate
+
+Steps 1–3 are **in-tree edits** the Implementer makes as part of the change, so they
+land in `git diff`. Step 4 is the **Director's**, at squash-merge. Because a git tag is
+**not a file, it is invisible to `git diff`** — so of the carriers it is the one most
+easily missed (v1.8.0 shipped untagged for exactly this reason). The Director therefore
+treats the carrier set as a **close-gate**: before reporting a surface-touching task
+done, confirm steps 2–3 are present in the diff *and* actively confirm the tag with
+`git tag --list vX.Y.Z`, creating it on the release commit if absent. The user then
+pushes it. This gate is the Director's verification step in
+[`AgentWorkflow.md`](AgentWorkflow.md).
 
 ## Not ported from DsonParser (and why)
 
