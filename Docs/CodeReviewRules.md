@@ -204,7 +204,7 @@ included.
   120, `ImporterArchitecture.md` ≤ 195, `AgentWorkflow.md` ≤ 245,
   `CodeReviewRules.md` ≤ 265, `Tooling.md` ≤ 80. The cold/on-demand docs —
   `DecisionLog.md`, `Reference.md`, `FormulaMorphsV2.md`, `SubsurfaceProfileV2.md`,
-  `MaterialMastersV1.md`, `Principles.md`, `Versioning.md` — are **exempt** (off the hot path).
+  `LayeredFigureImport.md`, `MaterialMastersV1.md`, `Principles.md`, `Versioning.md` — are **exempt** (off the hot path).
 
 Reviewer action: if a change restates content another doc owns, parks history in a
 status doc, or pushes a hot-path doc past its budget without relocating, flag it

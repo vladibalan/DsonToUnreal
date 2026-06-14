@@ -208,9 +208,25 @@ check path-reconstructing consumers; rationale → `DecisionLog.md`.
 | 6 | v1.7.0 · 2026-06-13 | Controller-dial values: `ControllerDials[]` (`FDsonControllerDial`) carries scene.modifier entries not bound to an imported UMorphTarget (controller / HID / FACS / character-control dials). `SceneInstanceId` added to `FDsonDialWeight` for parity. Together with `DialWeights`, every `scene.modifiers[]` entry is now in the recipe. |
 | 7 | v1.8.0 · 2026-06-14 | Scene-gated JCM correctives: accepted corrective DSFs land as inert `UMorphTarget`s on the body mesh; driving formulas appear in `Formulas[]` (`EDsonFormulaTarget::MorphValue`, `BoundMorphTargetName` populated). Scope-A gate: every `mult`-stage control scene-reachable OR `channel.value > 0`. M1 cache: corrective-tree scan runs once (Apply path); recipe builder re-uses accepted paths. |
 
+## Layered figure import (parent / lean-delta split) — In design (2026-06-14)
+
+Re-architecture of import output for scale: a base **figure** is imported once as a shared
+parent asset; each vendor **character** imports as a **lean delta** carrying only the morphs
+its parent doesn't already have — base shaping + JCM correctives live once, on the parent.
+Deltas are intentionally **incomplete**; composing parent + delta into a finished posable
+character is a **downstream authoring step** (out of scope, P1), forced by UE storing morph
+targets per-mesh with no cross-mesh sharing. Folders are identity-keyed (`Figures/<id>/`,
+`Characters/<id>/`); the dependency tree is carried as N-level-ready **ancestry metadata** on
+the recipe, not as nested folders. Design + slice plan (S1–S4):
+**[`LayeredFigureImport.md`](LayeredFigureImport.md)**. Breaks the `/Game/DazImports/`
+emitted-output shape → **MAJOR** at the workstream release close-gate (R12). Building the
+figure→character tier now; character-on-character depth is extensible-later (P4).
+
 ## Next up
 
-With Phase 7 (JCM corrective morphs), asset folder structure, and composed dialed-shape baking all closed, the
+**Active workstream:** the layered figure import re-architecture (above) is in design — the
+next substantive build. The prior baseline still holds: with Phase 7 (JCM corrective morphs),
+asset folder structure, and composed dialed-shape baking all closed, the
 importer covers its mandate for the supported figures. Beyond the now-complete recipe-emission
 workstream above, the importer is in a **reactive/maintenance** posture — remaining work is
 new shaders/figures and parser exposures taken **as content needs
