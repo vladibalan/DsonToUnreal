@@ -134,37 +134,66 @@ namespace
 }
 
 // ---------------------------------------------------------------------------
+// BuildFigureReferenceSkeleton (shared open+build path)
+// ---------------------------------------------------------------------------
+
+bool FDsonSkeletonBuilder::BuildFigureReferenceSkeleton(
+    const FDsonImportSettings& Settings,
+    FReferenceSkeleton& OutRefSkeleton,
+    const TCHAR* LogTag)
+{
+    if (!GDsonParser.IsValid())
+    {
+        UE_LOG(LogDsonImporter, Error,
+            TEXT("DsonSkeletonBuilder: DsonParser API not fully loaded"));
+        return false;
+    }
+
+    FDsonLoadedDocument DsfDocument;
+    if (!DsfDocument.LoadFromFileAsError(Settings.ResolvedFigureDsfPath, LogTag))
+        return false;
+
+    BuildReferenceSkeletonFromDsf(DsfDocument.GetHandle64(), OutRefSkeleton);
+
+    if (OutRefSkeleton.GetRawBoneNum() == 0)
+    {
+        UE_LOG(LogDsonImporter, Error,
+            TEXT("DsonSkeletonBuilder: no bones found in '%s'"),
+            *Settings.ResolvedFigureDsfPath);
+        return false;
+    }
+
+    return true;
+}
+
+// ---------------------------------------------------------------------------
 // Build
 // ---------------------------------------------------------------------------
 
 USkeleton* FDsonSkeletonBuilder::Build(const FDsonImportSettings& Settings)
 {
-    // Public orchestration wrapper: load the base figure DSF, build the reference
-    // skeleton, save the asset, and release the parser handle.
-    if (!GDsonParser.IsValid())
-    {
-        UE_LOG(LogDsonImporter, Error,
-            TEXT("DsonSkeletonBuilder: DsonParser API not fully loaded"));
-        return nullptr;
-    }
-
-    FDsonLoadedDocument DsfDocument;
-    if (!DsfDocument.LoadFromFileAsError(Settings.ResolvedFigureDsfPath, TEXT("DsonSkeletonBuilder")))
-        return nullptr;
-
-    const uint64_t DsfHandle = DsfDocument.GetHandle64();
     FReferenceSkeleton RefSkeleton;
-    BuildReferenceSkeletonFromDsf(DsfHandle, RefSkeleton);
-
-    if (RefSkeleton.GetRawBoneNum() == 0)
-    {
-        UE_LOG(LogDsonImporter, Error,
-            TEXT("DsonSkeletonBuilder: no bones found in '%s'"),
-            *Settings.ResolvedFigureDsfPath);
+    if (!BuildFigureReferenceSkeleton(Settings, RefSkeleton, TEXT("DsonSkeletonBuilder")))
         return nullptr;
-    }
 
-    return CreateSkeletonAsset(RefSkeleton, Settings.CharacterName);
+    const FString AssetName = Settings.CharacterName + TEXT("_Skeleton");
+    return CreateSkeletonAsset(RefSkeleton,
+        FDsonAssetUtils::CharacterRoot(Settings.CharacterName) / AssetName, AssetName);
+}
+
+// ---------------------------------------------------------------------------
+// BuildParent
+// ---------------------------------------------------------------------------
+
+USkeleton* FDsonSkeletonBuilder::BuildParent(const FDsonImportSettings& Settings)
+{
+    FReferenceSkeleton RefSkeleton;
+    if (!BuildFigureReferenceSkeleton(Settings, RefSkeleton, TEXT("DsonSkeletonBuilder[parent]")))
+        return nullptr;
+
+    const FString AssetName = Settings.FigureId + TEXT("_Skeleton");
+    return CreateSkeletonAsset(RefSkeleton,
+        FDsonAssetUtils::FigureRoot(Settings.FigureId) / AssetName, AssetName);
 }
 
 // ---------------------------------------------------------------------------
@@ -418,18 +447,15 @@ int32 FDsonSkeletonBuilder::MergeCompanionBonesIntoSkeleton(
 // ---------------------------------------------------------------------------
 
 USkeleton* FDsonSkeletonBuilder::CreateSkeletonAsset(
-    const FReferenceSkeleton& RefSkeleton, const FString& CharacterName)
+    const FReferenceSkeleton& RefSkeleton, const FString& PackagePath, const FString& AssetName)
 {
-    // Saves the reference skeleton as {CharRoot}/<CharacterName>_Skeleton.
+    // Saves the reference skeleton at PackagePath/<AssetName>.
     // UE 5.4 requires the transient mesh merge path to populate USkeleton bones.
-    const FString FullAssetName = CharacterName + TEXT("_Skeleton");
-    const FString PackagePath = FDsonAssetUtils::CharacterRoot(CharacterName) / FullAssetName;
-
     UPackage* Package = FDsonAssetUtils::CreateLoadedPackage(PackagePath, TEXT("DsonSkeletonBuilder"));
     if (!Package)
         return nullptr;
 
-    USkeleton* Skeleton = NewObject<USkeleton>(Package, *FullAssetName, RF_Public | RF_Standalone);
+    USkeleton* Skeleton = NewObject<USkeleton>(Package, *AssetName, RF_Public | RF_Standalone);
     if (!Skeleton)
     {
         UE_LOG(LogDsonImporter, Error,

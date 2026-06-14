@@ -21,6 +21,17 @@ public:
         UMaterial* DefaultMaterial,
         const FString& UvSetDsfPath);
 
+    // Builds the shared parent base mesh at FigureRoot(FigureId), named
+    // <FigureId>_SkeletalMesh, bound to the provided parent Skeleton.
+    // Material slots all default to M_DazDefault (character materials belong to the
+    // delta, P1). Morphs are limited to figure-owned scope via ApplyFigureOwned.
+    // Permissive (R7): returns nullptr on failure; never aborts the character import.
+    static USkeletalMesh* BuildParent(
+        const FDsonImportSettings& Settings,
+        USkeleton* Skeleton,
+        UMaterial* DefaultMaterial,
+        const FString& UvSetDsfPath);
+
     // Builds one companion geometry DSF as its own USkeletalMesh bound to the body
     // USkeleton by bone name. Sections are wired to MaterialsByGroup by group name;
     // unmatched sections fall back to DefaultMaterial (R7 — permissive).

@@ -76,14 +76,15 @@ shares the path→settings assembly (`FDsonValidator::ToImportSettings`) with th
 - Reads figure nodes from the resolved base figure DSF.
 - Converts node transforms into UE reference skeleton bones.
 - Saves the skeleton asset.
-- `MergeCompanionBonesIntoSkeleton`: merges companion-exclusive bones into the body
-  skeleton (e.g. tongue01–05 under `lowerteeth`) and re-saves; called by `BuildCompanion`.
+- `BuildParent`: creates the shared parent `USkeleton` under `FigureRoot(<FigureId>)`.
+- `MergeCompanionBonesIntoSkeleton`: merges companion-exclusive bones (e.g. tongue01–05) into body skeleton; re-saves; called by `BuildCompanion`.
 
 `DsonMeshBuilder.*`
 
 - Loads geometry DSF and optional UV-set DSF.
 - Converts vertices, faces, UVs, polygon groups, and material slots into a `USkeletalMesh`.
 - Calls `FDsonSkinWeightsBuilder` before committing mesh data.
+- `BuildParent`: creates the shared parent `USkeletalMesh` at `FigureRoot(<FigureId>)`; uses `ApplyFigureOwned` for morph scope (figure DSF + corrective cache).
 - `BuildCompanion`: builds a companion geometry DSF as a separate `USkeletalMesh` bound to the body `USkeleton` by bone name; wires sections to `MaterialsByGroup` MICs with `DefaultMaterial` fallback (Slice B+C).
 
 `DsonSkinWeightsBuilder.*`
@@ -98,6 +99,7 @@ shares the path→settings assembly (`FDsonValidator::ToImportSettings`) with th
   directly by the scene or transitively through `?value` formula outputs.
 - Registers morph targets into the `MeshDescription` before `CommitMeshDescription`.
 - Converts DAZ position deltas through `DazPointToUe`; morph normals are recomputed by the engine.
+- `ApplyFigureOwned`: limits morph scope to figure DSF + `DiscoveredCorrectiveDsfPaths` (M1 cache); used by the parent mesh build path.
 
 `DsonMaterialBuilder.*`
 
@@ -109,8 +111,7 @@ shares the path→settings assembly (`FDsonValidator::ToImportSettings`) with th
   textures under the normal texture-import convention, without MIC parameter binding.
 - Resolves the animation-bound `#fragment` eye-albedo LIE to an `image_library`
   entry and composites it through `FDsonTextureImporter` (fixed-factory bake only).
-- For IrayUber, bakes bump maps into the normal input and leaves the master's
-  `BumpStrength`/`BumpMap`/`UseBumpMap` parameters unset.
+- For IrayUber, bakes bump maps into the normal input; leaves `BumpStrength`/`BumpMap`/`UseBumpMap` unset.
 - Imports textures through `FDsonTextureImporter`.
 - Outputs material instances keyed by material group name.
 
@@ -118,8 +119,7 @@ shares the path→settings assembly (`FDsonValidator::ToImportSettings`) with th
 
 - Resolves image URLs to disk.
 - Imports or reuses `UTexture2D` assets.
-- Bakes IrayUber bump height maps into tangent-space normal textures and combines
-  them with the surface normal map when present.
+- Bakes IrayUber bump height maps into tangent-space normals, combining with the surface normal map when present.
 - Composites a fixed-factory LIE layer stack into one baked `UTexture2D`
   (`CompositeImageLayers`) at native size on the `map_size` canvas; saved
   per-character under `CharacterRoot/Textures/Composites`; cached by image id.
@@ -151,9 +151,7 @@ shares the path→settings assembly (`FDsonValidator::ToImportSettings`) with th
 
 `DsonImportPipeline.*`
 
-- Top-level import orchestrator: `FDsonImportPipeline::Run` sequences material/texture
-  build, the diagnostic dump and `M_DazDefault` gate, then skeleton, body mesh, and companion
-  meshes (via `FDsonMeshBuilder::BuildCompanion`; permissive — failures skip, don't abort).
+- Top-level orchestrator: `Run` sequences material/texture build → `M_DazDefault` gate → skeleton → body mesh → companions → parent figure assets (when `FigureId` set and parent absent) → character recipe. All post-gate steps are permissive (R7).
 
 `DsonImportTypes.h`
 
@@ -163,6 +161,7 @@ shares the path→settings assembly (`FDsonValidator::ToImportSettings`) with th
 - `UDsonAssetRecipe` UCLASS + companion/LIE USTRUCTs; consumer-facing recipe asset (R12); passive data container; module's first UHT-reflected type.
 `DsonRecipeBuilder.*`
 - Emits `<Name>_Recipe` under `CharacterRoot` after each import: manifest, companion slot tags, per-surface LIE recipe. Permissive (R7) — never aborts import.
+- `BuildParentMarker`: emits `<FigureId>_Recipe` under `FigureRoot` as the completeness marker; `FigureImportComplete()` tests for it. Permissive (R7).
 `DsonCatalog.*` (Public `DsonCatalog.h` + Private `DsonCatalogImpl.h`/`DsonCatalog.cpp`)
 - `FDsonCatalog`: read-only library survey (P3) — async supplied-roots enumerate, one parser open/asset, faithful `presentation.type`+graft classification, per-root tolerance, incremental MTime/Size disk cache + lazy thumbnail LRU. Entry on `FDsonImporterModule`: `BeginCatalogEnumerate`/`GetCatalogThumbnail`/`InvalidateCatalog`.
 

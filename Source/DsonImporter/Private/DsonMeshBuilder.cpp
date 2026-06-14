@@ -268,12 +268,11 @@ namespace
         }
     }
 
-    static FDsonMeshAssetContext CreateSkeletalMeshAsset(const FDsonImportSettings& Settings)
+    static FDsonMeshAssetContext CreateSkeletalMeshAsset(const FString& PackagePath, const FString& AssetName)
     {
         FDsonMeshAssetContext AssetContext;
-        AssetContext.AssetPath.AssetName = Settings.CharacterName + TEXT("_SkeletalMesh");
-        AssetContext.AssetPath.PackagePath =
-            FDsonAssetUtils::CharacterRoot(Settings.CharacterName) / AssetContext.AssetPath.AssetName;
+        AssetContext.AssetPath.AssetName = AssetName;
+        AssetContext.AssetPath.PackagePath = PackagePath;
 
         AssetContext.Package = FDsonAssetUtils::CreateLoadedPackage(
             AssetContext.AssetPath.PackagePath, TEXT("DsonMeshBuilder"));
@@ -691,6 +690,86 @@ namespace
         ExpandUvCornerIndices(DsfHandle, Data.UvHandle, FaceCount, Data);
         return Data;
     }
+
+    // Shared 9-step body used by CreateMeshAsset (character) and BuildParent (figure).
+    // PackagePath/AssetName override the output location; bFigureOwnedMorphsOnly routes
+    // step 7f to ApplyFigureOwned instead of Apply (morph partition rule, S2).
+    static USkeletalMesh* CreateMeshAssetImpl(
+        const FDsonImportSettings& Settings,
+        const FString& PackagePath,
+        const FString& AssetName,
+        bool bFigureOwnedMorphsOnly,
+        USkeleton* Skeleton,
+        uint64_t DsfHandle,
+        const TMap<FString, UMaterialInstanceConstant*>& MaterialsByGroup,
+        UMaterial* DefaultMaterial,
+        const FString& UvSetDsfPath)
+    {
+        if (!HasBaseGeometry(DsfHandle, Settings.ResolvedFigureDsfPath))
+            return nullptr;
+
+        const TArray<FVector3f> Positions = ReadVertexPositions(DsfHandle);
+        const int32 FaceCount = ReadFaceCount(DsfHandle);
+        FDsonUvData UvData = ReadUvData(DsfHandle, UvSetDsfPath, FaceCount);
+        const TArray<FString> MaterialGroupNames = ReadMaterialGroupNames(DsfHandle);
+        const TArray<FDsonTriangle> Triangles =
+            ReadTriangles(DsfHandle, FaceCount, UvData.UVPolyVertIndices);
+
+        const FDsonMeshAssetContext AssetContext = CreateSkeletalMeshAsset(PackagePath, AssetName);
+        if (!AssetContext.IsValid())
+            return nullptr;
+        USkeletalMesh* Mesh = AssetContext.Mesh;
+
+        PopulateMeshMaterialSlots(Mesh, MaterialGroupNames, MaterialsByGroup, DefaultMaterial);
+        FSkeletalMeshLODModel& LODModel = PrepareSkeletalMeshLod0(Mesh);
+
+        FMeshDescription* MeshDesc = Mesh->CreateMeshDescription(0);
+        check(MeshDesc);
+        FSkeletalMeshAttributes SkelAttribs(*MeshDesc);
+        SkelAttribs.Register();
+
+        PopulateMeshDescriptionBones(SkelAttribs, Skeleton);
+        const TArray<FVertexID> VertexIDs =
+            PopulateMeshDescriptionVertices(*MeshDesc, SkelAttribs, Positions);
+        PopulateMeshDescriptionTriangles(*MeshDesc, SkelAttribs, Mesh, VertexIDs, Triangles, UvData.UVs);
+
+        if (!FDsonSkinWeightsBuilder::Apply(DsfHandle, Mesh, Skeleton))
+        {
+            UE_LOG(LogDsonImporter, Warning,
+                TEXT("DsonMeshBuilder: skin weight application failed, "
+                     "mesh will use root-bone fallback for all vertices"));
+        }
+
+        if (bFigureOwnedMorphsOnly)
+            FDsonMorphBuilder::ApplyFigureOwned(Settings, DsfHandle, *MeshDesc, SkelAttribs, VertexIDs);
+        else
+            FDsonMorphBuilder::Apply(Settings, DsfHandle, *MeshDesc, SkelAttribs, VertexIDs);
+
+        if (!Mesh->CommitMeshDescription(0))
+        {
+            UE_LOG(LogDsonImporter, Error,
+                TEXT("DsonMeshBuilder: CommitMeshDescription failed for '%s'"),
+                *Settings.ResolvedFigureDsfPath);
+            return nullptr;
+        }
+
+        Mesh->PreEditChange(nullptr);
+        Mesh->InvalidateDeriveDataCacheGUID();
+
+        if (!PopulateMeshRefSkeleton(Mesh, Skeleton))
+            return nullptr;
+
+        FinalizeMeshBuildInputs(Mesh, LODModel, Positions);
+
+        if (!BuildSkeletalMeshRenderData(Mesh, Settings.ResolvedFigureDsfPath))
+            return nullptr;
+
+        FinalizeBuiltMeshSkeleton(Mesh, Skeleton);
+
+        return FDsonAssetUtils::SaveAssetPackage(
+                AssetContext.Package, Mesh, AssetContext.AssetPath.PackagePath, TEXT("DsonMeshBuilder"))
+            ? Mesh : nullptr;
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -705,103 +784,11 @@ USkeletalMesh* FDsonMeshBuilder::CreateMeshAsset(
     UMaterial* DefaultMaterial,
     const FString& UvSetDsfPath)
 {
-    // Step 1 - Find the first geometry in the DSF.
-    // Main geometry conversion path. It assumes geometry index 0 is the base mesh and
-    // that material group names will match keys produced by FDsonMaterialBuilder.
-    if (!HasBaseGeometry(DsfHandle, Settings.ResolvedFigureDsfPath))
-        return nullptr;
-    // geomIndex = 0: base mesh only
-
-    // Step 2 - Read vertices.
-    const TArray<FVector3f> Positions = ReadVertexPositions(DsfHandle);
-
-    const int32 FaceCount = ReadFaceCount(DsfHandle);
-
-    // Step 3 - Read UV values and expand sparse DAZ overrides into face-corner indices.
-    FDsonUvData UvData = ReadUvData(DsfHandle, UvSetDsfPath, FaceCount);
-    const TArray<FVector2f>& UVs = UvData.UVs;
-    const TArray<int32>& UVPolyVertIndices = UvData.UVPolyVertIndices;
-
-    // Step 4 - Read material group names.
-    const TArray<FString> MaterialGroupNames = ReadMaterialGroupNames(DsfHandle);
-
-    // Step 5 - Read faces and triangulate.
-    const TArray<FDsonTriangle> Triangles = ReadTriangles(DsfHandle, FaceCount, UVPolyVertIndices);
-
-    // Step 6 - Create USkeletalMesh asset.
-    const FDsonMeshAssetContext AssetContext = CreateSkeletalMeshAsset(Settings);
-    if (!AssetContext.IsValid())
-        return nullptr;
-    USkeletalMesh* Mesh = AssetContext.Mesh;
-
-    // Step 7 - Build FMeshDescription for LOD 0 directly and commit it.
-
-    // 7a - Populate mesh material slots (must exist before polygon groups reference them).
-    PopulateMeshMaterialSlots(Mesh, MaterialGroupNames, MaterialsByGroup, DefaultMaterial);
-
-    // 7b - LODInfo and LODModels[0] must exist before Create/CommitMeshDescription.
-    FSkeletalMeshLODModel& LODModel = PrepareSkeletalMeshLod0(Mesh);
-
-    // 7c - Create the MeshDescription and register all skeletal mesh attributes.
-    FMeshDescription* MeshDesc = Mesh->CreateMeshDescription(0);
-    check(MeshDesc);
-    FSkeletalMeshAttributes SkelAttribs(*MeshDesc);
-    SkelAttribs.Register();
-
-    // 7d - Populate bone attributes from the reference skeleton.
-    PopulateMeshDescriptionBones(SkelAttribs, Skeleton);
-
-    // 7e - Vertex positions and skin weights (one root-bone influence per vertex).
-    const TArray<FVertexID> VertexIDs = PopulateMeshDescriptionVertices(*MeshDesc, SkelAttribs, Positions);
-
-    // 7f - UV channels, polygon groups, vertex instances, and triangles.
-    PopulateMeshDescriptionTriangles(*MeshDesc, SkelAttribs, Mesh, VertexIDs, Triangles, UVs);
-
-    // Apply real skin weights from the DSF skin modifier (replaces placeholder)
-    if (!FDsonSkinWeightsBuilder::Apply(DsfHandle, Mesh, Skeleton))
-    {
-        UE_LOG(LogDsonImporter, Warning,
-            TEXT("DsonMeshBuilder: skin weight application failed, "
-                 "mesh will use root-bone fallback for all vertices"));
-        // Non-fatal: continue with placeholder weights
-    }
-
-    FDsonMorphBuilder::Apply(Settings, DsfHandle, *MeshDesc, SkelAttribs, VertexIDs);
-
-    // 7g - Commit to bulk storage (replaces deprecated SaveLODImportedData).
-    if (!Mesh->CommitMeshDescription(0))
-    {
-        UE_LOG(LogDsonImporter, Error,
-            TEXT("DsonMeshBuilder: CommitMeshDescription failed for '%s'"),
-            *Settings.ResolvedFigureDsfPath);
-        return nullptr;
-    }
-
-    // Step 8 - Build the USkeletalMesh from the committed MeshDescription.
-
-    // 8a - Prepare asset.
-    Mesh->PreEditChange(nullptr);
-    Mesh->InvalidateDeriveDataCacheGUID();
-
-    // 8b - Populate Mesh->GetRefSkeleton(); BuildSkeletalMesh reads this, not MeshDescription bones.
-    if (!PopulateMeshRefSkeleton(Mesh, Skeleton))
-        return nullptr;
-
-    // 8c - Bounds, vertex-color state, tex-coord count, and build settings.
-    FinalizeMeshBuildInputs(Mesh, LODModel, Positions);
-
-    // 8d - Invoke IMeshBuilderModule (requires LODInfo + MeshDescription).
-    if (!BuildSkeletalMeshRenderData(Mesh, Settings.ResolvedFigureDsfPath))
-        return nullptr;
-
-    // 8e - Post-build: inv-ref matrices, skeleton merge, then skeleton assignment.
-    FinalizeBuiltMeshSkeleton(Mesh, Skeleton);
-
-    // Step 9 - Save.
-    return FDsonAssetUtils::SaveAssetPackage(
-            AssetContext.Package, Mesh, AssetContext.AssetPath.PackagePath, TEXT("DsonMeshBuilder"))
-        ? Mesh
-        : nullptr;
+    const FString AssetName = Settings.CharacterName + TEXT("_SkeletalMesh");
+    return CreateMeshAssetImpl(Settings,
+        FDsonAssetUtils::CharacterRoot(Settings.CharacterName) / AssetName, AssetName,
+        /*bFigureOwnedMorphsOnly=*/false,
+        Skeleton, DsfHandle, MaterialsByGroup, DefaultMaterial, UvSetDsfPath);
 }
 
 // ---------------------------------------------------------------------------
@@ -909,4 +896,36 @@ USkeletalMesh* FDsonMeshBuilder::BuildCompanion(
             AssetContext.Package, Mesh, AssetContext.AssetPath.PackagePath,
             TEXT("DsonMeshBuilder[companion]"))
         ? Mesh : nullptr;
+}
+
+// ---------------------------------------------------------------------------
+// BuildParent
+// ---------------------------------------------------------------------------
+
+USkeletalMesh* FDsonMeshBuilder::BuildParent(
+    const FDsonImportSettings& Settings,
+    USkeleton* Skeleton,
+    UMaterial* DefaultMaterial,
+    const FString& UvSetDsfPath)
+{
+    if (!GDsonParser.IsValid())
+    {
+        UE_LOG(LogDsonImporter, Error,
+            TEXT("DsonMeshBuilder[parent]: DsonParser API not fully loaded"));
+        return nullptr;
+    }
+
+    FDsonLoadedDocument DsfDocument;
+    if (!DsfDocument.LoadFromFileAsError(Settings.ResolvedFigureDsfPath, TEXT("DsonMeshBuilder[parent]")))
+        return nullptr;
+
+    const FString AssetName = Settings.FigureId + TEXT("_SkeletalMesh");
+    // Empty MaterialsByGroup → all slots use DefaultMaterial (M_DazDefault), per P1:
+    // character materials belong to the delta, not the shared parent base mesh.
+    const TMap<FString, UMaterialInstanceConstant*> EmptyMaterials;
+    return CreateMeshAssetImpl(Settings,
+        FDsonAssetUtils::FigureRoot(Settings.FigureId) / AssetName, AssetName,
+        /*bFigureOwnedMorphsOnly=*/true,
+        Skeleton, DsfDocument.GetHandle64(),
+        EmptyMaterials, DefaultMaterial, UvSetDsfPath);
 }

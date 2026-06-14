@@ -556,6 +556,60 @@ namespace
     }
 }
 
+void FDsonMorphBuilder::ApplyFigureOwned(
+    const FDsonImportSettings& Settings,
+    uint64_t FigureDsfHandle,
+    FMeshDescription&,
+    FSkeletalMeshAttributes& SkelAttribs,
+    const TArray<FVertexID>& VertexIDs)
+{
+    if (!GDsonParser.GetMorphCount)
+    {
+        UE_LOG(LogDsonImporter, Warning,
+            TEXT("DsonMorphBuilder: optional morph exports unavailable; skipping figure-owned morphs"));
+        return;
+    }
+    if (!HasRequiredMorphDeltaExports())
+    {
+        UE_LOG(LogDsonImporter, Warning,
+            TEXT("DsonMorphBuilder: required morph delta exports unavailable; skipping figure-owned morphs"));
+        return;
+    }
+
+    TArray<uint64_t> SourceHandles;
+    SourceHandles.Add(FigureDsfHandle);
+
+    // Open accepted corrective DSFs from the M1 cache — no re-scan (R4, R3: RAII handles)
+    TArray<FDsonLoadedDocument> CorrectiveDocs;
+    for (const FString& Path : Settings.DiscoveredCorrectiveDsfPaths)
+    {
+        FDsonLoadedDocument Doc;
+        if (Doc.LoadFromFileAsWarning(Path, TEXT("[figure-owned]")))
+        {
+            SourceHandles.Add(Doc.GetHandle64());
+            CorrectiveDocs.Add(MoveTemp(Doc));
+        }
+        // Permissive (R7): failed opens already warned by LoadFromFileAsWarning; continue
+    }
+
+    TSet<FString> SeenMorphNames;
+    FDsonMorphBuildStats Stats;
+    for (const uint64_t SourceHandle : SourceHandles)
+    {
+        RegisterMorphsFromDocument(
+            SourceHandle, SkelAttribs, VertexIDs, SeenMorphNames, Stats);
+    }
+
+    UE_LOG(LogDsonImporter, Log,
+        TEXT("[figure-owned] sources=%d created=%d deltas=%d skipped-oob=%d dup-names=%d corrective-files=%d"),
+        SourceHandles.Num(),
+        Stats.Created,
+        Stats.Deltas,
+        Stats.SkippedOob,
+        Stats.DuplicateNames,
+        CorrectiveDocs.Num());
+}
+
 void FDsonMorphBuilder::DiscoverFormulaReachableDocuments(
     const FDsonImportSettings& Settings,
     TArray<FDsonLoadedDocument>& OutDocs,

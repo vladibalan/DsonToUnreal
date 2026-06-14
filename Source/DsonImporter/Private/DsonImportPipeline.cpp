@@ -96,20 +96,9 @@ FDsonImportResult FDsonImportPipeline::Run(
     FDsonImportResult Result;
 
     if (!Settings.FigureId.IsEmpty())
-    {
-        if (FDsonAssetUtils::FigureImportComplete(Settings.FigureId))
-        {
-            UE_LOG(LogDsonImporter, Log,
-                TEXT("[figure] '%s': parent node complete — S2 will skip"),
-                *Settings.FigureId);
-        }
-        else
-        {
-            UE_LOG(LogDsonImporter, Log,
-                TEXT("[figure] '%s': parent node absent — S2 will create"),
-                *Settings.FigureId);
-        }
-    }
+        UE_LOG(LogDsonImporter, Log,
+            TEXT("[figure] '%s': FigureId set; parent-asset gate will run after body mesh build"),
+            *Settings.FigureId);
 
     FDsonTextureImporter Importer(ContentRoots, Settings.CharacterName);
     FDsonMaterialBuilder Builder(ContentRoots, Importer);
@@ -188,6 +177,24 @@ FDsonImportResult FDsonImportPipeline::Run(
                 UE_LOG(LogDsonImporter, Warning,
                     TEXT("[companion] skipped (build failed): %s"), *Companion.AssetName);
         }
+    }
+
+    // Emit the shared parent figure assets the first time this FigureId is imported.
+    // Permissive (R7): any failure logs a warning and continues; never aborts the character import.
+    if (!Settings.FigureId.IsEmpty() && Result.Mesh && !FDsonAssetUtils::FigureImportComplete(Settings.FigureId))
+    {
+        USkeleton* ParentSkeleton = FDsonSkeletonBuilder::BuildParent(Settings);
+        USkeletalMesh* ParentMesh = nullptr;
+        if (ParentSkeleton)
+            ParentMesh = FDsonMeshBuilder::BuildParent(Settings, ParentSkeleton, DefaultMaterial, UvSetAbsPath);
+        if (ParentSkeleton && ParentMesh)
+            FDsonRecipeBuilder::BuildParentMarker(Settings, ParentSkeleton, ParentMesh);
+        else
+            UE_LOG(LogDsonImporter, Warning,
+                TEXT("[figure] '%s': parent build incomplete — skeleton=%s mesh=%s; completeness marker not emitted"),
+                *Settings.FigureId,
+                ParentSkeleton ? TEXT("ok") : TEXT("null"),
+                ParentMesh    ? TEXT("ok") : TEXT("null"));
     }
 
     // Plumb pre-baked composites into Result so the recipe builder can set bImporterPreBaked markers.

@@ -894,3 +894,51 @@ void FDsonRecipeBuilder::Build(const FDsonImportResult& Result)
             *Settings.CharacterName, *PackagePath);
     }
 }
+
+// ---------------------------------------------------------------------------
+// BuildParentMarker
+// ---------------------------------------------------------------------------
+
+void FDsonRecipeBuilder::BuildParentMarker(
+    const FDsonImportSettings& Settings,
+    USkeleton* ParentSkeleton,
+    USkeletalMesh* ParentMesh)
+{
+    // Minimal completeness marker: FigureImportComplete() checks for this asset's
+    // presence. Must be emitted LAST (after skeleton + mesh) so presence => finished.
+    // No DUF parsing — the parent marker carries only identity + asset refs.
+    // CharacterName holds the figure id for S2; a dedicated figure-id field is S4.
+    const FString RecipeName = Settings.FigureId + TEXT("_Recipe");
+    const FString PackagePath = FDsonAssetUtils::FigureRoot(Settings.FigureId) / RecipeName;
+
+    UPackage* Package = FDsonAssetUtils::CreateLoadedPackage(PackagePath, TEXT("[parent-recipe]"));
+    if (!Package)
+    {
+        UE_LOG(LogDsonImporter, Warning,
+            TEXT("[parent-recipe] '%s': failed to create package; completeness marker not emitted"),
+            *Settings.FigureId);
+        return;
+    }
+
+    UDsonAssetRecipe* Recipe = NewObject<UDsonAssetRecipe>(Package, *RecipeName, RF_Public | RF_Standalone);
+    if (!Recipe)
+    {
+        UE_LOG(LogDsonImporter, Warning,
+            TEXT("[parent-recipe] '%s': failed to create UDsonAssetRecipe object"),
+            *Settings.FigureId);
+        return;
+    }
+
+    Recipe->CharacterName = Settings.FigureId;
+    if (ParentSkeleton)
+        Recipe->Skeleton = ParentSkeleton;
+    if (ParentMesh)
+        Recipe->BodyMesh = ParentMesh;
+
+    if (!FDsonAssetUtils::SaveAssetPackage(Package, Recipe, PackagePath, TEXT("[parent-recipe]")))
+    {
+        UE_LOG(LogDsonImporter, Warning,
+            TEXT("[parent-recipe] '%s': failed to save recipe; completeness marker not emitted"),
+            *Settings.FigureId);
+    }
+}

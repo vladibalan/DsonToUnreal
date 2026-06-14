@@ -34,6 +34,19 @@ public:
         FSkeletalMeshAttributes& SkelAttribs,
         const TArray<FVertexID>& VertexIDs);
 
+    // Registers only the figure-owned morph set: morphs from FigureDsfHandle (the
+    // base figure DSF's modifier_library) plus the JCM correctives cached in
+    // Settings.DiscoveredCorrectiveDsfPaths. Does NOT walk the scene DUF formula
+    // graph — no re-scan. Permissive (R7): corrective files that fail to open are
+    // warned and skipped; never fatal. First-wins dedup is preserved.
+    // Called by DsonMeshBuilder::BuildParent for the parent asset's morph scope.
+    static void ApplyFigureOwned(
+        const FDsonImportSettings& Settings,
+        uint64_t FigureDsfHandle,
+        FMeshDescription& MeshDesc,
+        FSkeletalMeshAttributes& SkelAttribs,
+        const TArray<FVertexID>& VertexIDs);
+
     // Discovers all formula-reachable external morph DSFs from the scene.modifiers
     // walk and opens them. OutHandles[i] == OutDocs[i].GetHandle64(). The base
     // figure DSF is excluded (callers handle it separately). Permissive: files
